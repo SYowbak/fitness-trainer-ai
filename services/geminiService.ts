@@ -4,7 +4,8 @@ import { getUkrainianGoal, getUkrainianBodyType, getUkrainianGender, getUkrainia
 
 const getApiKey = (): string | null => {
   // @ts-ignore
-  const apiKey = typeof process !== 'undefined' && process.env && process.env.API_KEY ? process.env.API_KEY : null;
+  // Use import.meta.env for Vite-specific environment variables
+  const apiKey = import.meta.env.VITE_API_KEY || null;
   if (!apiKey) {
     console.warn("API_KEY for Gemini is not set. Please ensure it's configured in your environment.");
     return null;
