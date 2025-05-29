@@ -113,7 +113,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, exerciseIndex, is
               </a>
             </div>
           )}
-          
+
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs sm:text-sm">
             <div className="bg-gray-600/70 p-2 rounded shadow">
               <strong className="block text-purple-200 mb-0.5"><i className="fas fa-layer-group mr-1"></i>{UI_TEXT.sets}</strong>

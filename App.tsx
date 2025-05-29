@@ -29,7 +29,7 @@ const App: React.FC = () => {
 
 
   useEffect(() => {
-    if (typeof process === 'undefined' || !process.env || !process.env.API_KEY) {
+    if (typeof import.meta.env === 'undefined' || !import.meta.env.VITE_API_KEY) {
       setApiKeyMissing(true);
     }
     const loadedProfile = storageLoadUserProfile();
