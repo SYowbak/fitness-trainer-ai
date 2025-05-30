@@ -10,7 +10,7 @@ import {
   orderBy
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { UserProfile, WorkoutLog } from '../types';
+import { UserProfile, WorkoutLog, DailyWorkoutPlan } from '../types';
 import { useAuth } from './useAuth';
 
 export const useUserData = () => {
@@ -18,6 +18,7 @@ export const useUserData = () => {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
+  const [workoutPlan, setWorkoutPlan] = useState<DailyWorkoutPlan[] | null>(null);
 
   // Завантаження профілю
   useEffect(() => {
@@ -72,6 +73,26 @@ export const useUserData = () => {
     loadWorkoutLogs();
   }, [user]);
 
+  // Завантаження плану тренувань
+  useEffect(() => {
+    const loadWorkoutPlan = async () => {
+      if (!user) {
+        setWorkoutPlan(null);
+        return;
+      }
+      try {
+        const docRef = doc(db, 'workoutPlans', user.uid);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setWorkoutPlan(docSnap.data().plan as DailyWorkoutPlan[]);
+        }
+      } catch (error) {
+        console.error('Error loading workout plan:', error);
+      }
+    };
+    loadWorkoutPlan();
+  }, [user]);
+
   // Збереження профілю
   const saveProfile = async (profile: UserProfile) => {
     if (!user) throw new Error('User not authenticated');
@@ -105,11 +126,25 @@ export const useUserData = () => {
     }
   };
 
+  // Збереження плану тренувань
+  const saveWorkoutPlan = async (plan: DailyWorkoutPlan[]) => {
+    if (!user) throw new Error('User not authenticated');
+    try {
+      await setDoc(doc(db, 'workoutPlans', user.uid), { plan });
+      setWorkoutPlan(plan);
+    } catch (error) {
+      console.error('Error saving workout plan:', error);
+      throw error;
+    }
+  };
+
   return {
     profile,
     workoutLogs,
+    workoutPlan,
     loading,
     saveProfile,
-    saveWorkoutLog
+    saveWorkoutLog,
+    saveWorkoutPlan
   };
 }; 

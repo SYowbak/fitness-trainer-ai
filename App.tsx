@@ -11,11 +11,13 @@ import { saveUserProfile as storageSaveUserProfile, loadUserProfile as storageLo
 import { generateWorkoutPlan as apiGenerateWorkoutPlan } from './services/geminiService';
 import { useAuth } from './hooks/useAuth';
 import { AuthForm } from './components/AuthForm';
+import { useUserData } from './hooks/useUserData';
 
 type View = 'profile' | 'workout' | 'progress';
 
 const App: React.FC = () => {
   const { user, loading } = useAuth();
+  const { workoutPlan, saveWorkoutPlan } = useUserData();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [currentWorkoutPlan, setCurrentWorkoutPlan] = useState<DailyWorkoutPlan[] | null>(null);
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
@@ -50,6 +52,13 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (workoutPlan) {
+      setCurrentWorkoutPlan(workoutPlan);
+      setCurrentView('workout');
+    }
+  }, [workoutPlan]);
+
+  useEffect(() => {
     let timerInterval: number | null = null;
     if (workoutStartTime && activeWorkoutDay !== null) {
       timerInterval = window.setInterval(() => {
@@ -73,15 +82,15 @@ const App: React.FC = () => {
     try {
       const profileToSave: UserProfile = {
         ...profile,
-        primaryTargetMuscleGroup: profile.primaryTargetMuscleGroup || '', // Ensure it's '' if undefined
+        primaryTargetMuscleGroup: profile.primaryTargetMuscleGroup || '',
       };
       setUserProfile(profileToSave);
       storageSaveUserProfile(profileToSave);
-      
       const plan = await apiGenerateWorkoutPlan(profileToSave, GEMINI_MODEL_TEXT);
       setCurrentWorkoutPlan(plan);
-      storageSaveWorkoutPlan(plan); 
-      setActiveWorkoutDay(null); 
+      await saveWorkoutPlan(plan);
+      storageSaveWorkoutPlan(plan);
+      setActiveWorkoutDay(null);
       setCurrentView('workout');
     } catch (e: any) {
       console.error("Error generating workout plan:", e);
@@ -89,7 +98,7 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [apiKeyMissing]);
+  }, [apiKeyMissing, saveWorkoutPlan]);
 
   const handleGenerateNewPlan = useCallback(async () => {
     if (apiKeyMissing) {
@@ -99,7 +108,7 @@ const App: React.FC = () => {
     if (userProfile) {
       if (activeWorkoutDay !== null) {
          if(!confirm("У вас є активне тренування. Створення нового плану завершить його без збереження. Продовжити?")) return;
-         setActiveWorkoutDay(null); 
+         setActiveWorkoutDay(null);
          setWorkoutStartTime(null);
       }
       setIsLoading(true);
@@ -107,6 +116,7 @@ const App: React.FC = () => {
       try {
         const plan = await apiGenerateWorkoutPlan(userProfile, GEMINI_MODEL_TEXT);
         setCurrentWorkoutPlan(plan);
+        await saveWorkoutPlan(plan);
         storageSaveWorkoutPlan(plan);
         setCurrentView('workout');
       } catch (e: any) {
@@ -119,7 +129,7 @@ const App: React.FC = () => {
       setCurrentView('profile');
       setError("Будь ласка, спочатку заповніть та збережіть профіль.");
     }
-  }, [userProfile, apiKeyMissing, activeWorkoutDay]);
+  }, [userProfile, apiKeyMissing, activeWorkoutDay, saveWorkoutPlan]);
 
   const handleStartWorkout = useCallback((dayNumber: number) => {
     if (!currentWorkoutPlan) return;
