@@ -1,8 +1,5 @@
 import React from 'react';
 import { UI_TEXT } from '../constants';
-import { useAuth } from '../hooks/useAuth';
-import { auth } from '../config/firebase';
-import { deleteUser } from 'firebase/auth';
 
 type View = 'profile' | 'workout' | 'progress';
 
@@ -26,8 +23,6 @@ const NavItem: React.FC<{label: string, isActive: boolean, onClick: () => void, 
 );
 
 const Navbar: React.FC<NavbarProps> = ({ currentView, onViewChange }) => {
-  // const { user, logout } = useAuth();
-  // const handleDeleteAccount = async () => { ... } // Видаляємо ці функції з Navbar
   return (
     <nav className="flex space-x-1 sm:space-x-2 bg-gray-700/30 p-1 rounded-lg items-center">
       <NavItem 

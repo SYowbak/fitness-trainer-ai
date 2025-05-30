@@ -99,14 +99,23 @@ export interface LoggedSetWithAchieved {
 }
 
 export interface LoggedExercise {
-  name: string;
-  sets: LoggedSetWithAchieved[];
+  exerciseName: string; // Назва виконаної вправи
+  originalSets?: number | string; // Оригінальна кількість підходів з плану
+  originalReps?: number | string; // Оригінальна кількість повторень з плану
+  targetWeightAtLogging?: number | null; // Цільова вага з плану на момент логування
+  
+  loggedSets: LoggedSetWithAchieved[]; // Масив виконаних підходів
+  
+  completedSuccessfully?: boolean; // Чи була вправа успішно виконана
+  notes?: string; // Додаткові нотатки до логу
 }
 
 export interface WorkoutLog {
   id?: string;           // ID логу (автоматично)
   userId: string;        // ID користувача
-  date: Date;           // Дата тренування
+  date: Date | admin.firestore.Timestamp;           // Дата тренування (дозволяємо Timestamp з Firebase Admin SDK)
   duration: number;     // Тривалість в секундах
-  exercises: LoggedExercise[]; // Вправи
+  dayCompleted?: number; // День плану, який був завершений (додано)
+  workoutDuration?: string; // Тривалість тренування у форматі HH:MM:SS (додано)
+  loggedExercises: LoggedExercise[]; // Виконані вправи (перейменовано exercises на loggedExercises)
 }

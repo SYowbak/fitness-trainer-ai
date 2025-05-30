@@ -153,11 +153,18 @@ const App: React.FC = () => {
   const handleEndWorkout = useCallback(async () => {
     if (activeWorkoutDay === null || !currentWorkoutPlan || !Array.isArray(currentWorkoutPlan) || !workoutStartTime) return;
 
+    // Map sessionExercises to the new LoggedExercise structure
     const loggedExercisesForSession: LoggedExercise[] = sessionExercises
       .filter(ex => ex.isCompletedDuringSession)
       .map((ex) => ({
-        name: ex.name,
-        sets: ex.sessionLoggedSets || [],
+        // Map fields from Exercise to LoggedExercise
+        exerciseName: ex.name, // Using name from Exercise as exerciseName
+        originalSets: ex.sets, // Using sets from Exercise as originalSets
+        originalReps: ex.reps, // Using reps from Exercise as originalReps
+        targetWeightAtLogging: ex.targetWeight || null, // Using targetWeight from Exercise
+        loggedSets: ex.sessionLoggedSets || [], // Using sessionLoggedSets
+        completedSuccessfully: ex.sessionSuccess ?? false, // Using sessionSuccess
+        notes: ex.notes, // Using notes from Exercise
       }));
 
     if (loggedExercisesForSession.length === 0) {
@@ -168,12 +175,15 @@ const App: React.FC = () => {
         return;
     }
     
+    // Use the new field name loggedExercises
     const newLog: WorkoutLog = {
       id: new Date().toISOString(),
       userId: userProfile?.uid || 'anonymous',
-      date: new Date(),
+      date: new Date(), // Firebase SDK should handle conversion to Timestamp if needed on save
       duration: Math.floor((Date.now() - workoutStartTime) / 1000),
-      exercises: loggedExercisesForSession,
+      dayCompleted: activeWorkoutDay, // Add dayCompleted
+      workoutDuration: formatTime(Math.floor((Date.now() - workoutStartTime) / 1000)), // Add formatted duration
+      loggedExercises: loggedExercisesForSession, // Use the correctly structured array
     };
 
     const updatedLogs = [...workoutLogs, newLog];
@@ -184,12 +194,12 @@ const App: React.FC = () => {
     const updatedPlan = currentWorkoutPlan.map(dayPlan => {
       if (dayPlan.day === activeWorkoutDay) {
         const newExercisesForDay = (dayPlan.exercises && Array.isArray(dayPlan.exercises) ? dayPlan.exercises : []).map(exInPlan => {
-          const loggedEx = loggedExercisesForSession.find(le => le.name === exInPlan.name);
-          if (loggedEx && loggedEx.sets.length > 0) {
+          const loggedEx = loggedExercisesForSession.find(le => le.exerciseName === exInPlan.name);
+          if (loggedEx && Array.isArray(loggedEx.loggedSets) && loggedEx.loggedSets.length > 0) {
             let newTargetWeight = exInPlan.targetWeight;
-            const averageWeightUsed = loggedEx.sets.reduce((sum: number, set) => sum + (set.weightUsed ?? 0), 0) / loggedEx.sets.length;
+            const averageWeightUsed = loggedEx.loggedSets.reduce((sum: number, set) => sum + (set.weightUsed ?? 0), 0) / loggedEx.loggedSets.length;
 
-            if (loggedEx.sets.length > 0) {
+            if (Array.isArray(loggedEx.loggedSets) && loggedEx.loggedSets.length > 0) {
                 if (exInPlan.targetWeight !== undefined && exInPlan.targetWeight !== null && averageWeightUsed >= exInPlan.targetWeight) {
                     newTargetWeight = exInPlan.targetWeight + DEFAULT_WEIGHT_INCREMENT;
                 } else if ((exInPlan.targetWeight === undefined || exInPlan.targetWeight === null) && averageWeightUsed > 0) {

@@ -36,11 +36,17 @@ function cleanWorkoutPlanForFirestore(plan: DailyWorkoutPlan[]): DailyWorkoutPla
         // Вказати тільки ті поля, які потрібні для Firestore
         const { name, sets, reps, weight, muscleGroup, notes, rest } = ex;
         // Конвертуємо rest в секунди, якщо він заданий у форматі "X секунд"
-        let restInSeconds = rest;
+        let restValue: string | number | undefined = rest; // Explicitly allow number and undefined
         if (typeof rest === 'string' && rest.includes('секунд')) {
-          restInSeconds = parseInt(rest.split(' ')[0]);
+          const parsed = parseInt(rest.split(' ')[0]);
+          if (!isNaN(parsed)) {
+             restValue = parsed;
+          }
         }
-        return removeUndefined({ name, sets, reps, weight, muscleGroup, notes, rest: restInSeconds });
+        // Переконайтеся, що rest завжди зберігається як рядок
+        const restForFirestore = restValue !== undefined && restValue !== null ? String(restValue) + ' секунд' : undefined; // Convert back to string format
+
+        return removeUndefined({ name, sets, reps, weight, muscleGroup, notes, rest: restForFirestore });
       })
     })
   }));
