@@ -42,7 +42,7 @@ const ProgressView: React.FC<ProgressViewProps> = ({ workoutLogs, userProfile })
         <div className="text-center">
           <p className="text-lg sm:text-xl text-gray-300 mb-6">Вітаємо, <span className="font-semibold text-purple-300">{userProfile.name || 'спортсмен'}</span>!</p>
           
-          {workoutLogs.length === 0 ? (
+          {Array.isArray(workoutLogs) && workoutLogs.length === 0 ? (
             <div className="p-6 bg-gray-700/50 rounded-lg shadow-lg">
               <i className="fas fa-hourglass-half text-5xl text-yellow-400 mb-6"></i>
               <p className="text-lg text-purple-300 mb-2">Поки що немає даних про прогрес.</p>
@@ -65,10 +65,10 @@ const ProgressView: React.FC<ProgressViewProps> = ({ workoutLogs, userProfile })
                     </div>
                     <p className="text-sm mb-2"><i className="fas fa-running mr-2"></i>День плану: {log.dayCompleted}</p>
                     
-                    {log.loggedExercises.length > 0 && (
+                    {Array.isArray(log.loggedExercises) && log.loggedExercises.length > 0 && (
                       <div>
                         <h4 className="text-sm font-medium text-pink-400 mt-2 mb-1">Виконані вправи:</h4>
-                        {log.loggedExercises.map((ex, exIdx) => <ExerciseLogRow key={exIdx} loggedEx={ex} />)}
+                        {Array.isArray(log.loggedExercises) && log.loggedExercises.map((ex, exIdx) => <ExerciseLogRow key={exIdx} loggedEx={ex} />)}
                       </div>
                     )}
                   </div>
