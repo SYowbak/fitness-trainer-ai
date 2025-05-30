@@ -49,7 +49,7 @@ const UserProfileForm: React.FC<UserProfileFormProps> = ({ existingProfile, onSa
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (apiKeyMissing) {
-      return;
+        return;
     }
     onSave({ 
       name, 

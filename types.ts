@@ -75,7 +75,7 @@ export interface Exercise {
   videoSearchQuery?: string | null;
   targetWeight?: number | null;
   targetReps?: number | string | null;
-  isCompletedDuringSession?: boolean;
+  isCompletedDuringSession?: boolean; 
   sessionLoggedSets?: LoggedSetWithAchieved[];
   sessionSuccess?: boolean;
 }
@@ -83,7 +83,7 @@ export interface Exercise {
 export interface DailyWorkoutPlan {
   day: number;
   exercises: Exercise[];
-  notes?: string;
+  notes?: string; 
 }
 
 export interface LoggedSet {
