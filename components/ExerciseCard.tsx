@@ -23,6 +23,9 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, exerciseIndex, is
   const [restTimer, setRestTimer] = useState<number>(0);
   const [isResting, setIsResting] = useState<boolean>(false);
 
+  // Тимчасовий лог для перевірки значення exercise.rest
+  console.log(`Exercise: ${exercise.name}, Rest value: ${exercise.rest}`);
+
   useEffect(() => {
     let interval: number | null = null;
     if (isResting && restTimer > 0) {
@@ -132,7 +135,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, exerciseIndex, is
             </div>
             <div className="bg-gray-600/70 p-2 rounded shadow col-span-2 sm:col-span-1">
               <strong className="block text-purple-200 mb-0.5"><i className="fas fa-stopwatch mr-1"></i>{UI_TEXT.rest}</strong>
-              <span className="text-gray-100">{exercise.rest}</span>
+              <span className="text-gray-100">{exercise.rest || '-'}</span>
             </div>
             {exercise.targetWeight !== undefined && exercise.targetWeight !== null && (
                  <div className="bg-purple-700/60 p-2 rounded shadow col-span-full">
@@ -151,7 +154,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, exerciseIndex, is
                             ${isResting ? 'bg-gray-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
               >
                 <i className="fas fa-hourglass-half mr-2"></i>
-                {isResting ? `Відпочинок: ${formatTime(restTimer)}` : `${UI_TEXT.startRest} (${exercise.rest?.split(' ')[0] ?? '60'}с)`}
+                {isResting ? `Відпочинок: ${formatTime(restTimer)}` : `${UI_TEXT.startRest} (${exercise.rest ?? '60 секунд'})`}
               </button>
 
               <button 
