@@ -259,6 +259,37 @@ const App: React.FC = () => {
   const renderView = () => {
     if (isLoading && currentView !== 'profile' && activeWorkoutDay === null) return <Spinner message={UI_TEXT.generatingWorkout} />;
     
+    if (userDataLoading && activeWorkoutDay === null) {
+        return <Spinner message={UI_TEXT.loadingUserData} />;
+    }
+
+    if (!firestoreProfile) {
+      return <UserProfileForm 
+                existingProfile={userProfile} 
+                onSave={handleProfileSave} 
+                apiKeyMissing={apiKeyMissing} 
+                isLoading={isLoading}
+                onLogout={logout}
+                onDeleteAccount={handleDeleteAccount}
+              />;
+    }
+
+    if (firestoreProfile && !workoutPlan) {
+        return <WorkoutDisplay 
+                userProfile={firestoreProfile}
+                workoutPlan={null}
+                onGenerateNewPlan={handleGenerateNewPlan}
+                isLoading={isLoading || (apiKeyMissing && !userProfile)}
+                activeDay={activeWorkoutDay}
+                sessionExercises={sessionExercises}
+                onStartWorkout={handleStartWorkout}
+                onEndWorkout={handleEndWorkout}
+                onLogExercise={handleLogSingleExercise}
+                workoutTimerDisplay={formatTime(workoutTimer)}
+                isApiKeyMissing={apiKeyMissing}
+              />;
+    }
+
     switch (currentView) {
       case 'profile':
         return <UserProfileForm 
@@ -297,8 +328,8 @@ const App: React.FC = () => {
     }
   };
 
-  if (loading || userDataLoading) {
-    return <div className="flex items-center justify-center min-h-screen text-xl text-purple-400">Завантаження...</div>;
+  if (loading) {
+    return <div className="flex items-center justify-center min-h-screen text-xl text-purple-400">Завантаження автентифікації...</div>;
   }
 
   if (!user) {
@@ -328,19 +359,7 @@ const App: React.FC = () => {
 
       <main className="flex-grow container mx-auto p-3 sm:p-4 md:p-6">
         {error && !isLoading && <ErrorMessage message={error} onClear={() => setError(null)} />}
-        {!userProfile && !isLoading && currentView !== 'profile' && activeWorkoutDay === null && (
-            <div className="text-center p-6 sm:p-8 bg-gray-800/80 rounded-lg shadow-xl mt-6 sm:mt-10">
-                <h2 className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4 text-purple-300">{UI_TEXT.welcomeMessage}</h2>
-                <p className="mb-4 sm:mb-6 text-gray-300 text-sm sm:text-base">{UI_TEXT.getStarted}</p>
-                <button 
-                    onClick={() => setCurrentView('profile')}
-                    className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 px-5 sm:py-3 sm:px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 text-sm sm:text-base"
-                >
-                    <i className="fas fa-user-plus mr-2"></i>Перейти до Створення Профілю
-                </button>
-            </div>
-        )}
-         {renderView()}
+        {renderView()}
       </main>
 
       <footer className="bg-gray-800/50 text-center p-3 sm:p-4 text-xs sm:text-sm text-gray-400 mt-auto">
