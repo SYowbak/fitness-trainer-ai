@@ -16,43 +16,33 @@ export enum FitnessGoal {
   GENERAL_FITNESS = 'general_fitness',
 }
 
-export enum UserLevel {
-  BEGINNER = 'beginner',
-  INTERMEDIATE = 'intermediate',
-  ADVANCED = 'advanced',
-}
-
 export enum MuscleGroup {
-  FULL_BODY = 'full_body',
   CHEST = 'chest',
   BACK = 'back',
   LEGS = 'legs',
   SHOULDERS = 'shoulders',
-  BICEPS = 'biceps',
-  TRICEPS = 'triceps',
-  FOREARMS = 'forearms',
+  ARMS = 'arms', // Biceps/Triceps
+  FULL_BODY = 'full_body',
   CORE = 'core',
-  GLUTES = 'glutes',
-  CALVES = 'calves',
-  HAMSTRINGS = 'hamstrings',
-  QUADS = 'quads',
-  LATS = 'lats',
-  TRAPS = 'traps',
-  ABS = 'abs',
-  OBLIQUES = 'obliques',
-  LOWER_BACK = 'lower_back',
+}
+
+export enum ExperienceLevel {
+  BEGINNER = 'beginner',
+  INTERMEDIATE = 'intermediate',
+  ADVANCED = 'advanced',
+  PROFESSIONAL = 'professional'
 }
 
 export interface UserProfile {
-  name?: string;
+  name: string;
   gender: Gender;
   bodyType: BodyType;
   goal: FitnessGoal;
   trainingFrequency: number; // e.g., 3 times a week
   targetMuscleGroups: MuscleGroup[]; // Змінено з primaryTargetMuscleGroup на масив
-  height?: number; // зріст у сантиметрах
-  weight?: number; // вага у кілограмах
-  level: UserLevel; // рівень користувача
+  height: number; // зріст у сантиметрах
+  weight: number; // вага у кілограмах
+  experienceLevel: ExperienceLevel;
 }
 
 export interface Exercise {

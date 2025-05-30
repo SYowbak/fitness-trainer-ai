@@ -7,7 +7,7 @@ import WorkoutDisplay from './components/WorkoutDisplay';
 import ProgressView from './components/ProgressView';
 import Spinner from './components/Spinner';
 import ErrorMessage from './components/ErrorMessage';
-import { loadUserProfile as storageLoadUserProfile, saveWorkoutPlan as storageSaveWorkoutPlan, loadWorkoutPlan as storageLoadWorkoutPlan, saveWorkoutLogs as storageSaveWorkoutLogs, loadWorkoutLogs as storageLoadWorkoutLogs } from './services/localStorageService';
+import { saveUserProfile as storageSaveUserProfile, loadUserProfile as storageLoadUserProfile, saveWorkoutPlan as storageSaveWorkoutPlan, loadWorkoutPlan as storageLoadWorkoutPlan, saveWorkoutLogs as storageSaveWorkoutLogs, loadWorkoutLogs as storageLoadWorkoutLogs } from './services/localStorageService';
 import { generateWorkoutPlan as apiGenerateWorkoutPlan } from './services/geminiService';
 
 type View = 'profile' | 'workout' | 'progress';
@@ -22,10 +22,11 @@ const App: React.FC = () => {
   const [apiKeyMissing, setApiKeyMissing] = useState<boolean>(false);
 
   // Active Workout Session State
-  const [activeWorkoutDay, setActiveWorkoutDay] = useState<number | null>(null);
+  const [activeWorkoutDay, setActiveWorkoutDay] = useState<number | null>(null); // Day number
   const [sessionExercises, setSessionExercises] = useState<Exercise[]>([]);
   const [workoutStartTime, setWorkoutStartTime] = useState<number | null>(null);
   const [workoutTimer, setWorkoutTimer] = useState<number>(0);
+
 
   useEffect(() => {
     if (typeof import.meta.env === 'undefined' || !import.meta.env.VITE_API_KEY) {
@@ -61,22 +62,33 @@ const App: React.FC = () => {
   }, [workoutStartTime, activeWorkoutDay]);
 
 
-  const handleSaveProfile = async (profile: UserProfile) => {
+  const handleProfileSave = useCallback(async (profile: UserProfile) => {
+    if (apiKeyMissing) {
+      setError(UI_TEXT.apiKeyMissing);
+      return;
+    }
+    setIsLoading(true);
+    setError(null);
     try {
-      setIsLoading(true);
-      const profileToSave = {
+      const profileToSave: UserProfile = {
         ...profile,
-        targetMuscleGroups: profile.targetMuscleGroups || [], // Ensure it's an empty array if undefined
-        level: profile.level || 'beginner', // Ensure level is set
+        primaryTargetMuscleGroup: profile.primaryTargetMuscleGroup || '', // Ensure it's '' if undefined
       };
-      localStorage.setItem('userProfile', JSON.stringify(profileToSave));
       setUserProfile(profileToSave);
-    } catch (error) {
-      console.error('Error saving profile:', error);
+      storageSaveUserProfile(profileToSave);
+      
+      const plan = await apiGenerateWorkoutPlan(profileToSave, GEMINI_MODEL_TEXT);
+      setCurrentWorkoutPlan(plan);
+      storageSaveWorkoutPlan(plan); 
+      setActiveWorkoutDay(null); 
+      setCurrentView('workout');
+    } catch (e: any) {
+      console.error("Error generating workout plan:", e);
+      setError(e.message || UI_TEXT.errorOccurred);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [apiKeyMissing]);
 
   const handleGenerateNewPlan = useCallback(async () => {
     if (apiKeyMissing) {
@@ -225,7 +237,7 @@ const App: React.FC = () => {
       case 'profile':
         return <UserProfileForm 
                   existingProfile={userProfile} 
-                  onSave={handleSaveProfile} 
+                  onSave={handleProfileSave} 
                   apiKeyMissing={apiKeyMissing} 
                   isLoading={isLoading}
                 />;
@@ -246,7 +258,7 @@ const App: React.FC = () => {
       case 'progress':
         return <ProgressView workoutLogs={workoutLogs} userProfile={userProfile} />;
       default:
-        return <UserProfileForm existingProfile={userProfile} onSave={handleSaveProfile} apiKeyMissing={apiKeyMissing} isLoading={isLoading}/>;
+        return <UserProfileForm existingProfile={userProfile} onSave={handleProfileSave} apiKeyMissing={apiKeyMissing} isLoading={isLoading}/>;
     }
   };
 

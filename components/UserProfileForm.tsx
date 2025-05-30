@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { UserProfile, Gender, BodyType, FitnessGoal, MuscleGroup, UserLevel } from '../types';
-import { GENDER_OPTIONS, BODY_TYPE_OPTIONS, FITNESS_GOAL_OPTIONS, TRAINING_FREQUENCY_OPTIONS, MUSCLE_GROUP_OPTIONS, USER_LEVEL_OPTIONS, DEFAULT_TRAINING_FREQUENCY, DEFAULT_USER_LEVEL, UI_TEXT } from '../constants';
+import { UserProfile, Gender, BodyType, FitnessGoal, MuscleGroup, ExperienceLevel } from '../types';
+import { GENDER_OPTIONS, BODY_TYPE_OPTIONS, FITNESS_GOAL_OPTIONS, TRAINING_FREQUENCY_OPTIONS, MUSCLE_GROUP_OPTIONS, DEFAULT_TRAINING_FREQUENCY, UI_TEXT, EXPERIENCE_LEVEL_OPTIONS } from '../constants';
 
 interface UserProfileFormProps {
   existingProfile: UserProfile | null;
@@ -16,9 +16,9 @@ const UserProfileForm: React.FC<UserProfileFormProps> = ({ existingProfile, onSa
   const [goal, setGoal] = useState<FitnessGoal>(FITNESS_GOAL_OPTIONS[0].value);
   const [trainingFrequency, setTrainingFrequency] = useState<number>(DEFAULT_TRAINING_FREQUENCY);
   const [targetMuscleGroups, setTargetMuscleGroups] = useState<MuscleGroup[]>([]);
-  const [height, setHeight] = useState<number | undefined>(undefined);
-  const [weight, setWeight] = useState<number | undefined>(undefined);
-  const [level, setLevel] = useState<UserLevel>(DEFAULT_USER_LEVEL);
+  const [height, setHeight] = useState<number>(170);
+  const [weight, setWeight] = useState<number>(70);
+  const [experienceLevel, setExperienceLevel] = useState<ExperienceLevel>(ExperienceLevel.BEGINNER);
 
   useEffect(() => {
     if (existingProfile) {
@@ -28,9 +28,9 @@ const UserProfileForm: React.FC<UserProfileFormProps> = ({ existingProfile, onSa
       setGoal(existingProfile.goal);
       setTrainingFrequency(existingProfile.trainingFrequency);
       setTargetMuscleGroups(existingProfile.targetMuscleGroups || []);
-      setHeight(existingProfile.height);
-      setWeight(existingProfile.weight);
-      setLevel(existingProfile.level);
+      setHeight(existingProfile.height || 170);
+      setWeight(existingProfile.weight || 70);
+      setExperienceLevel(existingProfile.experienceLevel || ExperienceLevel.BEGINNER);
     } else {
       setName('');
       setGender(GENDER_OPTIONS[0].value);
@@ -38,9 +38,9 @@ const UserProfileForm: React.FC<UserProfileFormProps> = ({ existingProfile, onSa
       setGoal(FITNESS_GOAL_OPTIONS[0].value);
       setTrainingFrequency(DEFAULT_TRAINING_FREQUENCY);
       setTargetMuscleGroups([]);
-      setHeight(undefined);
-      setWeight(undefined);
-      setLevel(DEFAULT_USER_LEVEL);
+      setHeight(170);
+      setWeight(70);
+      setExperienceLevel(ExperienceLevel.BEGINNER);
     }
   }, [existingProfile]);
 
@@ -58,14 +58,14 @@ const UserProfileForm: React.FC<UserProfileFormProps> = ({ existingProfile, onSa
       targetMuscleGroups,
       height,
       weight,
-      level
+      experienceLevel
     });
   };
 
   const handleMuscleGroupChange = (muscleGroup: MuscleGroup) => {
     setTargetMuscleGroups(prev => {
       if (prev.includes(muscleGroup)) {
-        return prev.filter(mg => mg !== muscleGroup);
+        return prev.filter(group => group !== muscleGroup);
       } else {
         return [...prev, muscleGroup];
       }
@@ -117,72 +117,67 @@ const UserProfileForm: React.FC<UserProfileFormProps> = ({ existingProfile, onSa
           </select>
         </div>
         <div>
-          <label className={commonLabelClasses}>{UI_TEXT.targetMuscleGroupLabel}</label>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-            {MUSCLE_GROUP_OPTIONS.map(option => (
-              <div key={option.value} className="flex items-start space-x-2">
-                <input
-                  type="checkbox"
-                  id={`muscle-${option.value}`}
-                  checked={targetMuscleGroups.includes(option.value)}
-                  onChange={() => handleMuscleGroupChange(option.value)}
-                  className="mt-1 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-600 rounded bg-gray-700"
-                />
-                <div>
-                  <label htmlFor={`muscle-${option.value}`} className="text-gray-200 cursor-pointer">
-                    {option.label}
-                  </label>
-                  <p className="text-sm text-gray-400">{option.description}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          <div>
-            <label htmlFor="height" className={commonLabelClasses}>{UI_TEXT.heightLabel}</label>
-            <input
-              type="number"
-              id="height"
-              value={height || ''}
-              onChange={(e) => setHeight(e.target.value ? Number(e.target.value) : undefined)}
-              className={commonSelectClasses}
-              placeholder="Наприклад: 175"
-              min="100"
-              max="250"
-            />
-          </div>
-          <div>
-            <label htmlFor="weight" className={commonLabelClasses}>{UI_TEXT.weightLabel}</label>
-            <input
-              type="number"
-              id="weight"
-              value={weight || ''}
-              onChange={(e) => setWeight(e.target.value ? Number(e.target.value) : undefined)}
-              className={commonSelectClasses}
-              placeholder="Наприклад: 70"
-              min="30"
-              max="300"
-            />
-          </div>
+          <label htmlFor="height" className={commonLabelClasses}>{UI_TEXT.heightLabel}</label>
+          <input
+            type="number"
+            id="height"
+            value={height}
+            onChange={(e) => setHeight(Number(e.target.value))}
+            className={commonSelectClasses}
+            min="100"
+            max="250"
+            step="1"
+          />
         </div>
         <div>
-          <label htmlFor="level" className={commonLabelClasses}>{UI_TEXT.levelLabel}</label>
+          <label htmlFor="weight" className={commonLabelClasses}>{UI_TEXT.weightLabel}</label>
+          <input
+            type="number"
+            id="weight"
+            value={weight}
+            onChange={(e) => setWeight(Number(e.target.value))}
+            className={commonSelectClasses}
+            min="30"
+            max="300"
+            step="0.1"
+          />
+        </div>
+        <div>
+          <label htmlFor="experienceLevel" className={commonLabelClasses}>{UI_TEXT.experienceLevelLabel}</label>
           <select 
-            id="level" 
-            value={level} 
-            onChange={(e) => setLevel(e.target.value as UserLevel)} 
+            id="experienceLevel" 
+            value={experienceLevel} 
+            onChange={(e) => setExperienceLevel(e.target.value as ExperienceLevel)} 
             className={commonSelectClasses}
           >
-            {USER_LEVEL_OPTIONS.map(option => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
+            {EXPERIENCE_LEVEL_OPTIONS.map(option => (
+              <option key={option.value} value={option.value}>{option.label}</option>
             ))}
           </select>
-          <p className="mt-1 text-sm text-gray-400">
-            {USER_LEVEL_OPTIONS.find(opt => opt.value === level)?.description}
-          </p>
+        </div>
+        <div>
+          <label className={commonLabelClasses}>{UI_TEXT.targetMuscleGroupsLabel}</label>
+          <div className="grid grid-cols-2 gap-2 mt-2">
+            {MUSCLE_GROUP_OPTIONS.map(option => (
+              <label 
+                key={option.value} 
+                className={`flex items-center p-3 rounded-md cursor-pointer transition-colors
+                  ${targetMuscleGroups.includes(option.value as MuscleGroup) 
+                    ? 'bg-purple-600/30 border-purple-500' 
+                    : 'bg-gray-700/50 border-gray-600 hover:bg-gray-700'
+                  } border`}
+              >
+                <input
+                  type="checkbox"
+                  checked={targetMuscleGroups.includes(option.value as MuscleGroup)}
+                  onChange={() => handleMuscleGroupChange(option.value as MuscleGroup)}
+                  className="mr-2 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-600 rounded"
+                />
+                <span className="text-gray-200">{option.label}</span>
+              </label>
+            ))}
+          </div>
+          <p className="text-sm text-gray-400 mt-2">Виберіть одну або кілька груп м'язів для акценту</p>
         </div>
         <button 
           type="submit" 

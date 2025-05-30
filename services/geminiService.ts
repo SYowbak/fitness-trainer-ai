@@ -1,6 +1,6 @@
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { UserProfile, DailyWorkoutPlan } from '../types';
-import { getUkrainianGoal, getUkrainianBodyType, getUkrainianGender, getUkrainianMuscleGroup, getUkrainianUserLevel, UI_TEXT, GEMINI_MODEL_TEXT } from '../constants';
+import { getUkrainianGoal, getUkrainianBodyType, getUkrainianGender, getUkrainianMuscleGroup, UI_TEXT, GEMINI_MODEL_TEXT } from '../constants';
 
 const getApiKey = (): string | null => {
   // @ts-ignore
@@ -25,22 +25,15 @@ if (apiKey) {
 
 
 const constructPrompt = (profile: UserProfile): string => {
-  const { gender, bodyType, goal, trainingFrequency, name, targetMuscleGroups = [], height, weight, level } = profile;
+  const { gender, bodyType, goal, trainingFrequency, name, targetMuscleGroups, height, weight, experienceLevel } = profile;
   
   const userNamePart = name ? `для користувача на ім'я ${name}` : '';
   const genderText = getUkrainianGender(gender);
   const bodyTypeText = getUkrainianBodyType(bodyType);
   const goalText = getUkrainianGoal(goal);
-  const frequencyText = `${trainingFrequency} разів на тиждень`;
-  const levelText = getUkrainianUserLevel(level);
-  
-  const targetMuscleGroupText = targetMuscleGroups && targetMuscleGroups.length > 0 
+  const targetMuscleGroupsText = targetMuscleGroups.length > 0 
     ? `з особливим акцентом на ${targetMuscleGroups.map(group => getUkrainianMuscleGroup(group)).join(', ')}`
     : 'із загальним розвитком всіх груп м\'язів';
-
-  const physicalStatsText = height && weight 
-    ? `\n*   Фізичні параметри: зріст ${height} см, вага ${weight} кг`
-    : '';
 
   return `
 Ти — висококваліфікований персональний фітнес-тренер, який створює індивідуальні програми тренувань. Твоя мета — розробити максимально ефективний, безпечний та логічний план тренувань у тренажерному залі ${userNamePart}.
@@ -55,15 +48,17 @@ const constructPrompt = (profile: UserProfile): string => {
 *   Стать: ${genderText}
 *   Тип статури: ${bodyTypeText}
 *   Головна фітнес-ціль: ${goalText}
-*   Бажана частота тренувань: ${frequencyText}
-*   Рівень підготовки: ${levelText}${physicalStatsText}
-*   Бажаний акцент: ${targetMuscleGroupText}.
+*   Частота тренувань: ${trainingFrequency} рази на тиждень
+*   Бажаний акцент: ${targetMuscleGroupsText}
+*   Зріст: ${height} см
+*   Вага: ${weight} кг
+*   Рівень підготовки: ${experienceLevel}
 
 **Вимоги до плану:**
-1.  **Структура:** Розбий план чітко на ${trainingFrequency} тренувальних дні(в) (Не більше, не менше). Кожен день повинен мати чітку мету і, якщо вказано, фокусуватися на цільовій групі м'язів, забезпечуючи при цьому достатній час для відновлення цієї групи.
+1.  **Структура:** Розбий план чітко на ${trainingFrequency} тренувальних дні(в) (Не більше, не менше). Кожен день повинен мати чітку мету і, якщо вказано, фокусуватися на цільових групах м'язів, забезпечуючи при цьому достатній час для відновлення цих груп.
 2.  **Розминка та Заминка:** Для кожного тренувального дня надай конкретні рекомендації щодо розминки (5-10 хвилин, наприклад, легке кардіо, динамічна розтяжка основних робочих груп) та заминки (5-10 хвилин, наприклад, статична розтяжка пропрацьованих м'язів).
 3.  **Вправи:**
-    *   **Підбір:** Ретельно підбери вправи, що відповідають статі, типу статури, цілі, рівню підготовки та бажаному акценту користувача. Включи оптимальне поєднання базових та ізолюючих вправ.
+    *   **Підбір:** Ретельно підбери вправи, що відповідають статі, типу статури, цілі, бажаним акцентам та рівню підготовки користувача. Включи оптимальне поєднання базових та ізолюючих вправ.
     *   **Назва:** Вкажи точну українську назву кожної вправи.
     *   **Опис Техніки:** Надай ДУЖЕ ДЕТАЛЬНИЙ, покроковий опис правильної техніки виконання кожної вправи. Включи:
         *   Початкове положення.

@@ -138,14 +138,9 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
               <p><strong className="text-purple-300">Ім'я:</strong> {userProfile.name || "Не вказано"}</p>
               <p><strong className="text-purple-300">Стать:</strong> {getUkrainianGender(userProfile.gender)}</p>
               <p><strong className="text-purple-300">Статура:</strong> {getUkrainianBodyType(userProfile.bodyType)}</p>
-              {userProfile.goal && <p><strong className="text-purple-300">Ціль:</strong> {getUkrainianGoal(userProfile.goal)}</p>}
-              {userProfile.trainingFrequency && <p><strong className="text-purple-300">Частота:</strong> {userProfile.trainingFrequency} разів на тиждень</p>}
-              {userProfile.targetMuscleGroups && userProfile.targetMuscleGroups.length > 0 && (
-                <p>
-                  <strong className="text-purple-300">Акцент на групи м'язів:</strong>{' '}
-                  {userProfile.targetMuscleGroups.map(group => getUkrainianMuscleGroup(group)).join(', ')}
-                </p>
-              )}
+              <p><strong className="text-purple-300">Ціль:</strong> {getUkrainianGoal(userProfile.goal)}</p>
+              <p><strong className="text-purple-300">Частота:</strong> {userProfile.trainingFrequency} р/тижд.</p>
+              {userProfile.primaryTargetMuscleGroup && <p><strong className="text-purple-300">Акцент:</strong> {getUkrainianMuscleGroup(userProfile.primaryTargetMuscleGroup)}</p>}
             </div>
           )}
 
