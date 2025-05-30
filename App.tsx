@@ -7,16 +7,18 @@ import WorkoutDisplay from './components/WorkoutDisplay';
 import ProgressView from './components/ProgressView';
 import Spinner from './components/Spinner';
 import ErrorMessage from './components/ErrorMessage';
-import { saveUserProfile as storageSaveUserProfile, loadUserProfile as storageLoadUserProfile, saveWorkoutPlan as storageSaveWorkoutPlan, loadWorkoutPlan as storageLoadWorkoutPlan, saveWorkoutLogs as storageSaveWorkoutLogs, loadWorkoutLogs as storageLoadWorkoutLogs } from './services/localStorageService';
+import { saveUserProfile as storageSaveUserProfile, loadUserProfile as storageLoadUserProfile, saveWorkoutLogs as storageSaveWorkoutLogs, loadWorkoutLogs as storageLoadWorkoutLogs } from './services/localStorageService';
 import { generateWorkoutPlan as apiGenerateWorkoutPlan } from './services/geminiService';
 import { useAuth } from './hooks/useAuth';
 import { AuthForm } from './components/AuthForm';
 import { useUserData } from './hooks/useUserData';
+import { deleteUser } from 'firebase/auth';
+import { auth } from './config/firebase';
 
 type View = 'profile' | 'workout' | 'progress';
 
 const App: React.FC = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, logout } = useAuth();
   const { workoutPlan, saveWorkoutPlan, loading: userDataLoading } = useUserData();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [currentWorkoutPlan, setCurrentWorkoutPlan] = useState<DailyWorkoutPlan[] | null>(null);
@@ -39,22 +41,20 @@ const App: React.FC = () => {
     const loadedProfile = storageLoadUserProfile();
     if (loadedProfile) {
       setUserProfile(loadedProfile);
-      const loadedPlan = storageLoadWorkoutPlan();
-      if (loadedPlan) {
-        setCurrentWorkoutPlan(loadedPlan);
-      }
-      setCurrentView(loadedPlan ? 'workout' : 'profile');
+      const loadedLogs = storageLoadWorkoutLogs();
+      setWorkoutLogs(loadedLogs);
     } else {
       setCurrentView('profile');
     }
-    const loadedLogs = storageLoadWorkoutLogs();
-    setWorkoutLogs(loadedLogs);
   }, []);
 
   useEffect(() => {
     if (workoutPlan) {
       setCurrentWorkoutPlan(workoutPlan);
       setCurrentView('workout');
+    } else {
+      setCurrentWorkoutPlan(null);
+      setCurrentView('profile');
     }
   }, [workoutPlan]);
 
@@ -87,9 +87,7 @@ const App: React.FC = () => {
       setUserProfile(profileToSave);
       storageSaveUserProfile(profileToSave);
       const plan = await apiGenerateWorkoutPlan(profileToSave, GEMINI_MODEL_TEXT);
-      setCurrentWorkoutPlan(plan);
       await saveWorkoutPlan(plan);
-      storageSaveWorkoutPlan(plan);
       setActiveWorkoutDay(null);
       setCurrentView('workout');
     } catch (e: any) {
@@ -115,9 +113,7 @@ const App: React.FC = () => {
       setError(null);
       try {
         const plan = await apiGenerateWorkoutPlan(userProfile, GEMINI_MODEL_TEXT);
-        setCurrentWorkoutPlan(plan);
         await saveWorkoutPlan(plan);
-        storageSaveWorkoutPlan(plan);
         setCurrentView('workout');
       } catch (e: any) {
         console.error("Error generating new workout plan:", e);
@@ -230,7 +226,6 @@ const App: React.FC = () => {
 
     if (planWasUpdated) {
       setCurrentWorkoutPlan(updatedPlan);
-      storageSaveWorkoutPlan(updatedPlan);
     }
     
     alert(UI_TEXT.workoutLogged + (planWasUpdated ? " План оновлено з новими цілями!" : ""));
@@ -239,6 +234,21 @@ const App: React.FC = () => {
     setSessionExercises([]);
     setCurrentView('progress'); 
   }, [activeWorkoutDay, sessionExercises, currentWorkoutPlan, workoutLogs, workoutStartTime]);
+
+  const handleDeleteAccount = async () => {
+    if (!user) return;
+    if (!window.confirm('Ви впевнені, що хочете видалити свій акаунт? Цю дію не можна скасувати!')) return;
+    try {
+      await deleteUser(auth.currentUser!);
+      alert('Акаунт успішно видалено.');
+    } catch (error: any) {
+      if (error.code === 'auth/requires-recent-login') {
+        alert('Для видалення акаунта потрібно повторно увійти. Вийдіть і увійдіть знову, потім спробуйте ще раз.');
+      } else {
+        alert('Помилка при видаленні акаунта: ' + error.message);
+      }
+    }
+  };
 
   const renderView = () => {
     if (isLoading && currentView !== 'profile' && activeWorkoutDay === null) return <Spinner message={UI_TEXT.generatingWorkout} />;
@@ -287,7 +297,23 @@ const App: React.FC = () => {
           <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500 mb-2 sm:mb-0">
             <i className="fas fa-dumbbell mr-2"></i>{UI_TEXT.appName}
           </h1>
-          { (userProfile || currentView !== 'profile' || isLoading || activeWorkoutDay !== null) && 
+          {user && (
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={logout}
+                className="px-3 py-2 rounded-md bg-red-600 hover:bg-red-700 text-white text-sm font-medium shadow transition"
+              >
+                <i className="fas fa-sign-out-alt mr-1"></i>Вийти
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                className="px-3 py-2 rounded-md bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium shadow transition border border-red-400"
+              >
+                <i className="fas fa-user-slash mr-1"></i>Видалити акаунт
+              </button>
+            </div>
+          )}
+          {(userProfile || currentView !== 'profile' || isLoading || activeWorkoutDay !== null) && 
             <Navbar currentView={currentView} onViewChange={(v) => {
               if (activeWorkoutDay !== null && v !== 'workout') {
                 if(!confirm(UI_TEXT.confirmEndWorkout + " Перехід на іншу вкладку завершить його без збереження логів.")) return;
