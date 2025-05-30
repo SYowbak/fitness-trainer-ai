@@ -67,6 +67,7 @@ const App: React.FC = () => {
       const profileToSave = {
         ...profile,
         targetMuscleGroups: profile.targetMuscleGroups || [], // Ensure it's an empty array if undefined
+        level: profile.level || 'beginner', // Ensure level is set
       };
       localStorage.setItem('userProfile', JSON.stringify(profileToSave));
       setUserProfile(profileToSave);

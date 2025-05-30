@@ -25,7 +25,7 @@ if (apiKey) {
 
 
 const constructPrompt = (profile: UserProfile): string => {
-  const { gender, bodyType, goal, trainingFrequency, name, targetMuscleGroups, height, weight, level } = profile;
+  const { gender, bodyType, goal, trainingFrequency, name, targetMuscleGroups = [], height, weight, level } = profile;
   
   const userNamePart = name ? `для користувача на ім'я ${name}` : '';
   const genderText = getUkrainianGender(gender);
@@ -34,7 +34,7 @@ const constructPrompt = (profile: UserProfile): string => {
   const frequencyText = `${trainingFrequency} разів на тиждень`;
   const levelText = getUkrainianUserLevel(level);
   
-  const targetMuscleGroupText = targetMuscleGroups.length > 0 
+  const targetMuscleGroupText = targetMuscleGroups && targetMuscleGroups.length > 0 
     ? `з особливим акцентом на ${targetMuscleGroups.map(group => getUkrainianMuscleGroup(group)).join(', ')}`
     : 'із загальним розвитком всіх груп м\'язів';
 
