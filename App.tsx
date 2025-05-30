@@ -9,10 +9,13 @@ import Spinner from './components/Spinner';
 import ErrorMessage from './components/ErrorMessage';
 import { saveUserProfile as storageSaveUserProfile, loadUserProfile as storageLoadUserProfile, saveWorkoutPlan as storageSaveWorkoutPlan, loadWorkoutPlan as storageLoadWorkoutPlan, saveWorkoutLogs as storageSaveWorkoutLogs, loadWorkoutLogs as storageLoadWorkoutLogs } from './services/localStorageService';
 import { generateWorkoutPlan as apiGenerateWorkoutPlan } from './services/geminiService';
+import { useAuth } from './hooks/useAuth';
+import { AuthForm } from './components/AuthForm';
 
 type View = 'profile' | 'workout' | 'progress';
 
 const App: React.FC = () => {
+  const { user, loading } = useAuth();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [currentWorkoutPlan, setCurrentWorkoutPlan] = useState<DailyWorkoutPlan[] | null>(null);
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
@@ -26,7 +29,6 @@ const App: React.FC = () => {
   const [sessionExercises, setSessionExercises] = useState<Exercise[]>([]);
   const [workoutStartTime, setWorkoutStartTime] = useState<number | null>(null);
   const [workoutTimer, setWorkoutTimer] = useState<number>(0);
-
 
   useEffect(() => {
     if (typeof import.meta.env === 'undefined' || !import.meta.env.VITE_API_KEY) {
@@ -60,7 +62,6 @@ const App: React.FC = () => {
       if (timerInterval) clearInterval(timerInterval);
     };
   }, [workoutStartTime, activeWorkoutDay]);
-
 
   const handleProfileSave = useCallback(async (profile: UserProfile) => {
     if (apiKeyMissing) {
@@ -229,7 +230,6 @@ const App: React.FC = () => {
     setCurrentView('progress'); 
   }, [activeWorkoutDay, sessionExercises, currentWorkoutPlan, workoutLogs, workoutStartTime]);
 
-
   const renderView = () => {
     if (isLoading && currentView !== 'profile' && activeWorkoutDay === null) return <Spinner message={UI_TEXT.generatingWorkout} />;
     
@@ -261,6 +261,14 @@ const App: React.FC = () => {
         return <UserProfileForm existingProfile={userProfile} onSave={handleProfileSave} apiKeyMissing={apiKeyMissing} isLoading={isLoading}/>;
     }
   };
+
+  if (loading) {
+    return <div className="flex items-center justify-center min-h-screen text-xl text-purple-400">Завантаження...</div>;
+  }
+
+  if (!user) {
+    return <AuthForm />;
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-900 via-slate-800 to-purple-900">

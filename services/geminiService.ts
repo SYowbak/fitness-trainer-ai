@@ -167,9 +167,7 @@ export const generateWorkoutPlan = async (profile: UserProfile, modelName: strin
 
         return {
           day: day.day,
-          warmup: day.warmup || "",
-          cooldown: day.cooldown || "",
-          notes: day.notes || "",
+          notes: day.notes || '',
           exercises: day.exercises.map((ex: any, exIndex: number) => {
             // Перевіряємо обов'язкові поля вправи
             if (!ex.name || !ex.description || !ex.sets || !ex.reps || !ex.rest) {

@@ -1,5 +1,8 @@
 import React from 'react';
 import { UI_TEXT } from '../constants';
+import { useAuth } from '../hooks/useAuth';
+import { auth } from '../config/firebase';
+import { deleteUser } from 'firebase/auth';
 
 type View = 'profile' | 'workout' | 'progress';
 
@@ -23,8 +26,25 @@ const NavItem: React.FC<{label: string, isActive: boolean, onClick: () => void, 
 );
 
 const Navbar: React.FC<NavbarProps> = ({ currentView, onViewChange }) => {
+  const { user, logout } = useAuth();
+
+  const handleDeleteAccount = async () => {
+    if (!user) return;
+    if (!window.confirm('Ви впевнені, що хочете видалити свій акаунт? Цю дію не можна скасувати!')) return;
+    try {
+      await deleteUser(auth.currentUser!);
+      alert('Акаунт успішно видалено.');
+    } catch (error: any) {
+      if (error.code === 'auth/requires-recent-login') {
+        alert('Для видалення акаунта потрібно повторно увійти. Вийдіть і увійдіть знову, потім спробуйте ще раз.');
+      } else {
+        alert('Помилка при видаленні акаунта: ' + error.message);
+      }
+    }
+  };
+
   return (
-    <nav className="flex space-x-1 sm:space-x-2 bg-gray-700/30 p-1 rounded-lg">
+    <nav className="flex space-x-1 sm:space-x-2 bg-gray-700/30 p-1 rounded-lg items-center">
       <NavItem 
         label={UI_TEXT.tabProfile} 
         isActive={currentView === 'profile'} 
@@ -35,7 +55,7 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, onViewChange }) => {
         label={UI_TEXT.tabWorkout} 
         isActive={currentView === 'workout'} 
         onClick={() => onViewChange('workout')}
-        iconClass="fas fa-bolt" // Represents workout/energy
+        iconClass="fas fa-bolt"
       />
       <NavItem 
         label={UI_TEXT.tabProgress} 
@@ -43,6 +63,22 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, onViewChange }) => {
         onClick={() => onViewChange('progress')}
         iconClass="fas fa-chart-line"
       />
+      {user && (
+        <>
+          <button
+            onClick={logout}
+            className="ml-2 px-3 py-2 rounded-md bg-red-600 hover:bg-red-700 text-white text-sm font-medium shadow transition"
+          >
+            <i className="fas fa-sign-out-alt mr-1"></i>Вийти
+          </button>
+          <button
+            onClick={handleDeleteAccount}
+            className="ml-2 px-3 py-2 rounded-md bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium shadow transition border border-red-400"
+          >
+            <i className="fas fa-user-slash mr-1"></i>Видалити акаунт
+          </button>
+        </>
+      )}
     </nav>
   );
 };

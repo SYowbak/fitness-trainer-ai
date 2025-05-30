@@ -26,9 +26,9 @@ export const BODY_TYPE_OPTIONS: Array<{ value: BodyType; label: string; hint: st
 ];
 
 export const FITNESS_GOAL_OPTIONS: Array<{ value: FitnessGoal; label: string }> = [
-  { value: FitnessGoal.LOSE_WEIGHT, label: 'Схуднути' },
-  { value: FitnessGoal.GAIN_MUSCLE, label: 'Набрати м\'язову масу' },
-  { value: FitnessGoal.STRENGTHEN_LIGAMENTS, label: 'Зміцнити зв\'язки та суглоби' },
+  { value: FitnessGoal.WEIGHT_LOSS, label: 'Схуднути' },
+  { value: FitnessGoal.MUSCLE_GAIN, label: 'Набрати м\'язову масу' },
+  { value: FitnessGoal.STRENGTH, label: 'Зміцнити силу' },
   { value: FitnessGoal.GENERAL_FITNESS, label: 'Підтримати загальну фізичну форму' },
 ];
 
@@ -92,11 +92,6 @@ export const EXPERIENCE_LEVEL_OPTIONS: Array<{ value: ExperienceLevel; label: st
     value: ExperienceLevel.ADVANCED, 
     label: 'Просунутий', 
     hint: 'Від 2 до 5 років досвіду. Впевнене виконання складних вправ, розуміння техніки та можливість самостійно складати програми' 
-  },
-  { 
-    value: ExperienceLevel.PROFESSIONAL, 
-    label: 'Професіонал', 
-    hint: 'Більше 5 років досвіду. Глибоке розуміння тренувального процесу, можливість працювати з максимальними навантаженнями' 
   },
 ];
 

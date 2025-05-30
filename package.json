@@ -10,9 +10,9 @@
   },
   "dependencies": {
     "@google/genai": "^1.2.0",
+    "firebase": "^10.14.1",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "firebase": "^10.8.0"
+    "react-dom": "^19.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
