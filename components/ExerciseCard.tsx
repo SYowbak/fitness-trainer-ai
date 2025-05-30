@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Exercise, LoggedSet } from '../types';
+import { Exercise, LoggedSetWithAchieved } from '../types';
 import { UI_TEXT, formatTime } from '../constants';
 
 interface ExerciseCardProps {
   exercise: Exercise;
   exerciseIndex: number;
   isActiveWorkout: boolean;
-  onLogExercise: (exerciseIndex: number, loggedSets: LoggedSet[], success: boolean) => void;
+  onLogExercise: (exerciseIndex: number, loggedSets: LoggedSetWithAchieved[], success: boolean) => void;
   isCompleted: boolean;
 }
 
@@ -14,8 +14,10 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, exerciseIndex, is
   const [isExpanded, setIsExpanded] = useState(false);
   const [showLogForm, setShowLogForm] = useState(false);
   
-  const numSets = typeof exercise.sets === 'string' ? (parseInt(exercise.sets.split('-')[0], 10) || 3) : exercise.sets;
-  const [loggedSetsData, setLoggedSetsData] = useState<Array<Partial<LoggedSet>>>(() => Array(numSets).fill({ repsAchieved: undefined, weightUsed: undefined }));
+  const numSets = typeof exercise.sets === 'string' 
+    ? (parseInt(exercise.sets.split('-')[0], 10) || 3) 
+    : (typeof exercise.sets === 'number' ? exercise.sets : 3);
+  const [loggedSetsData, setLoggedSetsData] = useState<LoggedSetWithAchieved[]>(() => Array(numSets).fill({ repsAchieved: undefined, weightUsed: undefined }));
   const [allSetsSuccessful, setAllSetsSuccessful] = useState<boolean>(true);
 
   const [restTimer, setRestTimer] = useState<number>(0);
@@ -46,12 +48,13 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, exerciseIndex, is
 
 
   const handleStartRest = () => {
-    const restSeconds = parseInt(exercise.rest.split(' ')[0], 10) || 60;
-    setRestTimer(restSeconds);
+    const restStr = exercise.rest ?? '60';
+    const restSeconds = typeof restStr === 'string' ? parseInt(restStr.split(' ')[0], 10) : Number(restStr);
+    setRestTimer(restSeconds || 60);
     setIsResting(true);
   };
 
-  const handleSetDataChange = (setIndex: number, field: keyof LoggedSet, value: string) => {
+  const handleSetDataChange = (setIndex: number, field: keyof LoggedSetWithAchieved, value: string) => {
     const newLoggedSetsData = [...loggedSetsData];
     newLoggedSetsData[setIndex] = { ...newLoggedSetsData[setIndex], [field]: value ? parseFloat(value) : undefined };
     setLoggedSetsData(newLoggedSetsData);
@@ -59,7 +62,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, exerciseIndex, is
   
   const handleLogFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const validSets = loggedSetsData.filter(s => s.repsAchieved !== undefined && s.repsAchieved !== null && s.weightUsed !== undefined && s.weightUsed !== null) as LoggedSet[];
+    const validSets = loggedSetsData.filter(s => s.repsAchieved !== undefined && s.repsAchieved !== null && s.weightUsed !== undefined && s.weightUsed !== null) as LoggedSetWithAchieved[];
     
     if (validSets.length === 0) {
         if (!confirm("Ви не ввели дані для жодного підходу. Залогувати вправу як пропущену (без зарахування прогресу)?")) {
@@ -97,7 +100,11 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, exerciseIndex, is
           
           <div>
             <strong className="text-purple-200 block mb-1 text-xs sm:text-sm"><i className="fas fa-info-circle mr-1"></i>{UI_TEXT.exerciseInstructions}</strong>
-            <p className="text-gray-200 whitespace-pre-line text-sm leading-relaxed">{exercise.description || "Детальний опис відсутній."}</p>
+            {exercise.description && (
+              <div className="mt-2 text-xs text-gray-300 whitespace-pre-line">
+                <strong className="text-purple-200">Опис:</strong> {exercise.description}
+              </div>
+            )}
           </div>
 
           {exercise.videoSearchQuery && (
@@ -117,11 +124,11 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, exerciseIndex, is
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs sm:text-sm">
             <div className="bg-gray-600/70 p-2 rounded shadow">
               <strong className="block text-purple-200 mb-0.5"><i className="fas fa-layer-group mr-1"></i>{UI_TEXT.sets}</strong>
-              <span className="text-gray-100">{exercise.sets.toString()}</span>
+              <span className="text-gray-100">{typeof exercise.sets === 'string' ? exercise.sets : exercise.sets?.toString()}</span>
             </div>
             <div className="bg-gray-600/70 p-2 rounded shadow">
               <strong className="block text-purple-200 mb-0.5"><i className="fas fa-redo mr-1"></i>{UI_TEXT.reps}</strong>
-              <span className="text-gray-100">{exercise.targetReps || exercise.reps}</span>
+              <span className="text-gray-100">{exercise.targetReps ?? exercise.reps}</span>
             </div>
             <div className="bg-gray-600/70 p-2 rounded shadow col-span-2 sm:col-span-1">
               <strong className="block text-purple-200 mb-0.5"><i className="fas fa-stopwatch mr-1"></i>{UI_TEXT.rest}</strong>
@@ -144,7 +151,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, exerciseIndex, is
                             ${isResting ? 'bg-gray-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
               >
                 <i className="fas fa-hourglass-half mr-2"></i>
-                {isResting ? `Відпочинок: ${formatTime(restTimer)}` : `${UI_TEXT.startRest} (${exercise.rest.split(' ')[0]}с)`}
+                {isResting ? `Відпочинок: ${formatTime(restTimer)}` : `${UI_TEXT.startRest} (${exercise.rest?.split(' ')[0] ?? '60'}с)`}
               </button>
 
               <button 
@@ -163,7 +170,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, exerciseIndex, is
         <div className="fixed inset-0 bg-gray-900/80 backdrop-blur-sm flex items-center justify-center p-3 z-[100]" onClick={() => setShowLogForm(false)}>
           <div className="bg-gray-700 p-3 sm:p-5 rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg sm:text-xl font-semibold text-purple-300 mb-3">{UI_TEXT.logExercise}: {exercise.name}</h3>
-            <p className="text-xs sm:text-sm text-gray-300 mb-1">План: {exercise.sets} підходів по {exercise.targetReps || exercise.reps} повторень.</p>
+            <p className="text-xs sm:text-sm text-gray-300 mb-1">План: {exercise.sets} підходів по {exercise.targetReps ?? exercise.reps} повторень.</p>
             {exercise.targetWeight !== null && exercise.targetWeight !== undefined && <p className="text-xs sm:text-sm text-gray-300 mb-2">Цільова вага: {exercise.targetWeight} кг.</p>}
             
             <form onSubmit={handleLogFormSubmit} className="space-y-3">
@@ -177,7 +184,9 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, exerciseIndex, is
                         type="number" 
                         id={`reps-${setIndex}`}
                         min="0"
-                        placeholder={(exercise.targetReps || exercise.reps).split('-')[0]} // Suggest first number in range
+                        placeholder={typeof (exercise.targetReps || exercise.reps) === 'string' 
+                          ? (exercise.targetReps || exercise.reps).toString().split('-')[0] 
+                          : (exercise.targetReps || exercise.reps)?.toString()}
                         value={loggedSetsData[setIndex]?.repsAchieved ?? ''}
                         onChange={(e) => handleSetDataChange(setIndex, 'repsAchieved', e.target.value)}
                         className="w-full p-2 bg-gray-500 border border-gray-400 rounded-md text-gray-100 text-xs sm:text-sm"
@@ -190,8 +199,8 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, exerciseIndex, is
                         type="number" 
                         id={`weight-${setIndex}`}
                         min="0"
-                        step="0.1"
-                        placeholder={(exercise.targetWeight ?? '0').toString()}
+                        step="0.5"
+                        placeholder={exercise.targetWeight?.toString() ?? ''}
                         value={loggedSetsData[setIndex]?.weightUsed ?? ''}
                         onChange={(e) => handleSetDataChange(setIndex, 'weightUsed', e.target.value)}
                         className="w-full p-2 bg-gray-500 border border-gray-400 rounded-md text-gray-100 text-xs sm:text-sm"
@@ -201,18 +210,20 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, exerciseIndex, is
                   </div>
                 </div>
               ))}
-
-              <div className="pt-2">
-                <label className="block text-xs sm:text-sm font-medium text-purple-200 mb-1.5">{UI_TEXT.allSetsRepsGoodForm}</label>
-                <div className="flex items-center space-x-3">
-                  <button type="button" onClick={() => setAllSetsSuccessful(true)} className={`px-3 py-1.5 rounded-md text-xs sm:text-sm ${allSetsSuccessful ? 'bg-green-600 text-white ring-2 ring-green-400' : 'bg-gray-500 hover:bg-gray-400 text-gray-200'}`}>{UI_TEXT.yes}</button>
-                  <button type="button" onClick={() => setAllSetsSuccessful(false)} className={`px-3 py-1.5 rounded-md text-xs sm:text-sm ${!allSetsSuccessful ? 'bg-red-600 text-white ring-2 ring-red-400' : 'bg-gray-500 hover:bg-gray-400 text-gray-200'}`}>{UI_TEXT.no}</button>
-                </div>
-              </div>
-
-              <div className="flex justify-end space-x-2 sm:space-x-3 pt-3">
-                <button type="button" onClick={() => setShowLogForm(false)} className="py-1.5 px-3 sm:py-2 sm:px-4 rounded-md text-xs sm:text-sm bg-gray-500 hover:bg-gray-400 text-gray-200">Скасувати</button>
-                <button type="submit" className="py-1.5 px-3 sm:py-2 sm:px-4 rounded-md text-xs sm:text-sm bg-purple-600 hover:bg-purple-700 text-white">Зберегти Лог</button>
+              <div className="flex justify-end space-x-2 mt-4">
+                <button 
+                  type="button"
+                  onClick={() => setShowLogForm(false)}
+                  className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-xs sm:text-sm"
+                >
+                  {UI_TEXT.cancel}
+                </button>
+                <button 
+                  type="submit"
+                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-xs sm:text-sm"
+                >
+                  {UI_TEXT.save}
+                </button>
               </div>
             </form>
           </div>

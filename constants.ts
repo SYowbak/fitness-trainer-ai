@@ -166,6 +166,8 @@ export const UI_TEXT = {
   weightLabel: "Вага (кг):",
   experienceLevelLabel: "Рівень підготовки:",
   targetMuscleGroupsLabel: "Акцент на групи м'язів:",
+  cancel: "Скасувати",
+  save: "Зберегти"
 };
 
 export function getUkrainianGoal(goal: FitnessGoal): string {
