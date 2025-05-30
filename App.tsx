@@ -138,9 +138,9 @@ const App: React.FC = () => {
   }, [userProfile, apiKeyMissing, activeWorkoutDay, saveWorkoutPlan]);
 
   const handleStartWorkout = useCallback((dayNumber: number) => {
-    if (!currentWorkoutPlan) return;
+    if (!currentWorkoutPlan || !Array.isArray(currentWorkoutPlan)) return;
     const planForDay = currentWorkoutPlan.find(d => d.day === dayNumber);
-    if (planForDay) {
+    if (planForDay && planForDay.exercises && Array.isArray(planForDay.exercises)) {
       setSessionExercises(planForDay.exercises.map(ex => ({ 
         ...ex, 
         isCompletedDuringSession: false,
@@ -165,7 +165,7 @@ const App: React.FC = () => {
   }, []);
   
   const handleEndWorkout = useCallback(() => {
-    if (activeWorkoutDay === null || !currentWorkoutPlan || !workoutStartTime) return;
+    if (activeWorkoutDay === null || !currentWorkoutPlan || !Array.isArray(currentWorkoutPlan) || !workoutStartTime) return;
 
     const loggedExercisesForSession: LoggedExercise[] = sessionExercises
       .filter(ex => ex.isCompletedDuringSession)
@@ -197,7 +197,7 @@ const App: React.FC = () => {
     let planWasUpdated = false;
     const updatedPlan = currentWorkoutPlan.map(dayPlan => {
       if (dayPlan.day === activeWorkoutDay) {
-        const newExercisesForDay = dayPlan.exercises.map(exInPlan => {
+        const newExercisesForDay = (dayPlan.exercises && Array.isArray(dayPlan.exercises) ? dayPlan.exercises : []).map(exInPlan => {
           const loggedEx = loggedExercisesForSession.find(le => le.name === exInPlan.name);
           if (loggedEx && loggedEx.sets.length > 0) {
             let newTargetWeight = exInPlan.targetWeight;

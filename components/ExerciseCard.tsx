@@ -23,9 +23,6 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, exerciseIndex, is
   const [restTimer, setRestTimer] = useState<number>(0);
   const [isResting, setIsResting] = useState<boolean>(false);
 
-  // Тимчасовий лог для перевірки значення exercise.rest
-  console.log(`Exercise: ${exercise.name}, Rest value: ${exercise.rest}`);
-
   useEffect(() => {
     let interval: number | null = null;
     if (isResting && restTimer > 0) {
