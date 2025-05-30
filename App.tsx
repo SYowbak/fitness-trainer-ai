@@ -7,7 +7,6 @@ import WorkoutDisplay from './components/WorkoutDisplay';
 import ProgressView from './components/ProgressView';
 import Spinner from './components/Spinner';
 import ErrorMessage from './components/ErrorMessage';
-import { saveUserProfile as storageSaveUserProfile, loadUserProfile as storageLoadUserProfile, saveWorkoutLogs as storageSaveWorkoutLogs, loadWorkoutLogs as storageLoadWorkoutLogs } from './services/localStorageService';
 import { generateWorkoutPlan as apiGenerateWorkoutPlan } from './services/geminiService';
 import { useAuth } from './hooks/useAuth';
 import { AuthForm } from './components/AuthForm';
@@ -19,7 +18,7 @@ type View = 'profile' | 'workout' | 'progress';
 
 const App: React.FC = () => {
   const { user, loading, logout } = useAuth();
-  const { workoutPlan, saveWorkoutPlan, loading: userDataLoading } = useUserData();
+  const { workoutPlan, saveWorkoutPlan, loading: userDataLoading, profile: firestoreProfile, workoutLogs: firestoreWorkoutLogs, saveProfile, saveWorkoutLog } = useUserData();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [currentWorkoutPlan, setCurrentWorkoutPlan] = useState<DailyWorkoutPlan[] | null>(null);
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
@@ -38,24 +37,6 @@ const App: React.FC = () => {
     if (typeof import.meta.env === 'undefined' || !import.meta.env.VITE_API_KEY) {
       setApiKeyMissing(true);
     }
-    const loadedProfile = storageLoadUserProfile();
-    if (loadedProfile) {
-      setUserProfile(loadedProfile);
-      const loadedLogs = storageLoadWorkoutLogs();
-      setWorkoutLogs(loadedLogs.map(log => ({
-        ...log,
-        date: new Date(log.date),
-        id: log.id || new Date(log.date).toISOString(),
-        userId: log.userId || 'anonymous',
-        duration: log.duration || 0,
-        exercises: (log.exercises || []).map((ex: any) => ({
-          name: ex.name || ex.exerciseName || 'Unknown Exercise',
-          sets: ex.sets || ex.loggedSets || [],
-        })),
-      })));
-    } else {
-      setCurrentView('profile');
-    }
   }, []);
 
   useEffect(() => {
@@ -67,6 +48,12 @@ const App: React.FC = () => {
       setCurrentView('profile');
     }
   }, [workoutPlan]);
+
+  // Синхронізація профілю та логів з useUserData (Firestore)
+  useEffect(() => {
+    setUserProfile(firestoreProfile);
+    setWorkoutLogs(firestoreWorkoutLogs);
+  }, [firestoreProfile, firestoreWorkoutLogs]);
 
   useEffect(() => {
     let timerInterval: number | null = null;
@@ -94,8 +81,7 @@ const App: React.FC = () => {
         ...profile,
         targetMuscleGroups: profile.targetMuscleGroups || [],
       };
-      setUserProfile(profileToSave);
-      storageSaveUserProfile(profileToSave);
+      await saveProfile(profileToSave); // Зберігаємо в Firestore через useUserData
       const plan = await apiGenerateWorkoutPlan(profileToSave, GEMINI_MODEL_TEXT);
       await saveWorkoutPlan(plan);
       setActiveWorkoutDay(null);
@@ -106,7 +92,7 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [apiKeyMissing, saveWorkoutPlan]);
+  }, [apiKeyMissing, saveWorkoutPlan, saveProfile]);
 
   const handleGenerateNewPlan = useCallback(async () => {
     if (apiKeyMissing) {
@@ -164,7 +150,7 @@ const App: React.FC = () => {
     );
   }, []);
   
-  const handleEndWorkout = useCallback(() => {
+  const handleEndWorkout = useCallback(async () => {
     if (activeWorkoutDay === null || !currentWorkoutPlan || !Array.isArray(currentWorkoutPlan) || !workoutStartTime) return;
 
     const loggedExercisesForSession: LoggedExercise[] = sessionExercises
@@ -192,7 +178,7 @@ const App: React.FC = () => {
 
     const updatedLogs = [...workoutLogs, newLog];
     setWorkoutLogs(updatedLogs);
-    storageSaveWorkoutLogs(updatedLogs);
+    await saveWorkoutLog(newLog); // Зберігаємо новий лог у Firestore через useUserData
 
     let planWasUpdated = false;
     const updatedPlan = currentWorkoutPlan.map(dayPlan => {
@@ -232,13 +218,13 @@ const App: React.FC = () => {
     setWorkoutStartTime(null);
     setSessionExercises([]);
     setCurrentView('progress'); 
-  }, [activeWorkoutDay, sessionExercises, currentWorkoutPlan, workoutLogs, workoutStartTime, userProfile, saveWorkoutPlan]);
+  }, [activeWorkoutDay, sessionExercises, currentWorkoutPlan, workoutLogs, workoutStartTime, userProfile, saveWorkoutPlan, saveWorkoutLog]);
 
   const handleDeleteAccount = async () => {
     if (!user) return;
     if (!window.confirm('Ви впевнені, що хочете видалити свій акаунт? Цю дію не можна скасувати!')) return;
     try {
-      // Очищення даних з локального сховища
+      // Очищення даних з локального сховища (залишаємо для надійності, хоча вже не використовуємо активно)
       localStorage.removeItem('fitnessAiAppUserProfile_v1');
       localStorage.removeItem('fitnessAiAppWorkoutPlan_v1');
       localStorage.removeItem('fitnessAiAppWorkoutLogs_v1');
