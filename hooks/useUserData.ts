@@ -84,7 +84,10 @@ export const useUserData = () => {
         const docRef = doc(db, 'workoutPlans', user.uid);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
+          console.log('Workout plan loaded from Firestore:', docSnap.data().plan);
           setWorkoutPlan(docSnap.data().plan as DailyWorkoutPlan[]);
+        } else {
+          console.log('No workout plan found in Firestore for user', user.uid);
         }
       } catch (error) {
         console.error('Error loading workout plan:', error);
@@ -132,6 +135,7 @@ export const useUserData = () => {
     try {
       await setDoc(doc(db, 'workoutPlans', user.uid), { plan });
       setWorkoutPlan(plan);
+      console.log('Workout plan saved to Firestore:', plan);
     } catch (error) {
       console.error('Error saving workout plan:', error);
       throw error;

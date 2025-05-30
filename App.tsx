@@ -17,7 +17,7 @@ type View = 'profile' | 'workout' | 'progress';
 
 const App: React.FC = () => {
   const { user, loading } = useAuth();
-  const { workoutPlan, saveWorkoutPlan } = useUserData();
+  const { workoutPlan, saveWorkoutPlan, loading: userDataLoading } = useUserData();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [currentWorkoutPlan, setCurrentWorkoutPlan] = useState<DailyWorkoutPlan[] | null>(null);
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
@@ -272,7 +272,7 @@ const App: React.FC = () => {
     }
   };
 
-  if (loading) {
+  if (loading || userDataLoading) {
     return <div className="flex items-center justify-center min-h-screen text-xl text-purple-400">Завантаження...</div>;
   }
 
