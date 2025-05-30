@@ -100,9 +100,30 @@ const UserProfileForm: React.FC<UserProfileFormProps> = ({ existingProfile, onSa
         </div>
         <div>
           <label htmlFor="bodyType" className={commonLabelClasses}>{UI_TEXT.bodyTypeLabel}</label>
-          <select id="bodyType" value={bodyType} onChange={(e) => setBodyType(e.target.value as BodyType)} className={commonSelectClasses}>
-            {BODY_TYPE_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-          </select>
+          <div className="space-y-2">
+            {BODY_TYPE_OPTIONS.map(option => (
+              <label 
+                key={option.value} 
+                className={`flex flex-col p-3 rounded-md cursor-pointer transition-colors
+                  ${bodyType === option.value
+                    ? 'bg-purple-600/30 border-purple-500' 
+                    : 'bg-gray-700/50 border-gray-600 hover:bg-gray-700'
+                  } border`}
+              >
+                <div className="flex items-center">
+                  <input
+                    type="radio"
+                    name="bodyType"
+                    checked={bodyType === option.value}
+                    onChange={() => setBodyType(option.value)}
+                    className="mr-2 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-600"
+                  />
+                  <span className="text-gray-200 font-medium">{option.label}</span>
+                </div>
+                <span className="text-sm text-gray-400 mt-1 ml-6">{option.hint}</span>
+              </label>
+            ))}
+          </div>
         </div>
         <div>
           <label htmlFor="goal" className={commonLabelClasses}>{UI_TEXT.goalLabel}</label>
@@ -118,62 +139,95 @@ const UserProfileForm: React.FC<UserProfileFormProps> = ({ existingProfile, onSa
         </div>
         <div>
           <label htmlFor="height" className={commonLabelClasses}>{UI_TEXT.heightLabel}</label>
-          <input
-            type="number"
-            id="height"
-            value={height}
-            onChange={(e) => setHeight(Number(e.target.value))}
-            className={commonSelectClasses}
-            min="100"
-            max="250"
-            step="1"
-          />
+          <div className="relative">
+            <input
+              type="number"
+              id="height"
+              value={height}
+              onChange={(e) => setHeight(Number(e.target.value))}
+              className={`${commonSelectClasses} ${height === 170 ? 'text-gray-400' : 'text-gray-200'}`}
+              min="100"
+              max="250"
+              step="1"
+            />
+            {height === 170 && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">
+                Середній зріст
+              </div>
+            )}
+          </div>
+          <p className="text-sm text-gray-400 mt-1">Введіть ваш зріст у сантиметрах (100-250 см)</p>
         </div>
         <div>
           <label htmlFor="weight" className={commonLabelClasses}>{UI_TEXT.weightLabel}</label>
-          <input
-            type="number"
-            id="weight"
-            value={weight}
-            onChange={(e) => setWeight(Number(e.target.value))}
-            className={commonSelectClasses}
-            min="30"
-            max="300"
-            step="0.1"
-          />
+          <div className="relative">
+            <input
+              type="number"
+              id="weight"
+              value={weight}
+              onChange={(e) => setWeight(Number(e.target.value))}
+              className={`${commonSelectClasses} ${weight === 70 ? 'text-gray-400' : 'text-gray-200'}`}
+              min="30"
+              max="300"
+              step="0.1"
+            />
+            {weight === 70 && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">
+                Середня вага
+              </div>
+            )}
+          </div>
+          <p className="text-sm text-gray-400 mt-1">Введіть вашу вагу у кілограмах (30-300 кг)</p>
         </div>
         <div>
           <label htmlFor="experienceLevel" className={commonLabelClasses}>{UI_TEXT.experienceLevelLabel}</label>
-          <select 
-            id="experienceLevel" 
-            value={experienceLevel} 
-            onChange={(e) => setExperienceLevel(e.target.value as ExperienceLevel)} 
-            className={commonSelectClasses}
-          >
+          <div className="space-y-2">
             {EXPERIENCE_LEVEL_OPTIONS.map(option => (
-              <option key={option.value} value={option.value}>{option.label}</option>
+              <label 
+                key={option.value} 
+                className={`flex flex-col p-3 rounded-md cursor-pointer transition-colors
+                  ${experienceLevel === option.value
+                    ? 'bg-purple-600/30 border-purple-500' 
+                    : 'bg-gray-700/50 border-gray-600 hover:bg-gray-700'
+                  } border`}
+              >
+                <div className="flex items-center">
+                  <input
+                    type="radio"
+                    name="experienceLevel"
+                    checked={experienceLevel === option.value}
+                    onChange={() => setExperienceLevel(option.value)}
+                    className="mr-2 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-600"
+                  />
+                  <span className="text-gray-200 font-medium">{option.label}</span>
+                </div>
+                <span className="text-sm text-gray-400 mt-1 ml-6">{option.hint}</span>
+              </label>
             ))}
-          </select>
+          </div>
         </div>
         <div>
           <label className={commonLabelClasses}>{UI_TEXT.targetMuscleGroupsLabel}</label>
-          <div className="grid grid-cols-2 gap-2 mt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
             {MUSCLE_GROUP_OPTIONS.map(option => (
               <label 
                 key={option.value} 
-                className={`flex items-center p-3 rounded-md cursor-pointer transition-colors
+                className={`flex flex-col p-3 rounded-md cursor-pointer transition-colors
                   ${targetMuscleGroups.includes(option.value as MuscleGroup) 
                     ? 'bg-purple-600/30 border-purple-500' 
                     : 'bg-gray-700/50 border-gray-600 hover:bg-gray-700'
                   } border`}
               >
-                <input
-                  type="checkbox"
-                  checked={targetMuscleGroups.includes(option.value as MuscleGroup)}
-                  onChange={() => handleMuscleGroupChange(option.value as MuscleGroup)}
-                  className="mr-2 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-600 rounded"
-                />
-                <span className="text-gray-200">{option.label}</span>
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={targetMuscleGroups.includes(option.value as MuscleGroup)}
+                    onChange={() => handleMuscleGroupChange(option.value as MuscleGroup)}
+                    className="mr-2 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-600 rounded"
+                  />
+                  <span className="text-gray-200 font-medium">{option.label}</span>
+                </div>
+                <span className="text-sm text-gray-400 mt-1 ml-6">{option.hint}</span>
               </label>
             ))}
           </div>

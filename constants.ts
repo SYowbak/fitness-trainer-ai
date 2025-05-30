@@ -7,10 +7,22 @@ export const GENDER_OPTIONS: Array<{ value: Gender; label: string }> = [
   { value: Gender.MALE, label: 'Чоловік' },
 ];
 
-export const BODY_TYPE_OPTIONS: Array<{ value: BodyType; label: string }> = [
-  { value: BodyType.ECTOMORPH, label: 'Ектоморф' },
-  { value: BodyType.ENDOMORPH, label: 'Ендоморф' },
-  { value: BodyType.MESOMORPH, label: 'Мезоморф' },
+export const BODY_TYPE_OPTIONS: Array<{ value: BodyType; label: string; hint: string }> = [
+  { 
+    value: BodyType.ECTOMORPH, 
+    label: 'Ектоморф', 
+    hint: 'Худорлява статура, довгі кінцівки, швидкий метаболізм. Складно набирати вагу та м\'язову масу' 
+  },
+  { 
+    value: BodyType.ENDOMORPH, 
+    label: 'Ендоморф', 
+    hint: 'Широка кістка, повільний метаболізм, схильність до набору жиру. Легко набирати вагу, складно худнути' 
+  },
+  { 
+    value: BodyType.MESOMORPH, 
+    label: 'Мезоморф', 
+    hint: 'Атлетична статура, середній метаболізм. Легко набирати м\'язову масу та худнути' 
+  },
 ];
 
 export const FITNESS_GOAL_OPTIONS: Array<{ value: FitnessGoal; label: string }> = [
@@ -29,22 +41,63 @@ export const TRAINING_FREQUENCY_OPTIONS: Array<{ value: number; label: string }>
   { value: 5, label: '6 разів на тиждень' },
 ];
 
-export const MUSCLE_GROUP_OPTIONS: Array<{ value: MuscleGroup | ''; label: string }> = [
-  { value: '', label: 'Не обрано / Загальний розвиток' },
-  { value: MuscleGroup.FULL_BODY, label: 'Все тіло' },
-  { value: MuscleGroup.LEGS, label: 'Ноги' },
-  { value: MuscleGroup.CHEST, label: 'Груди' },
-  { value: MuscleGroup.BACK, label: 'Спина' },
-  { value: MuscleGroup.SHOULDERS, label: 'Плечі' },
-  { value: MuscleGroup.ARMS, label: 'Руки (Біцепс/Трицепс)' },
-  { value: MuscleGroup.CORE, label: 'Прес (Кор)' },
+export const MUSCLE_GROUP_OPTIONS: Array<{ value: MuscleGroup | ''; label: string; hint: string }> = [
+  { value: '', label: 'Не обрано / Загальний розвиток', hint: 'План тренувань буде збалансованим для всіх груп м\'язів' },
+  
+  // Ноги
+  { value: MuscleGroup.QUADS, label: 'Квадрицепси', hint: 'Передня частина стегна, відповідає за розгинання ноги в коліні' },
+  { value: MuscleGroup.HAMSTRINGS, label: 'Біцепс стегна', hint: 'Задня частина стегна, відповідає за згинання ноги в коліні' },
+  { value: MuscleGroup.CALVES, label: 'Литки', hint: 'М\'язи задньої частини гомілки, відповідають за підйом на носки' },
+  { value: MuscleGroup.GLUTES, label: 'Сідничні м\'язи', hint: 'Найбільші м\'язи тіла, відповідають за розгинання стегна' },
+  
+  // Спина
+  { value: MuscleGroup.LATS, label: 'Широчайші м\'язи спини', hint: 'Найбільші м\'язи спини, відповідають за приведення рук до тулуба' },
+  { value: MuscleGroup.TRAPS, label: 'Трапецієподібні м\'язи', hint: 'Верхня частина спини, відповідає за підняття лопаток' },
+  { value: MuscleGroup.RHOMBOIDS, label: 'Ромбовидні м\'язи', hint: 'М\'язи між лопатками, відповідають за зведення лопаток' },
+  { value: MuscleGroup.LOWER_BACK, label: 'Нижня частина спини', hint: 'М\'язи, що підтримують хребет, важливі для стабільності' },
+  
+  // Груди
+  { value: MuscleGroup.UPPER_CHEST, label: 'Верхня частина грудей', hint: 'Верхні пучки грудних м\'язів, важливі для об\'єму грудей зверху' },
+  { value: MuscleGroup.MIDDLE_CHEST, label: 'Середня частина грудей', hint: 'Центральні пучки грудних м\'язів, основна маса грудей' },
+  { value: MuscleGroup.LOWER_CHEST, label: 'Нижня частина грудей', hint: 'Нижні пучки грудних м\'язів, формують нижній контур грудей' },
+  
+  // Плечі
+  { value: MuscleGroup.FRONT_DELTS, label: 'Передні дельти', hint: 'Передні пучки дельтоподібних м\'язів, відповідають за підняття рук вперед' },
+  { value: MuscleGroup.SIDE_DELTS, label: 'Бічні дельти', hint: 'Бічні пучки дельтоподібних м\'язів, відповідають за підняття рук вбік' },
+  { value: MuscleGroup.REAR_DELTS, label: 'Задні дельти', hint: 'Задні пучки дельтоподібних м\'язів, відповідають за відведення рук назад' },
+  
+  // Руки
+  { value: MuscleGroup.BICEPS, label: 'Біцепс', hint: 'Передня частина плеча, відповідає за згинання руки в лікті' },
+  { value: MuscleGroup.TRICEPS, label: 'Трицепс', hint: 'Задня частина плеча, відповідає за розгинання руки в лікті' },
+  { value: MuscleGroup.FOREARMS, label: 'Передпліччя', hint: 'М\'язи нижньої частини руки, відповідають за силу хвату' },
+  
+  // Кор
+  { value: MuscleGroup.ABS, label: 'Прямий м\'яз живота', hint: 'Центральна частина пресу, відповідає за згинання тулуба' },
+  { value: MuscleGroup.OBLIQUES, label: 'Косі м\'язи живота', hint: 'Бічні м\'язи живота, відповідають за повороти тулуба' },
+  { value: MuscleGroup.LOWER_ABS, label: 'Нижній прес', hint: 'Нижня частина прямого м\'яза живота, важлива для стабільності' },
 ];
 
-export const EXPERIENCE_LEVEL_OPTIONS: Array<{ value: ExperienceLevel; label: string }> = [
-  { value: ExperienceLevel.BEGINNER, label: 'Новачок' },
-  { value: ExperienceLevel.INTERMEDIATE, label: 'Середній рівень' },
-  { value: ExperienceLevel.ADVANCED, label: 'Просунутий' },
-  { value: ExperienceLevel.PROFESSIONAL, label: 'Професіонал' },
+export const EXPERIENCE_LEVEL_OPTIONS: Array<{ value: ExperienceLevel; label: string; hint: string }> = [
+  { 
+    value: ExperienceLevel.BEGINNER, 
+    label: 'Новачок', 
+    hint: 'Менше 6 місяців досвіду тренувань. Потрібні базові вправи та техніка виконання' 
+  },
+  { 
+    value: ExperienceLevel.INTERMEDIATE, 
+    label: 'Середній рівень', 
+    hint: 'Від 6 місяців до 2 років досвіду. Можна виконувати складніші вправи та працювати з прогресивним навантаженням' 
+  },
+  { 
+    value: ExperienceLevel.ADVANCED, 
+    label: 'Просунутий', 
+    hint: 'Від 2 до 5 років досвіду. Впевнене виконання складних вправ, розуміння техніки та можливість самостійно складати програми' 
+  },
+  { 
+    value: ExperienceLevel.PROFESSIONAL, 
+    label: 'Професіонал', 
+    hint: 'Більше 5 років досвіду. Глибоке розуміння тренувального процесу, можливість працювати з максимальними навантаженнями' 
+  },
 ];
 
 export const DEFAULT_TRAINING_FREQUENCY = 3;
@@ -61,7 +114,7 @@ export const UI_TEXT = {
   saveProfile: "Зберегти профіль та згенерувати план",
   generateWorkout: "Згенерувати Новий План Тренувань",
   generatingWorkout: "Генерація плану...",
-  nameLabel: "Ім'я (необов'язково):",
+  nameLabel: "Ім'я:",
   genderLabel: "Стать:",
   bodyTypeLabel: "Тип статури:",
   goalLabel: "Фітнес ціль:",
@@ -133,7 +186,7 @@ export function getUkrainianGender(gender: Gender): string {
     return option ? option.label : "не вказано";
 }
 export function getUkrainianMuscleGroup(muscleGroup?: MuscleGroup | ''): string {
-    if (!muscleGroup) return MUSCLE_GROUP_OPTIONS[0].label; // 'Не обрано / Загальний розвиток'
+    if (!muscleGroup) return MUSCLE_GROUP_OPTIONS[0].label;
     const option = MUSCLE_GROUP_OPTIONS.find(opt => opt.value === muscleGroup);
     return option ? option.label : "не вказано";
 }

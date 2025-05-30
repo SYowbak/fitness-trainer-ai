@@ -17,13 +17,37 @@ export enum FitnessGoal {
 }
 
 export enum MuscleGroup {
-  CHEST = 'chest',
-  BACK = 'back',
-  LEGS = 'legs',
-  SHOULDERS = 'shoulders',
-  ARMS = 'arms', // Biceps/Triceps
-  FULL_BODY = 'full_body',
-  CORE = 'core',
+  // Ноги
+  QUADS = 'quads', // Квадрицепси
+  HAMSTRINGS = 'hamstrings', // Біцепс стегна
+  CALVES = 'calves', // Литки
+  GLUTES = 'glutes', // Сідничні м'язи
+  
+  // Спина
+  LATS = 'lats', // Широчайші м'язи спини
+  TRAPS = 'traps', // Трапецієподібні м'язи
+  RHOMBOIDS = 'rhomboids', // Ромбовидні м'язи
+  LOWER_BACK = 'lower_back', // Нижня частина спини
+  
+  // Груди
+  UPPER_CHEST = 'upper_chest', // Верхня частина грудей
+  MIDDLE_CHEST = 'middle_chest', // Середня частина грудей
+  LOWER_CHEST = 'lower_chest', // Нижня частина грудей
+  
+  // Плечі
+  FRONT_DELTS = 'front_delts', // Передні дельти
+  SIDE_DELTS = 'side_delts', // Бічні дельти
+  REAR_DELTS = 'rear_delts', // Задні дельти
+  
+  // Руки
+  BICEPS = 'biceps', // Біцепс
+  TRICEPS = 'triceps', // Трицепс
+  FOREARMS = 'forearms', // Передпліччя
+  
+  // Кор
+  ABS = 'abs', // Прямий м'яз живота
+  OBLIQUES = 'obliques', // Косі м'язи живота
+  LOWER_ABS = 'lower_abs', // Нижній прес
 }
 
 export enum ExperienceLevel {
