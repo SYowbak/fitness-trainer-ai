@@ -35,7 +35,9 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
     workoutPlan && workoutPlan.length > 0 ? workoutPlan[0].day : null
   );
 
-  if (isLoading && (!workoutPlan || workoutPlan.length === 0) && activeDay === null) {
+  const isWorkoutPlanValid = workoutPlan && Array.isArray(workoutPlan);
+
+  if (isLoading && (!isWorkoutPlanValid || workoutPlan.length === 0) && activeDay === null) {
     return <Spinner message={UI_TEXT.generatingWorkout} />;
   }
   
@@ -49,7 +51,7 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
     );
   }
 
-  if (!workoutPlan || workoutPlan.length === 0) {
+  if (!isWorkoutPlanValid || workoutPlan.length === 0) {
     return (
       <div className="text-center p-6 sm:p-8 bg-gray-800/80 rounded-lg shadow-xl mt-6 sm:mt-10 backdrop-blur-sm">
         <i className="fas fa-exclamation-circle text-4xl sm:text-5xl text-yellow-400 mb-4 sm:mb-6"></i>
@@ -71,19 +73,19 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
     );
   }
 
-  const currentDayPlan = activeDay !== null ? workoutPlan.find(p => p.day === activeDay) : (selectedDayForView !== null ? workoutPlan.find(p => p.day === selectedDayForView) : null);
-  const exercisesToDisplay = activeDay !== null ? sessionExercises : (currentDayPlan ? currentDayPlan.exercises : []);
+  const currentDayPlan = activeDay !== null ? (isWorkoutPlanValid ? workoutPlan.find(p => p.day === activeDay) : null) : (selectedDayForView !== null && isWorkoutPlanValid ? workoutPlan.find(p => p.day === selectedDayForView) : null);
+  const exercisesToDisplay = activeDay !== null ? sessionExercises : (currentDayPlan && currentDayPlan.exercises && Array.isArray(currentDayPlan.exercises) ? currentDayPlan.exercises : []);
 
   const allSessionExercisesLogged = activeDay !== null && sessionExercises.every(ex => ex.isCompletedDuringSession || (ex.sessionLoggedSets && ex.sessionLoggedSets.length === 0 && ex.sessionSuccess !== undefined) );
 
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      {activeDay === null && (
+      {activeDay === null && isWorkoutPlanValid && workoutPlan.length > 0 && (
         <div className="p-3 sm:p-4 bg-gray-800/70 rounded-xl shadow-xl backdrop-blur-sm">
           <label htmlFor="day-select" className="block text-md sm:text-lg font-semibold text-purple-300 mb-2 sm:mb-3">{UI_TEXT.selectDayToView}</label>
           <div className="flex flex-wrap gap-2">
-            {workoutPlan.map(dayPlan => (
+            {isWorkoutPlanValid && workoutPlan.map(dayPlan => (
               <button
                 key={dayPlan.day}
                 onClick={() => setSelectedDayForView(dayPlan.day)}
@@ -159,7 +161,7 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
           )}
           
           <h4 className="text-md sm:text-lg font-semibold text-pink-400 my-2 sm:my-3"><i className="fas fa-tasks mr-2"></i>{UI_TEXT.exercises}</h4>
-          {exercisesToDisplay.length > 0 ? (
+          {exercisesToDisplay && Array.isArray(exercisesToDisplay) && exercisesToDisplay.length > 0 ? (
             <div className="space-y-3 sm:space-y-4">
               {exercisesToDisplay.map((exercise, exIndex) => (
                 <ExerciseCard
