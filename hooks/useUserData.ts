@@ -27,6 +27,20 @@ function removeUndefined(obj: any): any {
   return obj;
 }
 
+// Очищення плану для Firestore: залишає тільки потрібні поля у вправах
+function cleanWorkoutPlanForFirestore(plan: DailyWorkoutPlan[]): DailyWorkoutPlan[] {
+  return plan.map(day => ({
+    ...removeUndefined({
+      ...day,
+      exercises: day.exercises.map(ex => {
+        // Вказати тільки ті поля, які потрібні для Firestore
+        const { name, sets, reps, weight, muscleGroup, notes } = ex;
+        return removeUndefined({ name, sets, reps, weight, muscleGroup, notes });
+      })
+    })
+  }));
+}
+
 export const useUserData = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -147,7 +161,7 @@ export const useUserData = () => {
   const saveWorkoutPlan = async (plan: DailyWorkoutPlan[]) => {
     if (!user) throw new Error('User not authenticated');
     try {
-      const cleanedPlan = removeUndefined(plan);
+      const cleanedPlan = cleanWorkoutPlanForFirestore(plan);
       await setDoc(doc(db, 'workoutPlans', user.uid), { plan: cleanedPlan });
       setWorkoutPlan(cleanedPlan);
       console.log('Workout plan saved to Firestore:', cleanedPlan);

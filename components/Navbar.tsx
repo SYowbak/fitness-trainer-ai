@@ -26,23 +26,8 @@ const NavItem: React.FC<{label: string, isActive: boolean, onClick: () => void, 
 );
 
 const Navbar: React.FC<NavbarProps> = ({ currentView, onViewChange }) => {
-  const { user, logout } = useAuth();
-
-  const handleDeleteAccount = async () => {
-    if (!user) return;
-    if (!window.confirm('Ви впевнені, що хочете видалити свій акаунт? Цю дію не можна скасувати!')) return;
-    try {
-      await deleteUser(auth.currentUser!);
-      alert('Акаунт успішно видалено.');
-    } catch (error: any) {
-      if (error.code === 'auth/requires-recent-login') {
-        alert('Для видалення акаунта потрібно повторно увійти. Вийдіть і увійдіть знову, потім спробуйте ще раз.');
-      } else {
-        alert('Помилка при видаленні акаунта: ' + error.message);
-      }
-    }
-  };
-
+  // const { user, logout } = useAuth();
+  // const handleDeleteAccount = async () => { ... } // Видаляємо ці функції з Navbar
   return (
     <nav className="flex space-x-1 sm:space-x-2 bg-gray-700/30 p-1 rounded-lg items-center">
       <NavItem 
@@ -63,22 +48,6 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, onViewChange }) => {
         onClick={() => onViewChange('progress')}
         iconClass="fas fa-chart-line"
       />
-      {user && (
-        <>
-          <button
-            onClick={logout}
-            className="ml-2 px-3 py-2 rounded-md bg-red-600 hover:bg-red-700 text-white text-sm font-medium shadow transition"
-          >
-            <i className="fas fa-sign-out-alt mr-1"></i>Вийти
-          </button>
-          <button
-            onClick={handleDeleteAccount}
-            className="ml-2 px-3 py-2 rounded-md bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium shadow transition border border-red-400"
-          >
-            <i className="fas fa-user-slash mr-1"></i>Видалити акаунт
-          </button>
-        </>
-      )}
     </nav>
   );
 };
