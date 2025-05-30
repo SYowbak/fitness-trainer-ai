@@ -144,6 +144,7 @@ export const UI_TEXT = {
   startRest: "Відпочинок", // Will be followed by time e.g. "Відпочинок (60с)"
   markAsDone: "Виконано",
   logExercise: "Залогувати Вправу",
+  loadingUserData: "Завантаження даних користувача...",
   setsAchieved: "Виконано підходів:",
   repsAchieved: "Повторень:",
   weightUsed: "Вага (кг):",
