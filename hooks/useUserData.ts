@@ -34,8 +34,13 @@ function cleanWorkoutPlanForFirestore(plan: DailyWorkoutPlan[]): DailyWorkoutPla
       ...day,
       exercises: day.exercises.map(ex => {
         // Вказати тільки ті поля, які потрібні для Firestore
-        const { name, sets, reps, weight, muscleGroup, notes } = ex;
-        return removeUndefined({ name, sets, reps, weight, muscleGroup, notes });
+        const { name, sets, reps, weight, muscleGroup, notes, rest } = ex;
+        // Конвертуємо rest в секунди, якщо він заданий у форматі "X секунд"
+        let restInSeconds = rest;
+        if (typeof rest === 'string' && rest.includes('секунд')) {
+          restInSeconds = parseInt(rest.split(' ')[0]);
+        }
+        return removeUndefined({ name, sets, reps, weight, muscleGroup, notes, rest: restInSeconds });
       })
     })
   }));
@@ -105,10 +110,12 @@ export const useUserData = () => {
   useEffect(() => {
     const loadWorkoutPlan = async () => {
       if (!user) {
+        console.log('No user, skipping workout plan load');
         setWorkoutPlan(null);
         return;
       }
       try {
+        console.log('Loading workout plan for user:', user.uid);
         const docRef = doc(db, 'workoutPlans', user.uid);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
@@ -161,10 +168,12 @@ export const useUserData = () => {
   const saveWorkoutPlan = async (plan: DailyWorkoutPlan[]) => {
     if (!user) throw new Error('User not authenticated');
     try {
+      console.log('Saving workout plan for user:', user.uid);
       const cleanedPlan = cleanWorkoutPlanForFirestore(plan);
-      await setDoc(doc(db, 'workoutPlans', user.uid), { plan: cleanedPlan });
+      const docRef = doc(db, 'workoutPlans', user.uid);
+      await setDoc(docRef, { plan: cleanedPlan });
+      console.log('Successfully saved workout plan to Firestore');
       setWorkoutPlan(cleanedPlan);
-      console.log('Workout plan saved to Firestore:', cleanedPlan);
     } catch (error) {
       console.error('Error saving workout plan:', error);
       throw error;

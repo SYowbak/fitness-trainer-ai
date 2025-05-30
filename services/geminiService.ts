@@ -175,11 +175,11 @@ export const generateWorkoutPlan = async (profile: UserProfile, modelName: strin
             }
 
             return {
-              name: ex.name,
-              description: ex.description,
-              sets: ex.sets,
-              reps: ex.reps,
-              rest: ex.rest,
+              name: ex.name || "Невідома вправа",
+              description: ex.description || "Опис відсутній.",
+              sets: ex.sets || "3",
+              reps: ex.reps || "10-12",
+              rest: ex.rest || "60 секунд",
               imageSuggestion: ex.imageSuggestion || null,
               videoSearchQuery: ex.videoSearchQuery || null,
               targetWeight: null,

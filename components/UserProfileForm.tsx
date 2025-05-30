@@ -7,9 +7,11 @@ interface UserProfileFormProps {
   onSave: (profile: UserProfile) => void;
   apiKeyMissing: boolean;
   isLoading: boolean;
+  onLogout: () => void;
+  onDeleteAccount: () => Promise<void>;
 }
 
-const UserProfileForm: React.FC<UserProfileFormProps> = ({ existingProfile, onSave, apiKeyMissing, isLoading }) => {
+const UserProfileForm: React.FC<UserProfileFormProps> = ({ existingProfile, onSave, apiKeyMissing, isLoading, onLogout, onDeleteAccount }) => {
   const [name, setName] = useState<string>('');
   const [gender, setGender] = useState<Gender>(GENDER_OPTIONS[0].value);
   const [bodyType, setBodyType] = useState<BodyType>(BODY_TYPE_OPTIONS[0].value);
@@ -255,6 +257,24 @@ const UserProfileForm: React.FC<UserProfileFormProps> = ({ existingProfile, onSa
           )}
         </button>
         {apiKeyMissing && <p className="text-red-400 text-sm mt-3 text-center"><i className="fas fa-exclamation-triangle mr-1"></i>{UI_TEXT.apiKeyMissing}</p>}
+        
+        {/* Кнопки Вийти та Видалити акаунт */}
+        <div className="mt-8 pt-6 border-t border-gray-700 space-y-4">
+           <button
+             type="button"
+             onClick={onLogout}
+             className="w-full font-semibold py-3 px-4 rounded-lg shadow-md transition duration-300 ease-in-out text-white flex items-center justify-center bg-red-600 hover:bg-red-700"
+           >
+             <i className="fas fa-sign-out-alt mr-2"></i>Вийти
+           </button>
+           <button
+             type="button"
+             onClick={onDeleteAccount}
+             className="w-full font-semibold py-3 px-4 rounded-lg shadow-md transition duration-300 ease-in-out text-white flex items-center justify-center bg-gray-600 hover:bg-gray-700 border border-red-400"
+           >
+             <i className="fas fa-user-slash mr-2"></i>Видалити акаунт
+           </button>
+        </div>
       </form>
     </div>
   );

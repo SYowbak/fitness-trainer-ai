@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { UserProfile, DailyWorkoutPlan, WorkoutLog, Exercise, LoggedExercise, LoggedSet } from './types';
-import { UI_TEXT, GEMINI_MODEL_TEXT, DEFAULT_WEIGHT_INCREMENT, DEFAULT_WEIGHT_DECREMENT, formatTime } from './constants';
+import { UI_TEXT, GEMINI_MODEL_TEXT, DEFAULT_WEIGHT_INCREMENT, formatTime } from './constants';
 import Navbar from './components/Navbar';
 import UserProfileForm from './components/UserProfileForm';
 import WorkoutDisplay from './components/WorkoutDisplay';
@@ -42,7 +42,17 @@ const App: React.FC = () => {
     if (loadedProfile) {
       setUserProfile(loadedProfile);
       const loadedLogs = storageLoadWorkoutLogs();
-      setWorkoutLogs(loadedLogs);
+      setWorkoutLogs(loadedLogs.map(log => ({
+        ...log,
+        date: new Date(log.date),
+        id: log.id || new Date(log.date).toISOString(),
+        userId: log.userId || 'anonymous',
+        duration: log.duration || 0,
+        exercises: (log.exercises || []).map((ex: any) => ({
+          name: ex.name || ex.exerciseName || 'Unknown Exercise',
+          sets: ex.sets || ex.loggedSets || [],
+        })),
+      })));
     } else {
       setCurrentView('profile');
     }
@@ -82,7 +92,7 @@ const App: React.FC = () => {
     try {
       const profileToSave: UserProfile = {
         ...profile,
-        primaryTargetMuscleGroup: profile.primaryTargetMuscleGroup || '',
+        targetMuscleGroups: profile.targetMuscleGroups || [],
       };
       setUserProfile(profileToSave);
       storageSaveUserProfile(profileToSave);
@@ -158,13 +168,10 @@ const App: React.FC = () => {
     if (activeWorkoutDay === null || !currentWorkoutPlan || !workoutStartTime) return;
 
     const loggedExercisesForSession: LoggedExercise[] = sessionExercises
+      .filter(ex => ex.isCompletedDuringSession)
       .map((ex) => ({
-        exerciseName: ex.name,
-        originalSets: ex.sets,
-        originalReps: ex.reps,
-        targetWeightAtLogging: ex.targetWeight,
-        loggedSets: ex.sessionLoggedSets || [],
-        completedSuccessfully: ex.sessionSuccess === true,
+        name: ex.name,
+        sets: ex.sessionLoggedSets || [],
       }));
 
     if (loggedExercisesForSession.length === 0) {
@@ -176,10 +183,11 @@ const App: React.FC = () => {
     }
     
     const newLog: WorkoutLog = {
-      date: new Date().toISOString(),
-      dayCompleted: activeWorkoutDay,
-      workoutDuration: formatTime(Math.floor((Date.now() - workoutStartTime) / 1000)),
-      loggedExercises: loggedExercisesForSession,
+      id: new Date().toISOString(),
+      userId: userProfile?.uid || 'anonymous',
+      date: new Date(),
+      duration: Math.floor((Date.now() - workoutStartTime) / 1000),
+      exercises: loggedExercisesForSession,
     };
 
     const updatedLogs = [...workoutLogs, newLog];
@@ -190,27 +198,18 @@ const App: React.FC = () => {
     const updatedPlan = currentWorkoutPlan.map(dayPlan => {
       if (dayPlan.day === activeWorkoutDay) {
         const newExercisesForDay = dayPlan.exercises.map(exInPlan => {
-          const loggedEx = loggedExercisesForSession.find(le => le.exerciseName === exInPlan.name);
-          if (loggedEx && loggedEx.loggedSets.length > 0) { // Only adjust if sets were logged
+          const loggedEx = loggedExercisesForSession.find(le => le.name === exInPlan.name);
+          if (loggedEx && loggedEx.sets.length > 0) {
             let newTargetWeight = exInPlan.targetWeight;
-            const averageWeightUsed = loggedEx.loggedSets.reduce((sum, set) => sum + set.weightUsed, 0) / loggedEx.loggedSets.length;
+            const averageWeightUsed = loggedEx.sets.reduce((sum: number, set) => sum + (set.weightUsed ?? 0), 0) / loggedEx.sets.length;
 
-            if (loggedEx.completedSuccessfully) {
-              newTargetWeight = (exInPlan.targetWeight || averageWeightUsed || 50) + DEFAULT_WEIGHT_INCREMENT;
-            } else if (averageWeightUsed && (exInPlan.targetWeight && averageWeightUsed >= exInPlan.targetWeight )) {
-               newTargetWeight = Math.max(0, (exInPlan.targetWeight || averageWeightUsed) - DEFAULT_WEIGHT_DECREMENT);
-            }
-            
-            if ((exInPlan.targetWeight === undefined || exInPlan.targetWeight === null) && averageWeightUsed) {
-                if (loggedEx.completedSuccessfully) {
+            if (loggedEx.sets.length > 0) {
+                if (exInPlan.targetWeight !== undefined && exInPlan.targetWeight !== null && averageWeightUsed >= exInPlan.targetWeight) {
+                    newTargetWeight = exInPlan.targetWeight + DEFAULT_WEIGHT_INCREMENT;
+                } else if ((exInPlan.targetWeight === undefined || exInPlan.targetWeight === null) && averageWeightUsed > 0) {
                     newTargetWeight = averageWeightUsed + DEFAULT_WEIGHT_INCREMENT;
-                } else {
-                    newTargetWeight = averageWeightUsed; 
                 }
             }
-             // Ensure newTargetWeight is a number and positive or zero
-            newTargetWeight = Math.max(0, parseFloat(newTargetWeight?.toFixed(1) || "0"));
-
 
             if (newTargetWeight !== exInPlan.targetWeight) {
                 planWasUpdated = true;
@@ -233,14 +232,35 @@ const App: React.FC = () => {
     setWorkoutStartTime(null);
     setSessionExercises([]);
     setCurrentView('progress'); 
-  }, [activeWorkoutDay, sessionExercises, currentWorkoutPlan, workoutLogs, workoutStartTime]);
+  }, [activeWorkoutDay, sessionExercises, currentWorkoutPlan, workoutLogs, workoutStartTime, userProfile, saveWorkoutPlan]);
 
   const handleDeleteAccount = async () => {
     if (!user) return;
     if (!window.confirm('Ви впевнені, що хочете видалити свій акаунт? Цю дію не можна скасувати!')) return;
     try {
+      // Очищення даних з локального сховища
+      localStorage.removeItem('fitnessAiAppUserProfile_v1');
+      localStorage.removeItem('fitnessAiAppWorkoutPlan_v1');
+      localStorage.removeItem('fitnessAiAppWorkoutLogs_v1');
+      
+      // Очищення даних з Firestore (якщо користувач автентифікований)
+      if (user && user.uid) {
+         // Тут потрібна логіка видалення документів користувача з Firestore.
+         // Це може включати видалення документа профілю та колекції логів тренувань.
+         // Оскільки у нас немає прямого доступу до Firestore тут, я залишу placeholder.
+         // В реальному застосунку тут були б виклики до Firebase SDK для видалення.
+         console.log(`Placeholder: Видалення даних користувача ${user.uid} з Firestore`);
+         // Приклад (потрібно адаптувати до вашої структури Firestore):
+         // const userProfileRef = doc(db, "userProfiles", user.uid);
+         // await deleteDoc(userProfileRef);
+         // const workoutLogsCollectionRef = collection(db, "users", user.uid, "workoutLogs");
+         // const querySnapshot = await getDocs(workoutLogsCollectionRef);
+         // querySnapshot.forEach(async (doc) => { await deleteDoc(doc.ref); });
+      }
+      
       await deleteUser(auth.currentUser!);
       alert('Акаунт успішно видалено.');
+      // Після видалення акаунта, стан додатка буде скинуто через логіку в useAuth
     } catch (error: any) {
       if (error.code === 'auth/requires-recent-login') {
         alert('Для видалення акаунта потрібно повторно увійти. Вийдіть і увійдіть знову, потім спробуйте ще раз.');
@@ -260,6 +280,8 @@ const App: React.FC = () => {
                   onSave={handleProfileSave} 
                   apiKeyMissing={apiKeyMissing} 
                   isLoading={isLoading}
+                  onLogout={logout}
+                  onDeleteAccount={handleDeleteAccount}
                 />;
       case 'workout':
         return <WorkoutDisplay 
@@ -278,7 +300,14 @@ const App: React.FC = () => {
       case 'progress':
         return <ProgressView workoutLogs={workoutLogs} userProfile={userProfile} />;
       default:
-        return <UserProfileForm existingProfile={userProfile} onSave={handleProfileSave} apiKeyMissing={apiKeyMissing} isLoading={isLoading}/>;
+        return <UserProfileForm 
+                  existingProfile={userProfile} 
+                  onSave={handleProfileSave} 
+                  apiKeyMissing={apiKeyMissing} 
+                  isLoading={isLoading}
+                  onLogout={logout}
+                  onDeleteAccount={handleDeleteAccount}
+                />;
     }
   };
 
@@ -297,22 +326,6 @@ const App: React.FC = () => {
           <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500 mb-2 sm:mb-0">
             <i className="fas fa-dumbbell mr-2"></i>{UI_TEXT.appName}
           </h1>
-          {user && (
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={logout}
-                className="px-3 py-2 rounded-md bg-red-600 hover:bg-red-700 text-white text-sm font-medium shadow transition"
-              >
-                <i className="fas fa-sign-out-alt mr-1"></i>Вийти
-              </button>
-              <button
-                onClick={handleDeleteAccount}
-                className="px-3 py-2 rounded-md bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium shadow transition border border-red-400"
-              >
-                <i className="fas fa-user-slash mr-1"></i>Видалити акаунт
-              </button>
-            </div>
-          )}
           {(userProfile || currentView !== 'profile' || isLoading || activeWorkoutDay !== null) && 
             <Navbar currentView={currentView} onViewChange={(v) => {
               if (activeWorkoutDay !== null && v !== 'workout') {

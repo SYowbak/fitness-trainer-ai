@@ -52,7 +52,18 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, exerciseIndex, is
 
   const handleStartRest = () => {
     const restStr = exercise.rest ?? '60';
-    const restSeconds = typeof restStr === 'string' ? parseInt(restStr.split(' ')[0], 10) : Number(restStr);
+    let restSeconds = 60;
+    
+    if (typeof restStr === 'string') {
+      if (restStr.includes('секунд')) {
+        restSeconds = parseInt(restStr.split(' ')[0], 10);
+      } else {
+        restSeconds = parseInt(restStr, 10);
+      }
+    } else if (typeof restStr === 'number') {
+      restSeconds = restStr;
+    }
+    
     setRestTimer(restSeconds || 60);
     setIsResting(true);
   };
@@ -154,7 +165,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, exerciseIndex, is
                             ${isResting ? 'bg-gray-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
               >
                 <i className="fas fa-hourglass-half mr-2"></i>
-                {isResting ? `Відпочинок: ${formatTime(restTimer)}` : `${UI_TEXT.startRest} (${exercise.rest ?? '60 секунд'})`}
+                {isResting ? `Відпочинок: ${formatTime(restTimer)}` : `${UI_TEXT.startRest} (${typeof exercise.rest === 'number' ? `${exercise.rest} секунд` : exercise.rest ?? '60 секунд'})`}
               </button>
 
               <button 
