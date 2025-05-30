@@ -1,38 +1,59 @@
 export enum Gender {
-  FEMALE = 'female',
-  MALE = 'male',
+  FEMALE = 'FEMALE',
+  MALE = 'MALE',
 }
 
 export enum BodyType {
-  ECTOMORPH = 'ectomorph',
-  ENDOMORPH = 'endomorph',
-  MESOMORPH = 'mesomorph',
+  ECTOMORPH = 'ECTOMORPH',
+  ENDOMORPH = 'ENDOMORPH',
+  MESOMORPH = 'MESOMORPH',
 }
 
 export enum FitnessGoal {
-  LOSE_WEIGHT = 'lose_weight',
-  GAIN_MUSCLE = 'gain_muscle',
-  STRENGTHEN_LIGAMENTS = 'strengthen_ligaments',
-  GENERAL_FITNESS = 'general_fitness',
+  LOSE_WEIGHT = 'LOSE_WEIGHT',
+  GAIN_MUSCLE = 'GAIN_MUSCLE',
+  STRENGTHEN_LIGAMENTS = 'STRENGTHEN_LIGAMENTS',
+  GENERAL_FITNESS = 'GENERAL_FITNESS',
+}
+
+export enum UserLevel {
+  BEGINNER = 'BEGINNER',
+  INTERMEDIATE = 'INTERMEDIATE',
+  ADVANCED = 'ADVANCED',
 }
 
 export enum MuscleGroup {
-  CHEST = 'chest',
-  BACK = 'back',
-  LEGS = 'legs',
-  SHOULDERS = 'shoulders',
-  ARMS = 'arms', // Biceps/Triceps
-  FULL_BODY = 'full_body',
-  CORE = 'core',
+  FULL_BODY = 'FULL_BODY',
+  CHEST = 'CHEST',
+  BACK = 'BACK',
+  LEGS = 'LEGS',
+  SHOULDERS = 'SHOULDERS',
+  BICEPS = 'BICEPS',
+  TRICEPS = 'TRICEPS',
+  FOREARMS = 'FOREARMS',
+  CORE = 'CORE',
+  GLUTES = 'GLUTES',
+  CALVES = 'CALVES',
+  HAMSTRINGS = 'HAMSTRINGS',
+  QUADS = 'QUADS',
+  LATS = 'LATS',
+  TRAPS = 'TRAPS',
+  DELTOIDS = 'DELTOIDS',
+  ABS = 'ABS',
+  OBLIQUES = 'OBLIQUES',
+  LOWER_BACK = 'LOWER_BACK',
 }
 
 export interface UserProfile {
-  name: string;
+  name?: string;
   gender: Gender;
   bodyType: BodyType;
   goal: FitnessGoal;
   trainingFrequency: number; // e.g., 3 times a week
-  primaryTargetMuscleGroup?: MuscleGroup | ''; // Optional: User's preferred muscle group to focus on
+  targetMuscleGroups: MuscleGroup[]; // Змінено з primaryTargetMuscleGroup на масив
+  height?: number; // зріст у сантиметрах
+  weight?: number; // вага у кілограмах
+  level: UserLevel; // рівень користувача
 }
 
 export interface Exercise {
