@@ -13,6 +13,20 @@ import { db } from '../config/firebase';
 import { UserProfile, WorkoutLog, DailyWorkoutPlan } from '../types';
 import { useAuth } from './useAuth';
 
+// Утиліта для очищення undefined
+function removeUndefined(obj: any): any {
+  if (Array.isArray(obj)) {
+    return obj.map(removeUndefined);
+  } else if (obj && typeof obj === 'object') {
+    return Object.fromEntries(
+      Object.entries(obj)
+        .filter(([_, v]) => v !== undefined)
+        .map(([k, v]) => [k, removeUndefined(v)])
+    );
+  }
+  return obj;
+}
+
 export const useUserData = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -133,9 +147,10 @@ export const useUserData = () => {
   const saveWorkoutPlan = async (plan: DailyWorkoutPlan[]) => {
     if (!user) throw new Error('User not authenticated');
     try {
-      await setDoc(doc(db, 'workoutPlans', user.uid), { plan });
-      setWorkoutPlan(plan);
-      console.log('Workout plan saved to Firestore:', plan);
+      const cleanedPlan = removeUndefined(plan);
+      await setDoc(doc(db, 'workoutPlans', user.uid), { plan: cleanedPlan });
+      setWorkoutPlan(cleanedPlan);
+      console.log('Workout plan saved to Firestore:', cleanedPlan);
     } catch (error) {
       console.error('Error saving workout plan:', error);
       throw error;
