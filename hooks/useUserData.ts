@@ -160,12 +160,16 @@ export const useUserData = () => {
         userId: user.uid
       };
 
-      console.log('Attempting to save workout log data:', logWithUserId);
+      // Use removeUndefined to clean the log object before saving
+      const cleanedLog = removeUndefined(logWithUserId);
+
+      console.log('Attempting to save workout log data:', cleanedLog); // Log cleaned data
 
       const logsRef = collection(db, 'workoutLogs');
-      await setDoc(doc(logsRef), logWithUserId);
-      
-      setWorkoutLogs(prev => [logWithUserId, ...prev]);
+      // Pass the cleaned object to setDoc
+      await setDoc(doc(logsRef), cleanedLog);
+
+      setWorkoutLogs(prev => [cleanedLog as WorkoutLog, ...prev]); // Update state with cleaned log
     } catch (error) {
       console.error('Error saving workout log:', error);
       throw error;
