@@ -139,12 +139,12 @@ export const generateWorkoutPlan = async (profile: UserProfile, modelName: strin
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         config: {
             responseMimeType: "application/json",
-            // Consider adding temperature for more varied plans if needed, e.g., temperature: 0.7
         },
     });
 
     let jsonStr = (response.text ?? '').trim();
     
+    // Видаляємо можливі markdown-розмітки
     const fenceRegex = /^```(?:json)?\s*\n?(.*?)\n?\s*```$/s;
     const match = jsonStr.match(fenceRegex);
     if (match && match[1]) {
@@ -153,32 +153,46 @@ export const generateWorkoutPlan = async (profile: UserProfile, modelName: strin
 
     try {
       const parsedPlan: any[] = JSON.parse(jsonStr); 
-      if (!Array.isArray(parsedPlan) || parsedPlan.some(day => 
-          typeof day.day !== 'number' || 
-          !Array.isArray(day.exercises) || 
-          !day.exercises.every((ex: any) => ex.name && ex.description && ex.sets && ex.reps && ex.rest) // Basic check
-        )) {
-        console.error("AI response has incorrect structure:", parsedPlan);
-        throw new Error("AI повернув план у неочікуваному форматі. Будь ласка, спробуйте змінити запит або повторити пізніше.");
-      }
       
-      return parsedPlan.map((day): DailyWorkoutPlan => ({
-        ...day,
-        exercises: day.exercises.map((ex: any) => ({
-          name: ex.name || "Невідома вправа",
-          description: ex.description || "Опис відсутній.",
-          sets: ex.sets || "3",
-          reps: ex.reps || "10-12",
-          rest: ex.rest || "60 секунд",
-          imageSuggestion: ex.imageSuggestion || null,
-          videoSearchQuery: ex.videoSearchQuery || null, // Add videoSearchQuery
-          targetWeight: null, 
-          targetReps: null,   
-        })),
-        warmup: day.warmup || "",
-        cooldown: day.cooldown || "",
-        notes: day.notes || ""
-      }));
+      // Перевіряємо базову структуру
+      if (!Array.isArray(parsedPlan)) {
+        throw new Error("AI повернув не масив днів тренувань");
+      }
+
+      // Перевіряємо кожен день
+      return parsedPlan.map((day, index): DailyWorkoutPlan => {
+        if (typeof day.day !== 'number' || !Array.isArray(day.exercises)) {
+          throw new Error(`Неправильна структура для дня ${index + 1}`);
+        }
+
+        return {
+          day: day.day,
+          warmup: day.warmup || "",
+          cooldown: day.cooldown || "",
+          notes: day.notes || "",
+          exercises: day.exercises.map((ex: any, exIndex: number) => {
+            // Перевіряємо обов'язкові поля вправи
+            if (!ex.name || !ex.description || !ex.sets || !ex.reps || !ex.rest) {
+              throw new Error(`Відсутні обов'язкові поля у вправі ${exIndex + 1} дня ${day.day}`);
+            }
+
+            return {
+              name: ex.name,
+              description: ex.description,
+              sets: ex.sets,
+              reps: ex.reps,
+              rest: ex.rest,
+              imageSuggestion: ex.imageSuggestion || null,
+              videoSearchQuery: ex.videoSearchQuery || null,
+              targetWeight: null,
+              targetReps: null,
+              isCompletedDuringSession: false,
+              sessionLoggedSets: [],
+              sessionSuccess: undefined
+            };
+          })
+        };
+      });
     } catch (e) {
       console.error("Error parsing JSON from AI response:", e);
       console.error("Received string (after processing):", jsonStr);
@@ -191,7 +205,7 @@ export const generateWorkoutPlan = async (profile: UserProfile, modelName: strin
     if (error.message && (error.message.includes("API_KEY_INVALID") || (error.response && error.response.status === 400))) {
          throw new Error("Наданий API ключ недійсний або не має дозволів. Будь ласка, перевірте ваш API ключ.");
     }
-     if (error.message && error.message.toLowerCase().includes("candidate.safetyratings")) {
+    if (error.message && error.message.toLowerCase().includes("candidate.safetyratings")) {
         throw new Error("Відповідь від AI була заблокована через налаштування безпеки. Спробуйте змінити запит.");
     }
     if (error.message && error.message.toLowerCase().includes("fetch")) { 
