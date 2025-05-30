@@ -153,7 +153,9 @@ export const useUserData = () => {
         ...log,
         userId: user.uid
       };
-      
+
+      console.log('Attempting to save workout log data:', logWithUserId);
+
       const logsRef = collection(db, 'workoutLogs');
       await setDoc(doc(logsRef), logWithUserId);
       

@@ -1,0 +1,50 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Функція для перевірки автентифікації
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Функція для перевірки власника документа
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Правила для колекції користувачів
+    match /users/{userId} {
+      // Дозволяємо читати та писати тільки власнику профілю
+      allow read, write: if isOwner(userId);
+      
+      // Дозволяємо створювати новий профіль при реєстрації
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Правила для планів тренувань
+    match /workoutPlans/{userId} {
+      // Дозволяємо читати та писати тільки власнику плану
+      allow read, write: if isOwner(userId);
+    }
+
+    // Правила для логів тренувань
+    match /workoutLogs/{logId} {
+      // Дозволяємо створювати нові логи тільки автентифікованим користувачам
+      // та перевіряємо, що userId в логу відповідає ID авторизованого користувача
+      allow create: if isAuthenticated() && 
+                   request.resource.data.userId == request.auth.uid;
+      
+      // Дозволяємо читати тільки свої логи
+      allow read: if isAuthenticated() && 
+                 resource.data.userId == request.auth.uid;
+      
+      // Дозволяємо оновлювати та видаляти тільки свої логи
+      allow update, delete: if isAuthenticated() && 
+                           resource.data.userId == request.auth.uid;
+    }
+
+    // За замовчуванням забороняємо доступ до всіх інших документів
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+} 
