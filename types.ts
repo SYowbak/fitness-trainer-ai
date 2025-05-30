@@ -1,47 +1,46 @@
 export enum Gender {
-  FEMALE = 'FEMALE',
-  MALE = 'MALE',
+  FEMALE = 'female',
+  MALE = 'male',
 }
 
 export enum BodyType {
-  ECTOMORPH = 'ECTOMORPH',
-  ENDOMORPH = 'ENDOMORPH',
-  MESOMORPH = 'MESOMORPH',
+  ECTOMORPH = 'ectomorph',
+  ENDOMORPH = 'endomorph',
+  MESOMORPH = 'mesomorph',
 }
 
 export enum FitnessGoal {
-  LOSE_WEIGHT = 'LOSE_WEIGHT',
-  GAIN_MUSCLE = 'GAIN_MUSCLE',
-  STRENGTHEN_LIGAMENTS = 'STRENGTHEN_LIGAMENTS',
-  GENERAL_FITNESS = 'GENERAL_FITNESS',
+  LOSE_WEIGHT = 'lose_weight',
+  GAIN_MUSCLE = 'gain_muscle',
+  STRENGTHEN_LIGAMENTS = 'strengthen_ligaments',
+  GENERAL_FITNESS = 'general_fitness',
 }
 
 export enum UserLevel {
-  BEGINNER = 'BEGINNER',
-  INTERMEDIATE = 'INTERMEDIATE',
-  ADVANCED = 'ADVANCED',
+  BEGINNER = 'beginner',
+  INTERMEDIATE = 'intermediate',
+  ADVANCED = 'advanced',
 }
 
 export enum MuscleGroup {
-  FULL_BODY = 'FULL_BODY',
-  CHEST = 'CHEST',
-  BACK = 'BACK',
-  LEGS = 'LEGS',
-  SHOULDERS = 'SHOULDERS',
-  BICEPS = 'BICEPS',
-  TRICEPS = 'TRICEPS',
-  FOREARMS = 'FOREARMS',
-  CORE = 'CORE',
-  GLUTES = 'GLUTES',
-  CALVES = 'CALVES',
-  HAMSTRINGS = 'HAMSTRINGS',
-  QUADS = 'QUADS',
-  LATS = 'LATS',
-  TRAPS = 'TRAPS',
-  DELTOIDS = 'DELTOIDS',
-  ABS = 'ABS',
-  OBLIQUES = 'OBLIQUES',
-  LOWER_BACK = 'LOWER_BACK',
+  FULL_BODY = 'full_body',
+  CHEST = 'chest',
+  BACK = 'back',
+  LEGS = 'legs',
+  SHOULDERS = 'shoulders',
+  BICEPS = 'biceps',
+  TRICEPS = 'triceps',
+  FOREARMS = 'forearms',
+  CORE = 'core',
+  GLUTES = 'glutes',
+  CALVES = 'calves',
+  HAMSTRINGS = 'hamstrings',
+  QUADS = 'quads',
+  LATS = 'lats',
+  TRAPS = 'traps',
+  ABS = 'abs',
+  OBLIQUES = 'obliques',
+  LOWER_BACK = 'lower_back',
 }
 
 export interface UserProfile {

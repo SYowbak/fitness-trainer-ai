@@ -57,7 +57,6 @@ export const MUSCLE_GROUP_OPTIONS: Array<{ value: MuscleGroup; label: string; de
   { value: MuscleGroup.QUADS, label: 'Квадрицепси', description: 'Передня поверхня стегна' },
   { value: MuscleGroup.LATS, label: 'Широчайші м\'язи', description: 'Бічні м\'язи спини' },
   { value: MuscleGroup.TRAPS, label: 'Трапеції', description: 'Верхня частина спини та шиї' },
-  { value: MuscleGroup.DELTOIDS, label: 'Дельти', description: 'Плечові м\'язи' },
   { value: MuscleGroup.ABS, label: 'Прес', description: 'Прямий м\'яз живота' },
   { value: MuscleGroup.OBLIQUES, label: 'Косі м\'язи живота', description: 'Бічні м\'язи живота' },
   { value: MuscleGroup.LOWER_BACK, label: 'Поперекові м\'язи', description: 'Нижня частина спини' },
