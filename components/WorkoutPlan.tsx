@@ -71,7 +71,7 @@ const WorkoutPlan: React.FC<WorkoutPlanProps> = ({ plan, userProfile, onUpdatePl
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-purple-300">{plan.day}</h2>
+        <h2 className="text-2xl font-bold text-purple-300">День {plan.day}</h2>
         <div className="flex space-x-2">
           <button
             onClick={() => setIsEditingPlan(!isEditingPlan)}
