@@ -13,6 +13,7 @@ interface WorkoutPlanProps {
 const WorkoutPlan: React.FC<WorkoutPlanProps> = ({ plan, userProfile, onUpdatePlan }) => {
   const [editingExerciseIndex, setEditingExerciseIndex] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isEditingPlan, setIsEditingPlan] = useState(false);
 
   const handleEditExercise = (index: number) => {
     setEditingExerciseIndex(index);
@@ -56,6 +57,13 @@ const WorkoutPlan: React.FC<WorkoutPlanProps> = ({ plan, userProfile, onUpdatePl
     }
   };
 
+  const handleMoveExercise = (fromIndex: number, toIndex: number) => {
+    const updatedExercises = [...plan.exercises];
+    const [movedExercise] = updatedExercises.splice(fromIndex, 1);
+    updatedExercises.splice(toIndex, 0, movedExercise);
+    onUpdatePlan({ ...plan, exercises: updatedExercises });
+  };
+
   if (isLoading) {
     return <Spinner message="Генерація вправи..." />;
   }
@@ -65,6 +73,21 @@ const WorkoutPlan: React.FC<WorkoutPlanProps> = ({ plan, userProfile, onUpdatePl
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-purple-300">{plan.day}</h2>
         <div className="flex space-x-2">
+          <button
+            onClick={() => setIsEditingPlan(!isEditingPlan)}
+            className={`px-4 py-2 rounded ${
+              isEditingPlan 
+                ? 'bg-purple-600 text-white' 
+                : 'bg-gray-700 text-gray-200 hover:bg-gray-600'
+            }`}
+          >
+            {isEditingPlan ? 'Завершити редагування' : 'Редагувати план'}
+          </button>
+        </div>
+      </div>
+
+      {isEditingPlan && (
+        <div className="flex space-x-2 mb-4">
           <select
             onChange={(e) => handleAddExercise(e.target.value as MuscleGroup)}
             className="p-2 bg-gray-700 border border-gray-600 rounded text-gray-200"
@@ -77,7 +100,7 @@ const WorkoutPlan: React.FC<WorkoutPlanProps> = ({ plan, userProfile, onUpdatePl
             ))}
           </select>
         </div>
-      </div>
+      )}
 
       <div className="space-y-4">
         {plan.exercises.map((exercise, index) => (
@@ -95,16 +118,45 @@ const WorkoutPlan: React.FC<WorkoutPlanProps> = ({ plan, userProfile, onUpdatePl
               <div className="space-y-4">
                 <div className="flex justify-between items-start">
                   <h3 className="text-xl font-semibold text-purple-300">{exercise.name}</h3>
-                  <button
-                    onClick={() => handleEditExercise(index)}
-                    className="px-3 py-1 bg-purple-600 text-white rounded hover:bg-purple-500"
-                  >
-                    Редагувати
-                  </button>
+                  {isEditingPlan && (
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => handleEditExercise(index)}
+                        className="px-3 py-1 bg-purple-600 text-white rounded hover:bg-purple-500"
+                      >
+                        Редагувати
+                      </button>
+                      {index > 0 && (
+                        <button
+                          onClick={() => handleMoveExercise(index, index - 1)}
+                          className="px-3 py-1 bg-gray-600 text-gray-200 rounded hover:bg-gray-500"
+                        >
+                          ↑
+                        </button>
+                      )}
+                      {index < plan.exercises.length - 1 && (
+                        <button
+                          onClick={() => handleMoveExercise(index, index + 1)}
+                          className="px-3 py-1 bg-gray-600 text-gray-200 rounded hover:bg-gray-500"
+                        >
+                          ↓
+                        </button>
+                      )}
+                      <button
+                        onClick={() => {
+                          const updatedExercises = plan.exercises.filter((_, i) => i !== index);
+                          onUpdatePlan({ ...plan, exercises: updatedExercises });
+                        }}
+                        className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-500"
+                      >
+                        Видалити
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="prose prose-invert max-w-none">
-                  <p className="text-gray-300">{exercise.description}</p>
+                  <p className="text-gray-300 whitespace-pre-line">{exercise.description}</p>
                 </div>
 
                 <div className="grid grid-cols-3 gap-4 text-sm">
@@ -129,6 +181,15 @@ const WorkoutPlan: React.FC<WorkoutPlanProps> = ({ plan, userProfile, onUpdatePl
                   <div className="text-sm text-gray-400">
                     <span className="text-purple-300">Пошуковий запит для відео:</span> {exercise.videoSearchQuery}
                   </div>
+                )}
+
+                {!isEditingPlan && (
+                  <button
+                    onClick={() => handleEditExercise(index)}
+                    className="mt-2 px-3 py-1 bg-purple-600 text-white rounded hover:bg-purple-500"
+                  >
+                    Редагувати вправу
+                  </button>
                 )}
               </div>
             )}
