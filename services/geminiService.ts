@@ -1,6 +1,14 @@
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { UserProfile, DailyWorkoutPlan } from '../types';
-import { getUkrainianGoal, getUkrainianBodyType, getUkrainianGender, getUkrainianMuscleGroup, UI_TEXT, GEMINI_MODEL_TEXT } from '../constants';
+import { 
+  getUkrainianGoal, 
+  getUkrainianBodyType, 
+  getUkrainianGender, 
+  getUkrainianMuscleGroup, 
+  getUkrainianExperienceLevel,
+  UI_TEXT, 
+  GEMINI_MODEL_TEXT 
+} from '../constants';
 
 const getApiKey = (): string | null => {
   // @ts-ignore
@@ -31,6 +39,7 @@ const constructPrompt = (profile: UserProfile): string => {
   const genderText = getUkrainianGender(gender);
   const bodyTypeText = getUkrainianBodyType(bodyType);
   const goalText = getUkrainianGoal(goal);
+  const experienceLevelText = getUkrainianExperienceLevel(experienceLevel);
   const targetMuscleGroupsText = targetMuscleGroups.length > 0 
     ? `з особливим акцентом на ${targetMuscleGroups.map(group => getUkrainianMuscleGroup(group)).join(', ')}`
     : 'із загальним розвитком всіх груп м\'язів';
@@ -41,7 +50,7 @@ const constructPrompt = (profile: UserProfile): string => {
 - Тип статури: ${bodyTypeText}
 - Ціль: ${goalText}
 - Частота тренувань: ${trainingFrequency} разів на тиждень
-- Рівень підготовки: ${getUkrainianExperienceLevel(experienceLevel)}
+- Рівень підготовки: ${experienceLevelText}
 - Зріст: ${height} см
 - Вага: ${weight} кг
 - Цільові групи м'язів: ${targetMuscleGroupsText}
