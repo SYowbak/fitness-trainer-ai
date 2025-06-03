@@ -108,19 +108,20 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, exerciseIndex, is
       
       {isExpanded && (
         <div id={`exercise-details-${exercise.name.replace(/\s+/g, '-')}`} className="mt-3 space-y-3 border-t border-gray-500/50 pt-3">
-          
           <div>
-            <strong className="text-purple-200 block mb-1 text-xs sm:text-sm"><i className="fas fa-info-circle mr-1"></i>{UI_TEXT.exerciseInstructions}</strong>
-            {exercise.description && (
-              <div className="mt-2 text-xs text-gray-300 whitespace-pre-line">
-                <strong className="text-purple-200">Опис:</strong> {exercise.description}
-              </div>
-            )}
+            <strong className="text-purple-200 block mb-1 text-xs sm:text-sm">
+              <i className="fas fa-info-circle mr-1"></i>{UI_TEXT.exerciseInstructions}
+            </strong>
+            <div className="mt-2 text-xs sm:text-sm text-gray-300 whitespace-pre-line">
+              {exercise.description}
+            </div>
           </div>
 
           {exercise.videoSearchQuery && (
-            <div className="my-2">
-              <strong className="text-purple-200 block mb-1 text-xs sm:text-sm"><i className="fab fa-youtube mr-1"></i>{UI_TEXT.videoSuggestion}</strong>
+            <div className="mt-3">
+              <strong className="text-purple-200 block mb-1 text-xs sm:text-sm">
+                <i className="fab fa-youtube mr-1"></i>{UI_TEXT.videoSuggestion}
+              </strong>
               <a 
                 href={`https://www.youtube.com/results?search_query=${encodeURIComponent(exercise.videoSearchQuery)}`} 
                 target="_blank" 
