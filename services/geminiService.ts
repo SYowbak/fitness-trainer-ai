@@ -1,5 +1,5 @@
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
-import { UserProfile, DailyWorkoutPlan } from '../types';
+import { UserProfile, DailyWorkoutPlan, Exercise } from '../types';
 import { 
   getUkrainianGoal, 
   getUkrainianBodyType, 
@@ -221,3 +221,76 @@ export const generateWorkoutPlan = async (profile: UserProfile, modelName: strin
     throw new Error(`Помилка генерації плану: ${error.message || 'Невідома помилка сервісу AI'}`);
   }
 };
+
+export async function generateSingleExercise(exerciseName?: string): Promise<Exercise> {
+  if (!ai) {
+    throw new Error(UI_TEXT.apiKeyMissing);
+  }
+
+  const prompt = `Ти — висококваліфікований персональний фітнес-тренер. Твоя задача — створити детальний опис вправи${exerciseName ? ` "${exerciseName}"` : ''}.
+
+**Вимоги до вправи:**
+1. **Назва:** ${exerciseName ? `Використай надану назву "${exerciseName}"` : 'Придумай точну українську назву вправи'}.
+2. **Опис Техніки:** Надай ДУЖЕ ДЕТАЛЬНИЙ, покроковий опис правильної техніки виконання. Включи:
+   * Початкове положення.
+   * Ключові моменти руху.
+   * Правильне дихання.
+   * Типові помилки та як їх уникнути.
+   * Поради для максимальної ефективності.
+3. **Кількість підходів:** Вкажи оптимальну кількість робочих підходів (наприклад, "3-4" або число 4).
+4. **Кількість повторень:** Вкажи оптимальний діапазон повторень (наприклад, "8-12" для гіпертрофії, "12-15" для витривалості).
+5. **Відпочинок:** Вкажи рекомендований час відпочинку між підходами в секундах (наприклад, "60-90 секунд").
+6. **videoSearchQuery:** Надай точний пошуковий запит для YouTube, який допоможе знайти якісне відео з демонстрацією техніки вправи українською або російською мовою.
+
+**Формат відповіді:**
+Надай відповідь ВИКЛЮЧНО у форматі JSON об'єкта. Не додавай жодних пояснень, коментарів або тексту поза JSON структурою.
+
+**Структура JSON:**
+{
+  "name": "<назва вправи>",
+  "description": "<дуже детальний покроковий опис техніки>",
+  "sets": "<кількість підходів, '3-4' або 4>",
+  "reps": "<діапазон повторень, '8-12'>",
+  "rest": "<час відпочинку, '60-90 секунд'>",
+  "videoSearchQuery": "<пошуковий запит для YouTube>"
+}`;
+
+  try {
+    const result = await ai.models.generateContent({
+      model: GEMINI_MODEL_TEXT,
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      config: {
+        responseMimeType: "application/json",
+      },
+    });
+
+    const responseText = result.text;
+    if (!responseText) {
+      throw new Error('Порожня відповідь від AI');
+    }
+    
+    try {
+      const exercise = JSON.parse(responseText);
+      // Конвертуємо всі числові значення в рядки
+      return {
+        name: String(exercise.name),
+        description: String(exercise.description),
+        sets: String(exercise.sets),
+        reps: String(exercise.reps),
+        rest: String(exercise.rest),
+        videoSearchQuery: exercise.videoSearchQuery ? String(exercise.videoSearchQuery) : undefined,
+        targetWeight: null,
+        targetReps: null,
+        isCompletedDuringSession: false,
+        sessionLoggedSets: [],
+        sessionSuccess: undefined
+      };
+    } catch (error) {
+      console.error('Помилка при парсингу відповіді:', error);
+      throw new Error('Не вдалося згенерувати вправу');
+    }
+  } catch (error: any) {
+    console.error('Помилка при генерації вправи:', error);
+    throw new Error('Не вдалося згенерувати вправу');
+  }
+}
