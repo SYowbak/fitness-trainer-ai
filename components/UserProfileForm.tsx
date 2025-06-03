@@ -18,8 +18,9 @@ const UserProfileForm: React.FC<UserProfileFormProps> = ({ existingProfile, onSa
   const [goal, setGoal] = useState<FitnessGoal>(FITNESS_GOAL_OPTIONS[0].value);
   const [trainingFrequency, setTrainingFrequency] = useState<number>(DEFAULT_TRAINING_FREQUENCY);
   const [targetMuscleGroups, setTargetMuscleGroups] = useState<MuscleGroup[]>([]);
-  const [height, setHeight] = useState<number>(170);
-  const [weight, setWeight] = useState<number>(70);
+  const [height, setHeight] = useState<string>('');
+  const [weight, setWeight] = useState<string>('');
+  const [age, setAge] = useState<string>('');
   const [experienceLevel, setExperienceLevel] = useState<ExperienceLevel>(ExperienceLevel.BEGINNER);
 
   useEffect(() => {
@@ -30,8 +31,9 @@ const UserProfileForm: React.FC<UserProfileFormProps> = ({ existingProfile, onSa
       setGoal(existingProfile.goal);
       setTrainingFrequency(existingProfile.trainingFrequency);
       setTargetMuscleGroups(existingProfile.targetMuscleGroups || []);
-      setHeight(existingProfile.height || 170);
-      setWeight(existingProfile.weight || 70);
+      setHeight(existingProfile.height ? existingProfile.height.toString() : '');
+      setWeight(existingProfile.weight ? existingProfile.weight.toString() : '');
+      setAge(existingProfile.age ? existingProfile.age.toString() : '');
       setExperienceLevel(existingProfile.experienceLevel || ExperienceLevel.BEGINNER);
     } else {
       setName('');
@@ -40,8 +42,9 @@ const UserProfileForm: React.FC<UserProfileFormProps> = ({ existingProfile, onSa
       setGoal(FITNESS_GOAL_OPTIONS[0].value);
       setTrainingFrequency(DEFAULT_TRAINING_FREQUENCY);
       setTargetMuscleGroups([]);
-      setHeight(170);
-      setWeight(70);
+      setHeight('');
+      setWeight('');
+      setAge('');
       setExperienceLevel(ExperienceLevel.BEGINNER);
     }
   }, [existingProfile]);
@@ -58,8 +61,9 @@ const UserProfileForm: React.FC<UserProfileFormProps> = ({ existingProfile, onSa
       goal, 
       trainingFrequency, 
       targetMuscleGroups,
-      height,
-      weight,
+      height: height ? Number(height) : 170,
+      weight: weight ? Number(weight) : 70,
+      age: age ? Number(age) : 25,
       experienceLevel
     });
   };
@@ -141,45 +145,48 @@ const UserProfileForm: React.FC<UserProfileFormProps> = ({ existingProfile, onSa
         </div>
         <div>
           <label htmlFor="height" className={commonLabelClasses}>{UI_TEXT.heightLabel}</label>
-          <div className="relative">
-            <input
-              type="number"
-              id="height"
-              value={height}
-              onChange={(e) => setHeight(Number(e.target.value))}
-              className={`${commonSelectClasses} ${height === 170 ? 'text-gray-400' : 'text-gray-200'}`}
-              min="100"
-              max="250"
-              step="1"
-            />
-            {height === 170 && (
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">
-                Середній зріст
-              </div>
-            )}
-          </div>
+          <input
+            type="number"
+            id="height"
+            value={height}
+            onChange={(e) => setHeight(e.target.value)}
+            className={commonSelectClasses}
+            placeholder="170"
+            min="100"
+            max="250"
+            step="1"
+          />
           <p className="text-sm text-gray-400 mt-1">Введіть ваш зріст у сантиметрах (100-250 см)</p>
         </div>
         <div>
           <label htmlFor="weight" className={commonLabelClasses}>{UI_TEXT.weightLabel}</label>
-          <div className="relative">
-            <input
-              type="number"
-              id="weight"
-              value={weight}
-              onChange={(e) => setWeight(Number(e.target.value))}
-              className={`${commonSelectClasses} ${weight === 70 ? 'text-gray-400' : 'text-gray-200'}`}
-              min="30"
-              max="300"
-              step="0.1"
-            />
-            {weight === 70 && (
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">
-                Середня вага
-              </div>
-            )}
-          </div>
+          <input
+            type="number"
+            id="weight"
+            value={weight}
+            onChange={(e) => setWeight(e.target.value)}
+            className={commonSelectClasses}
+            placeholder="70"
+            min="30"
+            max="300"
+            step="0.1"
+          />
           <p className="text-sm text-gray-400 mt-1">Введіть вашу вагу у кілограмах (30-300 кг)</p>
+        </div>
+        <div>
+          <label htmlFor="age" className={commonLabelClasses}>{UI_TEXT.ageLabel}</label>
+          <input
+            type="number"
+            id="age"
+            value={age}
+            onChange={(e) => setAge(e.target.value)}
+            className={commonSelectClasses}
+            placeholder="25"
+            min="16"
+            max="100"
+            step="1"
+          />
+          <p className="text-sm text-gray-400 mt-1">Введіть ваш вік у роках (16-100 років)</p>
         </div>
         <div>
           <label htmlFor="experienceLevel" className={commonLabelClasses}>{UI_TEXT.experienceLevelLabel}</label>

@@ -84,7 +84,7 @@ const App: React.FC = () => {
       await saveProfile(profileToSave); // Зберігаємо в Firestore через useUserData
       const plan = await apiGenerateWorkoutPlan(profileToSave, GEMINI_MODEL_TEXT);
       await saveWorkoutPlan(plan);
-      setActiveWorkoutDay(null);
+      setActiveWorkoutDay(null); 
       setCurrentView('workout');
     } catch (e: any) {
       console.error("Error generating workout plan:", e);
@@ -102,7 +102,7 @@ const App: React.FC = () => {
     if (userProfile) {
       if (activeWorkoutDay !== null) {
          if(!confirm("У вас є активне тренування. Створення нового плану завершить його без збереження. Продовжити?")) return;
-         setActiveWorkoutDay(null);
+         setActiveWorkoutDay(null); 
          setWorkoutStartTime(null);
       }
       setIsLoading(true);
@@ -299,7 +299,7 @@ const App: React.FC = () => {
                 isApiKeyMissing={apiKeyMissing}
               />;
     }
-
+    
     switch (currentView) {
       case 'profile':
         return <UserProfileForm 
@@ -369,7 +369,7 @@ const App: React.FC = () => {
 
       <main className="flex-grow container mx-auto p-3 sm:p-4 md:p-6">
         {error && !isLoading && <ErrorMessage message={error} onClear={() => setError(null)} />}
-        {renderView()}
+         {renderView()}
       </main>
 
       <footer className="bg-gray-800/50 text-center p-3 sm:p-4 text-xs sm:text-sm text-gray-400 mt-auto">

@@ -59,6 +59,7 @@ export interface UserProfile {
   targetMuscleGroups: MuscleGroup[]; // Цільові групи м'язів
   height: number;            // Зріст у см
   weight: number;            // Вага у кг
+  age: number;               // Вік у роках
   experienceLevel: ExperienceLevel; // Рівень досвіду
 }
 
@@ -83,13 +84,15 @@ export interface Exercise {
 export interface DailyWorkoutPlan {
   day: number;
   exercises: Exercise[];
-  notes?: string; 
+  notes?: string;
+  warmup?: string;
+  cooldown?: string;
 }
 
 export interface LoggedSet {
-  weight: number;    // Вага
-  reps: number;      // Повторення
-  completed: boolean; // Чи завершено
+  weight?: number;    // Вага
+  reps?: number;      // Повторення
+  completed?: boolean; // Чи завершено
 }
 
 export interface LoggedSetWithAchieved {
@@ -113,9 +116,9 @@ export interface LoggedExercise {
 export interface WorkoutLog {
   id?: string;           // ID логу (автоматично)
   userId: string;        // ID користувача
-  date: Date | admin.firestore.Timestamp;           // Дата тренування (дозволяємо Timestamp з Firebase Admin SDK)
+  date: Date | { seconds: number; nanoseconds: number }; // Замінюємо admin.firestore.Timestamp на простіший тип
   duration: number;     // Тривалість в секундах
-  dayCompleted?: number; // День плану, який був завершений (додано)
-  workoutDuration?: string; // Тривалість тренування у форматі HH:MM:SS (додано)
-  loggedExercises: LoggedExercise[]; // Виконані вправи (перейменовано exercises на loggedExercises)
+  dayCompleted?: number; // День плану, який був завершений
+  workoutDuration?: string; // Тривалість тренування у форматі HH:MM:SS
+  loggedExercises: LoggedExercise[]; // Виконані вправи
 }

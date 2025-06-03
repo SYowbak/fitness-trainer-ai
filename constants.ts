@@ -115,6 +115,7 @@ export const UI_TEXT = {
   goalLabel: "Фітнес ціль:",
   frequencyLabel: "Частота тренувань:",
   targetMuscleGroupLabel: "Акцент на групу м'язів (необов'язково):",
+  ageLabel: "Вік:",
   workoutPlanTitle: "Ваш План Тренувань",
   noWorkoutPlan: "План тренувань ще не згенеровано. Заповніть профіль та натисніть 'Зберегти профіль та згенерувати план' або 'Згенерувати Новий План Тренувань', якщо профіль вже є.",
   day: "День",
@@ -175,19 +176,23 @@ export function getUkrainianGoal(goal: FitnessGoal): string {
   const option = FITNESS_GOAL_OPTIONS.find(opt => opt.value === goal);
   return option ? option.label : "не вказано";
 }
+
 export function getUkrainianBodyType(bodyType: BodyType): string {
     const option = BODY_TYPE_OPTIONS.find(opt => opt.value === bodyType);
     return option ? option.label : "не вказано";
 }
+
 export function getUkrainianGender(gender: Gender): string {
     const option = GENDER_OPTIONS.find(opt => opt.value === gender);
     return option ? option.label : "не вказано";
 }
+
 export function getUkrainianMuscleGroup(muscleGroup?: MuscleGroup | ''): string {
     if (!muscleGroup) return MUSCLE_GROUP_OPTIONS[0].label;
     const option = MUSCLE_GROUP_OPTIONS.find(opt => opt.value === muscleGroup);
     return option ? option.label : "не вказано";
 }
+
 export function getUkrainianExperienceLevel(level: ExperienceLevel): string {
   const option = EXPERIENCE_LEVEL_OPTIONS.find(opt => opt.value === level);
   return option ? option.label : "не вказано";
