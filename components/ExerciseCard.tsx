@@ -14,6 +14,18 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, exerciseIndex, is
   const [isExpanded, setIsExpanded] = useState(false);
   const [showLogForm, setShowLogForm] = useState(false);
   
+  // Додаємо логування для дебагу
+  useEffect(() => {
+    console.log('Exercise data:', {
+      name: exercise.name,
+      description: exercise.description,
+      videoSearchQuery: exercise.videoSearchQuery,
+      sets: exercise.sets,
+      reps: exercise.reps,
+      rest: exercise.rest
+    });
+  }, [exercise]);
+
   const numSets = typeof exercise.sets === 'string' 
     ? (parseInt(exercise.sets.split('-')[0], 10) || 3) 
     : (typeof exercise.sets === 'number' ? exercise.sets : 3);
