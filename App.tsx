@@ -17,7 +17,7 @@ import { auth } from './config/firebase';
 type View = 'profile' | 'workout' | 'progress';
 
 const App: React.FC = () => {
-  const { user, loading, logout } = useAuth();
+  const { user, loading: authLoading, logout } = useAuth();
   const { 
     workoutPlan, saveWorkoutPlan, loading: userDataLoading, 
     profile: firestoreProfile, workoutLogs: firestoreWorkoutLogs,
@@ -27,7 +27,7 @@ const App: React.FC = () => {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [currentWorkoutPlan, setCurrentWorkoutPlan] = useState<DailyWorkoutPlan[] | null>(null);
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const isLoading = userDataLoading;
   const [error, setError] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<View>('profile');
   const [apiKeyMissing, setApiKeyMissing] = useState<boolean>(false);
@@ -87,7 +87,6 @@ const App: React.FC = () => {
       setError(UI_TEXT.apiKeyMissing);
       return;
     }
-    setIsLoading(true);
     setError(null);
     try {
       const profileToSave: UserProfile = {
@@ -103,8 +102,6 @@ const App: React.FC = () => {
     } catch (e: any) {
       console.error("Error generating workout plan:", e);
       setError(e.message || UI_TEXT.errorOccurred);
-    } finally {
-      setIsLoading(false);
     }
   }, [apiKeyMissing, saveWorkoutPlan, saveProfile, clearActiveWorkoutSession]);
 
@@ -121,7 +118,6 @@ const App: React.FC = () => {
          setSessionExercises([]);
          clearActiveWorkoutSession();
       }
-      setIsLoading(true);
       setError(null);
       try {
         const plan = await apiGenerateWorkoutPlan(userProfile, GEMINI_MODEL_TEXT);
@@ -130,8 +126,6 @@ const App: React.FC = () => {
       } catch (e: any) {
         console.error("Error generating new workout plan:", e);
         setError(e.message || UI_TEXT.errorOccurred);
-      } finally {
-        setIsLoading(false);
       }
     } else {
       setCurrentView('profile');
@@ -300,29 +294,35 @@ const App: React.FC = () => {
       workoutPlan: !!workoutPlan // Перевірка на наявність плану
     });
     
-    if (isLoading && currentView !== 'profile' && activeWorkoutDay === null) return <Spinner message={UI_TEXT.generatingWorkout} />;
-    
-    if (userDataLoading && !firestoreProfile && !workoutPlan && activeWorkoutDay === null) {
+    // Якщо дані користувача або автентифікація завантажуються, показуємо спінер завантаження даних
+    if (userDataLoading || authLoading) {
         return <Spinner message={UI_TEXT.loadingUserData} />;
     }
 
+    // Якщо користувача немає (автентифікація завершена, але user == null), показуємо форму авторизації
+    if (!user) {
+      return <AuthForm />;
+    }
+
+    // Якщо користувач є, але профілю немає, показуємо форму профілю
     if (!firestoreProfile) {
       return <UserProfileForm 
                 existingProfile={userProfile} 
                 onSave={handleProfileSave} 
                 apiKeyMissing={apiKeyMissing} 
-                isLoading={isLoading}
+                isLoading={isLoading} // Використовуємо isLoading (що є userDataLoading)
                 onLogout={logout}
                 onDeleteAccount={handleDeleteAccount}
               />;
     }
 
+    // Якщо є профіль, але немає плану, показуємо WorkoutDisplay з кнопкою генерації
     if (firestoreProfile && !workoutPlan) {
         return <WorkoutDisplay 
                 userProfile={firestoreProfile}
                 workoutPlan={null}
                 onGenerateNewPlan={handleGenerateNewPlan}
-                isLoading={isLoading || (apiKeyMissing && !userProfile)}
+                isLoading={isLoading || (apiKeyMissing && !userProfile)} // Використовуємо isLoading
                 activeDay={activeWorkoutDay}
                 sessionExercises={sessionExercises}
                 onStartWorkout={handleStartWorkout}
@@ -333,14 +333,15 @@ const App: React.FC = () => {
                 onSaveWorkoutPlan={handleSaveWorkoutPlan}
               />;
     }
-    
+
+    // Якщо є і профіль, і план, показуємо відповідний вигляд залежно від currentView
     switch (currentView) {
       case 'profile':
         return <UserProfileForm 
                   existingProfile={userProfile} 
                   onSave={handleProfileSave} 
                   apiKeyMissing={apiKeyMissing} 
-                  isLoading={isLoading}
+                  isLoading={isLoading} // Використовуємо isLoading
                   onLogout={logout}
                   onDeleteAccount={handleDeleteAccount}
                 />;
@@ -349,7 +350,7 @@ const App: React.FC = () => {
                   userProfile={userProfile}
                   workoutPlan={currentWorkoutPlan} 
                   onGenerateNewPlan={handleGenerateNewPlan}
-                  isLoading={isLoading || (apiKeyMissing && !userProfile)}
+                  isLoading={isLoading || (apiKeyMissing && !userProfile)} // Використовуємо isLoading
                   activeDay={activeWorkoutDay}
                   sessionExercises={sessionExercises}
                   onStartWorkout={handleStartWorkout}
@@ -366,20 +367,12 @@ const App: React.FC = () => {
                   existingProfile={userProfile} 
                   onSave={handleProfileSave} 
                   apiKeyMissing={apiKeyMissing} 
-                  isLoading={isLoading}
+                  isLoading={isLoading} // Використовуємо isLoading
                   onLogout={logout}
                   onDeleteAccount={handleDeleteAccount}
                 />;
     }
   };
-
-  if (loading) {
-    return <div className="flex items-center justify-center min-h-screen text-xl text-purple-400">Завантаження автентифікації...</div>;
-  }
-
-  if (!user) {
-    return <AuthForm />;
-  }
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-900 via-slate-800 to-purple-900">
@@ -404,7 +397,7 @@ const App: React.FC = () => {
       </header>
 
       <main className="flex-grow container mx-auto p-3 sm:p-4 md:p-6">
-        {error && !isLoading && <ErrorMessage message={error} onClear={() => setError(null)} />}
+        {error && !isLoading && <ErrorMessage message={error} onClear={() => setError(null)} />} {/* Використовуємо isLoading */}
          {renderView()}
       </main>
 
