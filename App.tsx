@@ -74,6 +74,7 @@ const App: React.FC = () => {
 
   // Load active workout state from localStorage on initial load
   useEffect(() => {
+    console.log("Attempting to load workout state from localStorage...");
     const savedState = localStorage.getItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
     if (savedState) {
       try {
@@ -110,6 +111,20 @@ const App: React.FC = () => {
       }
     }
   }, []);
+
+  // Save active workout state to localStorage whenever it changes
+  useEffect(() => {
+    console.log("Checking if active workout state needs saving to localStorage...");
+    if (activeWorkoutDay !== null && workoutStartTime !== null) {
+      const stateToSave = {
+        activeDay: activeWorkoutDay,
+        exercises: sessionExercises,
+        startTime: workoutStartTime,
+        timestamp: Date.now(),
+      };
+      localStorage.setItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY, JSON.stringify(stateToSave));
+    }
+  }, [activeWorkoutDay, workoutStartTime, sessionExercises]);
 
   const handleProfileSave = useCallback(async (profile: UserProfile) => {
     if (apiKeyMissing) {
