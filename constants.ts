@@ -169,7 +169,19 @@ export const UI_TEXT = {
   experienceLevelLabel: "Рівень підготовки:",
   targetMuscleGroupsLabel: "Акцент на групи м'язів:",
   cancel: "Скасувати",
-  save: "Зберегти"
+  save: "Зберегти",
+  editWorkoutPlan: "Редагувати план тренувань",
+  saveChanges: "Зберегти зміни",
+  addExercise: "Додати нову вправу",
+  regenerateExercise: "Перегенерувати вправу",
+  deleteExercise: "Видалити вправу",
+  exerciseName: "Назва вправи",
+  exerciseDescription: "Опис техніки",
+  selectDay: "Виберіть день",
+  generatingExercise: "Генерація вправи...",
+  errorGeneratingExercise: "Помилка при генерації вправи",
+  errorRegeneratingExercise: "Помилка при перегенерації вправи",
+  errorSavingPlan: "Помилка при збереженні плану"
 };
 
 export function getUkrainianGoal(goal: FitnessGoal): string {

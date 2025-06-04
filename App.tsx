@@ -266,6 +266,16 @@ const App: React.FC = () => {
     }
   };
 
+  const handleSaveWorkoutPlan = useCallback(async (plan: DailyWorkoutPlan[]) => {
+    try {
+      await saveWorkoutPlan(plan);
+      setCurrentWorkoutPlan(plan);
+    } catch (e: any) {
+      console.error("Error saving edited workout plan:", e);
+      setError(e.message || UI_TEXT.errorOccurred);
+    }
+  }, [saveWorkoutPlan]);
+
   const renderView = () => {
     if (isLoading && currentView !== 'profile' && activeWorkoutDay === null) return <Spinner message={UI_TEXT.generatingWorkout} />;
     
@@ -297,6 +307,7 @@ const App: React.FC = () => {
                 onLogExercise={handleLogSingleExercise}
                 workoutTimerDisplay={formatTime(workoutTimer)}
                 isApiKeyMissing={apiKeyMissing}
+                onSaveWorkoutPlan={handleSaveWorkoutPlan}
               />;
     }
     
@@ -323,6 +334,7 @@ const App: React.FC = () => {
                   onLogExercise={handleLogSingleExercise}
                   workoutTimerDisplay={formatTime(workoutTimer)}
                   isApiKeyMissing={apiKeyMissing}
+                  onSaveWorkoutPlan={handleSaveWorkoutPlan}
                 />;
       case 'progress':
         return <ProgressView workoutLogs={workoutLogs} userProfile={userProfile} />;

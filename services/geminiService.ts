@@ -10,14 +10,8 @@ import {
   GEMINI_MODEL_TEXT 
 } from '../constants';
 
-const getApiKey = (): string | null => {
-  // @ts-ignore
-  const apiKey = typeof import.meta.env !== 'undefined' && import.meta.env && import.meta.env.VITE_API_KEY ? import.meta.env.VITE_API_KEY : null;
-  if (!apiKey) {
-    console.warn("API_KEY for Gemini is not set. Please ensure it's configured in your environment.");
-    return null;
-  }
-  return apiKey;
+export const getApiKey = (): string | null => {
+  return import.meta.env.VITE_API_KEY || null;
 };
 
 let ai: GoogleGenAI | null = null;
