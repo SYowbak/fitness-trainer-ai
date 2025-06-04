@@ -191,19 +191,13 @@ const WorkoutEditMode: React.FC<WorkoutEditModeProps> = ({
         <div className="space-y-6">
           {currentDayPlan?.exercises.map((exercise, index) => (
             <div key={index} className="p-4 bg-gray-700/50 rounded-lg">
-              <div className="flex justify-between items-start mb-4">
-                <input
-                  type="text"
-                  value={exercise.name}
-                  onChange={(e) => handleUpdateExercise(selectedDay, index, 'name', e.target.value)}
-                  className="text-xl font-semibold bg-transparent border-b border-gray-600 focus:border-purple-500 outline-none text-white flex-grow"
-                />
+              <div className="flex justify-end items-center space-x-2 mb-2">
                 {isLoading && loadingExerciseIndex === index ? (
                   <Spinner message="" />
                 ) : (
                   <button
                     onClick={() => handleCompleteDetails(selectedDay, index)}
-                    className={`ml-2 px-3 py-1 rounded transition-colors text-sm ${
+                    className={`px-3 py-1 rounded transition-colors text-sm ${
                       changedExerciseNames.has(`${selectedDay}-${index}`)
                         ? 'bg-green-600 hover:bg-green-700 text-white'
                         : 'bg-gray-500 cursor-not-allowed text-gray-400'
@@ -214,22 +208,29 @@ const WorkoutEditMode: React.FC<WorkoutEditModeProps> = ({
                     {UI_TEXT.completeExerciseDetails}
                   </button>
                 )}
-                <div className="space-x-2">
-                  <button
-                    onClick={() => handleRegenerateExercise(selectedDay, index)}
-                    className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                    title="Перегенерувати вправу"
-                  >
-                    Перегенерувати
-                  </button>
-                  <button
-                    onClick={() => handleDeleteExercise(selectedDay, index)}
-                    className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
-                    title="Видалити вправу"
-                  >
-                    Видалити
-                  </button>
-                </div>
+                <button
+                  onClick={() => handleRegenerateExercise(selectedDay, index)}
+                  className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                  title="Перегенерувати вправу"
+                >
+                  Перегенерувати
+                </button>
+                <button
+                  onClick={() => handleDeleteExercise(selectedDay, index)}
+                  className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                  title="Видалити вправу"
+                >
+                  Видалити
+                </button>
+              </div>
+
+              <div className="mb-4">
+                <input
+                  type="text"
+                  value={exercise.name}
+                  onChange={(e) => handleUpdateExercise(selectedDay, index, 'name', e.target.value)}
+                  className="w-full p-2 bg-gray-700 text-white rounded border border-gray-600"
+                />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">

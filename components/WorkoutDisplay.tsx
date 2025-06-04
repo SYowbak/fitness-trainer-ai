@@ -112,18 +112,6 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
         <h2 className="text-2xl font-bold text-purple-300">{UI_TEXT.workoutPlanTitle}</h2>
         <div className="space-x-2">
           
-          <button
-            onClick={onGenerateNewPlan}
-            disabled={isApiKeyMissing}
-            className={`px-4 py-2 rounded transition-colors ${
-              isApiKeyMissing
-                ? 'bg-gray-500 cursor-not-allowed'
-                : 'bg-purple-600 hover:bg-purple-700 text-white'
-            }`}
-          >
-            <i className="fas fa-magic mr-2"></i>
-            {UI_TEXT.generateWorkout}
-          </button>
         </div>
       </div>
 
