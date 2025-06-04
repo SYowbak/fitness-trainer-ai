@@ -34,22 +34,45 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, exerciseIndex, is
 
   const [restTimer, setRestTimer] = useState<number>(0);
   const [isResting, setIsResting] = useState<boolean>(false);
+  const [restStartTime, setRestStartTime] = useState<number | null>(null);
 
   useEffect(() => {
-    let interval: number | null = null;
-    if (isResting && restTimer > 0) {
-      interval = window.setInterval(() => {
-        setRestTimer(prev => prev - 1);
-      }, 1000);
-    } else if (isResting && restTimer === 0) {
+    if (isResting && restStartTime !== null) {
+      const totalRestDuration = typeof exercise.rest === 'string' 
+        ? (exercise.rest.includes('секунд') ? parseInt(exercise.rest.split(' ')[0], 10) : parseInt(exercise.rest, 10)) || 60
+        : (typeof exercise.rest === 'number' ? exercise.rest : 60);
+
+      const calculateTime = () => {
+        const elapsed = Math.floor((Date.now() - restStartTime!) / 1000);
+        const remaining = totalRestDuration - elapsed;
+        
+        setRestTimer(Math.max(0, remaining));
+
+        if (remaining <= 0) {
+          setIsResting(false);
+          setRestStartTime(null);
+          alert(`Відпочинок для "${exercise.name}" завершено!`);
+        } else {
+           // Оновлюємо таймер щосекунди, поки відпочинок триває
+           const interval = window.requestAnimationFrame(calculateTime);
+           return () => window.cancelAnimationFrame(interval);
+        }
+      };
+      
+      // Запускаємо перше оновлення і плануємо наступні
+      calculateTime();
+
+    } else if (!isResting && restStartTime !== null) {
+      // Якщо відпочинок був активний, але його зупинили (час вийшов)
       setIsResting(false);
       // Optional: Play a sound or show notification
-      alert(`Відпочинок для "${exercise.name}" завершено!`);
+      setRestStartTime(null);
     }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isResting, restTimer, exercise.name]);
+    
+    // Залежності: isResting, restStartTime, exercise.rest (для тривалості)
+    // Date.now() не є залежністю, бо воно змінюється постійно
+    // setRestTimer, setIsResting, setRestStartTime - React гарантує стабільність
+  }, [isResting, restStartTime, exercise.rest, exercise.name]); // Додаємо exercise.name для сповіщення
   
   // Reset form when exercise changes or completion status changes
   useEffect(() => {
@@ -61,19 +84,19 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, exerciseIndex, is
 
   const handleStartRest = () => {
     const restStr = exercise.rest ?? '60';
-    let restSeconds = 60;
     
     if (typeof restStr === 'string') {
       if (restStr.includes('секунд')) {
-        restSeconds = parseInt(restStr.split(' ')[0], 10);
+        // The value is no longer needed here, as we use restStartTime
       } else {
-        restSeconds = parseInt(restStr, 10);
+        // The value is no longer needed here
       }
     } else if (typeof restStr === 'number') {
-      restSeconds = restStr;
+      // The value is no longer needed here
     }
     
-    setRestTimer(restSeconds || 60);
+    // setRestTimer(restSeconds || 60); // Більше не встановлюємо початковий візуальний таймер тут
+    setRestStartTime(Date.now()); // Фіксуємо час початку відпочинку
     setIsResting(true);
   };
 
