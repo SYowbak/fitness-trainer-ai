@@ -34,22 +34,22 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
   isApiKeyMissing,
   onSaveWorkoutPlan,
 }) => {
-  // START - WorkoutDisplay State Check
-  console.log('WorkoutDisplay State Check:', {
-    activeDay: activeDay,
-    isApiKeyMissing: isApiKeyMissing,
-    isEditMode: isEditMode,
-    workoutPlanExists: !!workoutPlan && workoutPlan.length > 0,
-    isWorkoutPlanValid: workoutPlan && Array.isArray(workoutPlan)
-  });
-  // END - WorkoutDisplay State Check
-
   const [selectedDayForView, setSelectedDayForView] = useState<number | null>(
     workoutPlan && workoutPlan.length > 0 ? workoutPlan[0].day : null
   );
   const [isEditMode, setIsEditMode] = useState<boolean>(false);
 
   const isWorkoutPlanValid = workoutPlan && Array.isArray(workoutPlan);
+
+  // START - WorkoutDisplay State Check - Moved
+  console.log('WorkoutDisplay State Check:', {
+    activeDay: activeDay,
+    isApiKeyMissing: isApiKeyMissing,
+    isEditMode: isEditMode,
+    workoutPlanExists: !!workoutPlan && workoutPlan.length > 0,
+    isWorkoutPlanValid: isWorkoutPlanValid
+  });
+  // END - WorkoutDisplay State Check - Moved
 
   if (isLoading && (!isWorkoutPlanValid || workoutPlan.length === 0) && activeDay === null) {
     return <Spinner message={UI_TEXT.generatingWorkout} />;
