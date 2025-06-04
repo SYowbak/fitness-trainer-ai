@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { DailyWorkoutPlan, UserProfile, Exercise as ExerciseType, LoggedSet } from '../types';
-import { UI_TEXT, getUkrainianGoal, getUkrainianBodyType, getUkrainianGender, getUkrainianMuscleGroup } from '../constants';
+import { UI_TEXT } from '../constants';
 import ExerciseCard from './ExerciseCard';
 import Spinner from './Spinner';
 import WorkoutEditMode from './WorkoutEditMode';
@@ -107,7 +107,7 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
   const allSessionExercisesLogged = activeDay !== null && sessionExercises.every(ex => ex.isCompletedDuringSession || (ex.sessionLoggedSets && ex.sessionLoggedSets.length === 0 && ex.sessionSuccess !== undefined) );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 px-4 sm:px-6 md:px-8">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-purple-300">{UI_TEXT.workoutPlanTitle}</h2>
         <div className="space-x-2">
@@ -128,8 +128,8 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
       </div>
 
       {activeDay === null ? (
-        <div className="mb-6 flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0 md:space-x-4">
-          <div className="flex-grow">
+        <div className="mb-6 flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0 md:space-x-4 w-full max-w-full overflow-hidden">
+          <div className="flex-none md:flex-grow">
             <label className="block text-gray-300 mb-2">{UI_TEXT.selectDay}:</label>
             <select
               value={selectedDayForView || ''}
@@ -143,11 +143,11 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
               ))}
             </select>
           </div>
-          <div className="flex space-x-2 mt-auto">
+          <div className="flex flex-col space-y-2 mt-auto w-full md:flex-row md:space-y-0 md:space-x-2 md:w-auto md:justify-start flex-shrink-0 min-w-0">
              {!isApiKeyMissing && (
             <button
               onClick={() => setIsEditMode(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+              className="w-full md:w-auto px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
             >
               <i className="fas fa-edit mr-2"></i>
               {UI_TEXT.editWorkoutPlan}
@@ -156,7 +156,7 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
            <button
             onClick={() => selectedDayForView !== null && onStartWorkout(selectedDayForView)}
             disabled={selectedDayForView === null}
-            className={`px-4 py-2 rounded transition-colors ${
+            className={`w-full md:w-auto px-4 py-2 rounded transition-colors ${
               selectedDayForView === null
                 ? 'bg-gray-500 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700 text-white'
             }`}
