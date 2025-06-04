@@ -175,6 +175,7 @@ export const UI_TEXT = {
   addExercise: "Додати нову вправу",
   regenerateExercise: "Перегенерувати вправу",
   deleteExercise: "Видалити вправу",
+  editWorkoutPlanTitle: "Редагування плану тренувань",
   exerciseName: "Назва вправи",
   exerciseDescription: "Опис техніки",
   selectDay: "Виберіть день",

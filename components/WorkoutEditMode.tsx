@@ -199,9 +199,10 @@ const WorkoutEditMode: React.FC<WorkoutEditModeProps> = ({
                 ) : (
                   <button
                     onClick={() => handleCompleteDetails(selectedDay, index)}
-                    className={`px-2 py-1 rounded transition-colors text-xs ${changedExerciseNames.has(`${selectedDay}-${index}`)
-                      ? 'bg-green-600 hover:bg-green-700 text-white'
-                      : 'bg-gray-500 cursor-not-allowed text-gray-400'
+                    className={`px-2 py-1 rounded transition-colors text-xs flex items-center justify-center min-w-[70px] h-[24px] ${
+                      changedExerciseNames.has(`${selectedDay}-${index}`)
+                        ? 'bg-green-600 hover:bg-green-700 text-white'
+                        : 'bg-gray-500 cursor-not-allowed text-gray-400'
                     }`}
                     title={UI_TEXT.completeExerciseDetails}
                     disabled={!changedExerciseNames.has(`${selectedDay}-${index}`)}
@@ -211,14 +212,14 @@ const WorkoutEditMode: React.FC<WorkoutEditModeProps> = ({
                 )}
                 <button
                   onClick={() => handleRegenerateExercise(selectedDay, index)}
-                  className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex-shrink-0"
+                  className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex-shrink-0 flex items-center justify-center min-w-[70px] h-[24px]"
                   title="Перегенерувати вправу"
                 >
                   Перегенерувати
                 </button>
                 <button
                   onClick={() => handleDeleteExercise(selectedDay, index)}
-                  className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 transition-colors flex-shrink-0"
+                  className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 transition-colors flex-shrink-0 flex items-center justify-center min-w-[70px] h-[24px]"
                   title="Видалити вправу"
                 >
                   Видалити
