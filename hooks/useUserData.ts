@@ -13,20 +13,7 @@ import {
 import { db } from '../config/firebase';
 import { UserProfile, WorkoutLog, DailyWorkoutPlan, Exercise } from '../types';
 import { useAuth } from './useAuth';
-
-// Утиліта для очищення undefined
-function removeUndefined(obj: any): any {
-  if (Array.isArray(obj)) {
-    return obj.map(removeUndefined);
-  } else if (obj && typeof obj === 'object') {
-    return Object.fromEntries(
-      Object.entries(obj)
-        .filter(([_, v]) => v !== undefined)
-        .map(([k, v]) => [k, removeUndefined(v)])
-    );
-  }
-  return obj;
-}
+import { removeUndefined } from '../utils/cleanObject';
 
 // Очищення плану для Firestore: залишає тільки потрібні поля у вправах
 function cleanWorkoutPlanForFirestore(plan: DailyWorkoutPlan[]): DailyWorkoutPlan[] {
@@ -126,8 +113,11 @@ export const useUserData = () => {
 
   // Завантаження профілю та активної сесії
   useEffect(() => {
+    console.log('useUserData useEffect triggered', { user: !!user });
     const loadUserData = async () => {
+      console.log('loadUserData function called');
       if (!user) {
+        console.log('loadUserData: user is null');
         setProfile(null);
         setWorkoutLogs([]);
         setWorkoutPlan(null);
@@ -137,6 +127,7 @@ export const useUserData = () => {
         return;
       }
 
+      console.log('loadUserData: user is present, starting data fetch');
       setLoading(true);
       setLoadingActiveSession(true);
       try {
@@ -145,8 +136,10 @@ export const useUserData = () => {
         const userDocSnap = await getDoc(userDocRef);
         
         if (userDocSnap.exists()) {
+          console.log('Profile data found');
           setProfile(userDocSnap.data() as UserProfile);
         } else {
+          console.log('Profile data not found');
           setProfile(null);
         }
 
@@ -166,8 +159,10 @@ export const useUserData = () => {
         const planDocRef = doc(db, 'workoutPlans', user.uid);
         const planDocSnap = await getDoc(planDocRef);
         if (planDocSnap.exists()) {
+          console.log('Workout plan found');
           setWorkoutPlan(planDocSnap.data().plan as DailyWorkoutPlan[]);
         } else {
+          console.log('Workout plan not found');
           setWorkoutPlan(null);
         }
 
@@ -182,7 +177,7 @@ export const useUserData = () => {
           console.log("Активної сесії тренування у Firestore не знайдено");
         }
 
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error loading user data:', error);
         // Встановлюємо null для всіх даних у випадку помилки
         setProfile(null);
@@ -195,8 +190,27 @@ export const useUserData = () => {
       }
     };
 
-    loadUserData();
-  }, [user]);
+    if (user && loading) {
+      console.log('useUserData: Starting data load...');
+      loadUserData();
+    } else if (!user && !loading) {
+      console.log('useUserData: User is null and state is already reset.');
+      setProfile(null);
+      setWorkoutLogs([]);
+      setWorkoutPlan(null);
+      setActiveWorkoutSession(null);
+      setLoading(false);
+      setLoadingActiveSession(false);
+    } else if (!user && loading) {
+      console.log('useUserData: User became null while loading was true, resetting state.');
+      setProfile(null);
+      setWorkoutLogs([]);
+      setWorkoutPlan(null);
+      setActiveWorkoutSession(null);
+      setLoading(false);
+      setLoadingActiveSession(false);
+    }
+  }, [user, loading]);
 
   // Збереження профілю
   const saveProfile = async (profile: UserProfile) => {
