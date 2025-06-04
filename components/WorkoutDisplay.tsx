@@ -34,17 +34,20 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
   isApiKeyMissing,
   onSaveWorkoutPlan,
 }) => {
-  const [selectedDayForView, setSelectedDayForView] = useState<number | null>(
-    workoutPlan && workoutPlan.length > 0 ? workoutPlan[0].day : null
-  );
-  const [isEditMode, setIsEditMode] = useState<boolean>(false);
-
+  // START - WorkoutDisplay State Check
   console.log('WorkoutDisplay State Check:', {
     activeDay: activeDay,
     isApiKeyMissing: isApiKeyMissing,
     isEditMode: isEditMode,
-    workoutPlanExists: !!workoutPlan && workoutPlan.length > 0
+    workoutPlanExists: !!workoutPlan && workoutPlan.length > 0,
+    isWorkoutPlanValid: workoutPlan && Array.isArray(workoutPlan)
   });
+  // END - WorkoutDisplay State Check
+
+  const [selectedDayForView, setSelectedDayForView] = useState<number | null>(
+    workoutPlan && workoutPlan.length > 0 ? workoutPlan[0].day : null
+  );
+  const [isEditMode, setIsEditMode] = useState<boolean>(false);
 
   const isWorkoutPlanValid = workoutPlan && Array.isArray(workoutPlan);
 
