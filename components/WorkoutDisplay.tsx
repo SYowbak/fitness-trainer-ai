@@ -39,6 +39,13 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
   );
   const [isEditMode, setIsEditMode] = useState<boolean>(false);
 
+  console.log('WorkoutDisplay State Check:', {
+    activeDay: activeDay,
+    isApiKeyMissing: isApiKeyMissing,
+    isEditMode: isEditMode,
+    workoutPlanExists: !!workoutPlan && workoutPlan.length > 0
+  });
+
   const isWorkoutPlanValid = workoutPlan && Array.isArray(workoutPlan);
 
   if (isLoading && (!isWorkoutPlanValid || workoutPlan.length === 0) && activeDay === null) {
@@ -186,9 +193,10 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
           <ExerciseCard
             key={index}
             exercise={exercise}
-            index={index}
-            isActive={activeDay !== null}
+            exerciseIndex={index}
+            isActiveWorkout={activeDay !== null}
             onLogExercise={onLogExercise}
+            isCompleted={activeDay !== null ? !!exercise.isCompletedDuringSession : false}
           />
         ))}
       </div>
