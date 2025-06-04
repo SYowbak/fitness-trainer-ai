@@ -146,22 +146,24 @@ const WorkoutEditMode: React.FC<WorkoutEditModeProps> = ({
 
   return (
     <div className="p-4 bg-gray-800/80 rounded-lg shadow-xl backdrop-blur-sm">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-purple-300">Редагування плану тренувань</h2>
-        <div className="space-x-2">
-          <button
-            onClick={() => onSavePlan(editedPlan)}
-            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
-          >
-            Зберегти зміни
-          </button>
-          <button
-            onClick={onCancel}
-            className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
-          >
-            Скасувати
-          </button>
-        </div>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 space-y-4 md:space-y-0">
+        <h2 className="text-2xl font-bold text-purple-300">{UI_TEXT.editWorkoutPlanTitle}</h2>
+      </div>
+
+      {/* Контейнер кнопок збереження/скасування */}
+      <div className="flex space-x-2 mb-6 justify-center md:justify-start">
+        <button
+          onClick={() => onSavePlan(editedPlan)}
+          className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+        >
+          Зберегти зміни
+        </button>
+        <button
+          onClick={onCancel}
+          className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
+        >
+          Скасувати
+        </button>
       </div>
 
       {error && (
@@ -191,16 +193,15 @@ const WorkoutEditMode: React.FC<WorkoutEditModeProps> = ({
         <div className="space-y-6">
           {currentDayPlan?.exercises.map((exercise, index) => (
             <div key={index} className="p-4 bg-gray-700/50 rounded-lg">
-              <div className="flex justify-end items-center space-x-2 mb-2">
+              <div className="flex justify-end items-center space-x-1 mb-2">
                 {isLoading && loadingExerciseIndex === index ? (
                   <Spinner message="" />
                 ) : (
                   <button
                     onClick={() => handleCompleteDetails(selectedDay, index)}
-                    className={`px-3 py-1 rounded transition-colors text-sm ${
-                      changedExerciseNames.has(`${selectedDay}-${index}`)
-                        ? 'bg-green-600 hover:bg-green-700 text-white'
-                        : 'bg-gray-500 cursor-not-allowed text-gray-400'
+                    className={`px-2 py-1 rounded transition-colors text-xs ${changedExerciseNames.has(`${selectedDay}-${index}`)
+                      ? 'bg-green-600 hover:bg-green-700 text-white'
+                      : 'bg-gray-500 cursor-not-allowed text-gray-400'
                     }`}
                     title={UI_TEXT.completeExerciseDetails}
                     disabled={!changedExerciseNames.has(`${selectedDay}-${index}`)}
@@ -210,14 +211,14 @@ const WorkoutEditMode: React.FC<WorkoutEditModeProps> = ({
                 )}
                 <button
                   onClick={() => handleRegenerateExercise(selectedDay, index)}
-                  className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                  className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex-shrink-0"
                   title="Перегенерувати вправу"
                 >
                   Перегенерувати
                 </button>
                 <button
                   onClick={() => handleDeleteExercise(selectedDay, index)}
-                  className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                  className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 transition-colors flex-shrink-0"
                   title="Видалити вправу"
                 >
                   Видалити
