@@ -38,6 +38,7 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
     workoutPlan && workoutPlan.length > 0 ? workoutPlan[0].day : null
   );
   const [isEditMode, setIsEditMode] = useState<boolean>(false);
+  const [showEndWorkoutConfirm, setShowEndWorkoutConfirm] = useState<boolean>(false);
 
   const isWorkoutPlanValid = workoutPlan && Array.isArray(workoutPlan);
 
@@ -104,7 +105,25 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
   const currentDayPlan = activeDay !== null ? (isWorkoutPlanValid ? workoutPlan.find(p => p.day === activeDay) : null) : (selectedDayForView !== null && isWorkoutPlanValid ? workoutPlan.find(p => p.day === selectedDayForView) : null);
   const exercisesToDisplay = activeDay !== null ? sessionExercises : (currentDayPlan && currentDayPlan.exercises && Array.isArray(currentDayPlan.exercises) ? currentDayPlan.exercises : []);
 
-  const allSessionExercisesLogged = activeDay !== null && sessionExercises.every(ex => ex.isCompletedDuringSession || (ex.sessionLoggedSets && ex.sessionLoggedSets.length === 0 && ex.sessionSuccess !== undefined) );
+  // const allSessionExercisesLogged = activeDay !== null && sessionExercises.every(ex => ex.isCompletedDuringSession || (ex.sessionLoggedSets && ex.sessionLoggedSets.length === 0 && ex.sessionSuccess !== undefined) );
+  const hasUnloggedExercises = activeDay !== null && sessionExercises.some(ex => !ex.isCompletedDuringSession && ex.sessionLoggedSets.length === 0);
+
+  const handleEndWorkoutClick = () => {
+    if (hasUnloggedExercises) {
+      setShowEndWorkoutConfirm(true);
+    } else {
+      onEndWorkout();
+    }
+  };
+
+  const handleConfirmEndWorkout = () => {
+    setShowEndWorkoutConfirm(false);
+    onEndWorkout();
+  };
+
+  const handleCancelEndWorkout = () => {
+    setShowEndWorkoutConfirm(false);
+  };
 
   return (
     <div className="space-y-6 px-4 sm:px-6 md:px-8">
@@ -159,10 +178,10 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
             День {activeDay} - {workoutTimerDisplay}
           </div>
           <button
-            onClick={onEndWorkout}
-            disabled={!allSessionExercisesLogged}
+            onClick={handleEndWorkoutClick}
+            disabled={false}
             className={`px-4 py-2 rounded transition-colors ${
-              allSessionExercisesLogged
+              activeDay !== null
                 ? 'bg-green-600 hover:bg-green-700 text-white'
                 : 'bg-gray-500 cursor-not-allowed'
             }`}
@@ -203,6 +222,29 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
         <div className="p-4 bg-gray-700/50 rounded-lg">
           <h3 className="text-lg font-semibold text-purple-300 mb-2">Примітки:</h3>
           <p className="text-gray-300">{currentDayPlan.notes}</p>
+        </div>
+      )}
+
+      {showEndWorkoutConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 p-6 rounded-lg shadow-xl text-white max-w-sm mx-auto">
+            <h3 className="text-lg font-semibold mb-4">{UI_TEXT.confirmEndWorkoutTitle}</h3>
+            <p className="mb-6">{UI_TEXT.confirmEndWorkoutMessage}</p>
+            <div className="flex justify-end space-x-4">
+              <button
+                onClick={handleCancelEndWorkout}
+                className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
+              >
+                {UI_TEXT.continueWorkout}
+              </button>
+              <button
+                onClick={handleConfirmEndWorkout}
+                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+              >
+                {UI_TEXT.endWorkoutWithoutLogging}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

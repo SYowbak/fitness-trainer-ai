@@ -7,10 +7,11 @@ import {
   query,
   where,
   getDocs,
-  orderBy
+  orderBy,
+  deleteDoc
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { UserProfile, WorkoutLog, DailyWorkoutPlan } from '../types';
+import { UserProfile, WorkoutLog, DailyWorkoutPlan, Exercise } from '../types';
 import { useAuth } from './useAuth';
 
 // Утиліта для очищення undefined
@@ -46,7 +47,10 @@ function cleanWorkoutPlanForFirestore(plan: DailyWorkoutPlan[]): DailyWorkoutPla
           videoSearchQuery,
           imageSuggestion,
           targetWeight,
-          targetReps
+          targetReps,
+          isCompletedDuringSession,
+          sessionLoggedSets,
+          sessionSuccess
         } = ex;
 
         // Конвертуємо rest в секунди, якщо він заданий у форматі "X секунд"
@@ -72,11 +76,43 @@ function cleanWorkoutPlanForFirestore(plan: DailyWorkoutPlan[]): DailyWorkoutPla
           videoSearchQuery,
           imageSuggestion,
           targetWeight,
-          targetReps
+          targetReps,
+          isCompletedDuringSession,
+          sessionLoggedSets,
+          sessionSuccess
         });
       })
     })
   }));
+}
+
+// Функція для очищення стану сесії перед збереженням
+// Прибираємо непотрібні для збереження поля або форматуємо їх
+function cleanSessionStateForFirestore(session: { day: number | null; exercises: Exercise[]; startTime: number | null } | null) {
+  if (!session) return null;
+  
+  return removeUndefined({
+    day: session.day,
+    startTime: session.startTime,
+    exercises: session.exercises.map(ex => ({
+      // Зберігаємо тільки ті поля Exercise, які є частиною сесії
+      name: ex.name,
+      sets: ex.sets, // Зберігаємо як є
+      reps: ex.reps, // Зберігаємо як є
+      weight: ex.weight,
+      muscleGroup: ex.muscleGroup,
+      notes: ex.notes,
+      description: ex.description,
+      rest: ex.rest, // Зберігаємо як є
+      videoSearchQuery: ex.videoSearchQuery,
+      imageSuggestion: ex.imageSuggestion,
+      targetWeight: ex.targetWeight,
+      targetReps: ex.targetReps,
+      isCompletedDuringSession: ex.isCompletedDuringSession || false, // Переконаємось, що це булеве значення
+      sessionLoggedSets: ex.sessionLoggedSets || [], // Переконаємось, що це масив
+      sessionSuccess: ex.sessionSuccess,
+    }))
+  });
 }
 
 export const useUserData = () => {
@@ -85,42 +121,36 @@ export const useUserData = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
   const [workoutPlan, setWorkoutPlan] = useState<DailyWorkoutPlan[] | null>(null);
+  const [activeWorkoutSession, setActiveWorkoutSession] = useState<{ day: number | null; exercises: Exercise[]; startTime: number | null } | null>(null);
+  const [loadingActiveSession, setLoadingActiveSession] = useState(true);
 
-  // Завантаження профілю
+  // Завантаження профілю та активної сесії
   useEffect(() => {
-    const loadProfile = async () => {
+    const loadUserData = async () => {
       if (!user) {
         setProfile(null);
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const docRef = doc(db, 'users', user.uid);
-        const docSnap = await getDoc(docRef);
-        
-        if (docSnap.exists()) {
-          setProfile(docSnap.data() as UserProfile);
-        }
-      } catch (error) {
-        console.error('Error loading profile:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadProfile();
-  }, [user]);
-
-  // Завантаження логів тренувань
-  useEffect(() => {
-    const loadWorkoutLogs = async () => {
-      if (!user) {
         setWorkoutLogs([]);
+        setWorkoutPlan(null);
+        setActiveWorkoutSession(null);
+        setLoading(false);
+        setLoadingActiveSession(false);
         return;
       }
 
+      setLoading(true);
+      setLoadingActiveSession(true);
       try {
+        // Завантаження профілю
+        const userDocRef = doc(db, 'users', user.uid);
+        const userDocSnap = await getDoc(userDocRef);
+        
+        if (userDocSnap.exists()) {
+          setProfile(userDocSnap.data() as UserProfile);
+        } else {
+          setProfile(null);
+        }
+
+        // Завантаження логів тренувань
         const logsRef = collection(db, 'workoutLogs');
         const q = query(
           logsRef,
@@ -131,37 +161,41 @@ export const useUserData = () => {
         const querySnapshot = await getDocs(q);
         const logs = querySnapshot.docs.map(doc => doc.data() as WorkoutLog);
         setWorkoutLogs(logs);
-      } catch (error) {
-        console.error('Error loading workout logs:', error);
-      }
-    };
 
-    loadWorkoutLogs();
-  }, [user]);
-
-  // Завантаження плану тренувань
-  useEffect(() => {
-    const loadWorkoutPlan = async () => {
-      if (!user) {
-        console.log('No user, skipping workout plan load');
-        setWorkoutPlan(null);
-        return;
-      }
-      try {
-        console.log('Loading workout plan for user:', user.uid);
-        const docRef = doc(db, 'workoutPlans', user.uid);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          console.log('Workout plan loaded from Firestore:', docSnap.data().plan);
-          setWorkoutPlan(docSnap.data().plan as DailyWorkoutPlan[]);
+        // Завантаження плану тренувань
+        const planDocRef = doc(db, 'workoutPlans', user.uid);
+        const planDocSnap = await getDoc(planDocRef);
+        if (planDocSnap.exists()) {
+          setWorkoutPlan(planDocSnap.data().plan as DailyWorkoutPlan[]);
         } else {
-          console.log('No workout plan found in Firestore for user', user.uid);
+          setWorkoutPlan(null);
         }
+
+        // Завантаження активної сесії тренування
+        const sessionDocRef = doc(db, 'users', user.uid, 'activeSession', 'current');
+        const sessionDocSnap = await getDoc(sessionDocRef);
+        if (sessionDocSnap.exists()) {
+          setActiveWorkoutSession(sessionDocSnap.data() as { day: number | null; exercises: Exercise[]; startTime: number | null });
+          console.log("Активну сесію тренування завантажено з Firestore");
+        } else {
+          setActiveWorkoutSession(null);
+          console.log("Активної сесії тренування у Firestore не знайдено");
+        }
+
       } catch (error) {
-        console.error('Error loading workout plan:', error);
+        console.error('Error loading user data:', error);
+        // Встановлюємо null для всіх даних у випадку помилки
+        setProfile(null);
+        setWorkoutLogs([]);
+        setWorkoutPlan(null);
+        setActiveWorkoutSession(null);
+      } finally {
+        setLoading(false);
+        setLoadingActiveSession(false);
       }
     };
-    loadWorkoutPlan();
+
+    loadUserData();
   }, [user]);
 
   // Збереження профілю
@@ -219,13 +253,56 @@ export const useUserData = () => {
     }
   };
 
+  // Збереження активної сесії тренування
+  const saveActiveWorkoutSession = async (session: { day: number | null; exercises: Exercise[]; startTime: number | null } | null) => {
+    if (!user) throw new Error('User not authenticated');
+
+    try {
+      const sessionDocRef = doc(db, 'users', user.uid, 'activeSession', 'current');
+      if (session && session.day !== null && session.exercises.length > 0 && session.startTime !== null) {
+        const cleanedSession = cleanSessionStateForFirestore(session);
+        if (cleanedSession) {
+           await setDoc(sessionDocRef, cleanedSession);
+           setActiveWorkoutSession(session);
+           console.log('Активну сесію тренування збережено у Firestore');
+        }
+      } else {
+        // Видаляємо документ, якщо сесія не активна
+        await deleteDoc(sessionDocRef);
+        setActiveWorkoutSession(null);
+        console.log('Активну сесію тренування видалено з Firestore');
+      }
+    } catch (error) {
+      console.error('Error saving active workout session:', error);
+      throw error;
+    }
+  };
+
+  // Видалення активної сесії тренування
+  const clearActiveWorkoutSession = async () => {
+     if (!user) return;
+     try {
+        const sessionDocRef = doc(db, 'users', user.uid, 'activeSession', 'current');
+        await deleteDoc(sessionDocRef);
+        setActiveWorkoutSession(null);
+        console.log('Активну сесію тренування видалено з Firestore (з clear функціі)');
+     } catch (error) {
+        console.error('Error clearing active workout session:', error);
+        // Не викидаємо помилку тут, щоб не блокувати UI, якщо видалення не критичне
+     }
+  };
+
   return {
+    loading,
     profile,
     workoutLogs,
     workoutPlan,
-    loading,
+    activeWorkoutSession,
+    loadingActiveSession,
     saveProfile,
     saveWorkoutLog,
-    saveWorkoutPlan
+    saveWorkoutPlan,
+    saveActiveWorkoutSession,
+    clearActiveWorkoutSession
   };
 }; 

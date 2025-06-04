@@ -18,26 +18,25 @@ type View = 'profile' | 'workout' | 'progress';
 
 const App: React.FC = () => {
   const { user, loading, logout } = useAuth();
-  const { workoutPlan, saveWorkoutPlan, loading: userDataLoading, profile: firestoreProfile, workoutLogs: firestoreWorkoutLogs, saveProfile, saveWorkoutLog } = useUserData();
+  const { 
+    workoutPlan, saveWorkoutPlan, loading: userDataLoading, 
+    profile: firestoreProfile, workoutLogs: firestoreWorkoutLogs,
+    saveProfile, saveWorkoutLog, 
+    activeWorkoutSession, saveActiveWorkoutSession, clearActiveWorkoutSession, loadingActiveSession
+  } = useUserData();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [currentWorkoutPlan, setCurrentWorkoutPlan] = useState<DailyWorkoutPlan[] | null>(null);
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<View>('profile');
   const [apiKeyMissing, setApiKeyMissing] = useState<boolean>(false);
 
-  // Active Workout Session State
-  const [activeWorkoutDay, setActiveWorkoutDay] = useState<number | null>(null); // Day number
-  const [sessionExercises, setSessionExercises] = useState<Exercise[]>([]);
-  const [workoutStartTime, setWorkoutStartTime] = useState<number | null>(null);
+  // Active Workout Session State (керується через useUserData тепер)
+  const [activeWorkoutDay, setActiveWorkoutDay] = useState<number | null>(activeWorkoutSession?.day || null);
+  const [sessionExercises, setSessionExercises] = useState<Exercise[]>(activeWorkoutSession?.exercises || []);
+  const [workoutStartTime, setWorkoutStartTime] = useState<number | null>(activeWorkoutSession?.startTime || null);
   const [workoutTimer, setWorkoutTimer] = useState<number>(0);
-
-  useEffect(() => {
-    if (typeof import.meta.env === 'undefined' || !import.meta.env.VITE_API_KEY) {
-      setApiKeyMissing(true);
-    }
-  }, []);
 
   useEffect(() => {
     if (workoutPlan) {
@@ -69,6 +68,20 @@ const App: React.FC = () => {
     };
   }, [workoutStartTime, activeWorkoutDay]);
 
+  // Save workout state to Firestore when it changes
+  useEffect(() => {
+    if (activeWorkoutDay !== null && sessionExercises.length > 0 && workoutStartTime !== null) {
+      saveActiveWorkoutSession({
+        day: activeWorkoutDay,
+        exercises: sessionExercises,
+        startTime: workoutStartTime,
+      });
+    } else {
+      // Clear session state in Firestore if workout is not active
+      clearActiveWorkoutSession();
+    }
+  }, [activeWorkoutDay, sessionExercises, workoutStartTime, saveActiveWorkoutSession, clearActiveWorkoutSession]);
+
   const handleProfileSave = useCallback(async (profile: UserProfile) => {
     if (apiKeyMissing) {
       setError(UI_TEXT.apiKeyMissing);
@@ -86,13 +99,14 @@ const App: React.FC = () => {
       await saveWorkoutPlan(plan);
       setActiveWorkoutDay(null); 
       setCurrentView('workout');
+      clearActiveWorkoutSession();
     } catch (e: any) {
       console.error("Error generating workout plan:", e);
       setError(e.message || UI_TEXT.errorOccurred);
     } finally {
       setIsLoading(false);
     }
-  }, [apiKeyMissing, saveWorkoutPlan, saveProfile]);
+  }, [apiKeyMissing, saveWorkoutPlan, saveProfile, clearActiveWorkoutSession]);
 
   const handleGenerateNewPlan = useCallback(async () => {
     if (apiKeyMissing) {
@@ -104,6 +118,8 @@ const App: React.FC = () => {
          if(!confirm("У вас є активне тренування. Створення нового плану завершить його без збереження. Продовжити?")) return;
          setActiveWorkoutDay(null); 
          setWorkoutStartTime(null);
+         setSessionExercises([]);
+         clearActiveWorkoutSession();
       }
       setIsLoading(true);
       setError(null);
@@ -121,7 +137,7 @@ const App: React.FC = () => {
       setCurrentView('profile');
       setError("Будь ласка, спочатку заповніть та збережіть профіль.");
     }
-  }, [userProfile, apiKeyMissing, activeWorkoutDay, saveWorkoutPlan]);
+  }, [userProfile, apiKeyMissing, activeWorkoutDay, saveWorkoutPlan, clearActiveWorkoutSession]);
 
   const handleStartWorkout = useCallback((dayNumber: number) => {
     if (!currentWorkoutPlan || !Array.isArray(currentWorkoutPlan)) return;
@@ -190,6 +206,8 @@ const App: React.FC = () => {
     setWorkoutLogs(updatedLogs);
     await saveWorkoutLog(newLog); // Зберігаємо новий лог у Firestore через useUserData
 
+    // Clear session state (handled by useEffect watching activeWorkoutDay, sessionExercises, workoutStartTime)
+
     let planWasUpdated = false;
     const updatedPlan = currentWorkoutPlan.map(dayPlan => {
       if (dayPlan.day === activeWorkoutDay) {
@@ -224,9 +242,6 @@ const App: React.FC = () => {
     }
     
     alert(UI_TEXT.workoutLogged + (planWasUpdated ? " План оновлено з новими цілями!" : ""));
-    setActiveWorkoutDay(null);
-    setWorkoutStartTime(null);
-    setSessionExercises([]);
     setCurrentView('progress'); 
   }, [activeWorkoutDay, sessionExercises, currentWorkoutPlan, workoutLogs, workoutStartTime, userProfile, saveWorkoutPlan, saveWorkoutLog]);
 
@@ -372,6 +387,7 @@ const App: React.FC = () => {
                 setActiveWorkoutDay(null);
                 setWorkoutStartTime(null);
                 setSessionExercises([]);
+                clearActiveWorkoutSession();
               }
               setCurrentView(v);
             }} />

@@ -163,6 +163,10 @@ export const UI_TEXT = {
   allExercisesCompleted: "Всі вправи виконано!",
   selectDayToView: "Виберіть день для перегляду:",
   exerciseLogPrompt: "Як пройшла вправа?",
+  confirmEndWorkoutTitle: "Незалоговані вправи",
+  confirmEndWorkoutMessage: "Ви маєте незалоговані вправи. Ви впевнені, що хочете завершити тренування без їх логування?",
+  continueWorkout: "Продовжити тренування",
+  endWorkoutWithoutLogging: "Завершити без логування",
   currentWorkout: "Поточне тренування",
   heightLabel: "Зріст (см):",
   weightLabel: "Вага (кг):",
@@ -183,7 +187,7 @@ export const UI_TEXT = {
   errorGeneratingExercise: "Помилка при генерації вправи",
   errorRegeneratingExercise: "Помилка при перегенерації вправи",
   errorSavingPlan: "Помилка при збереженні плану",
-  completeExerciseDetails: "Доповнити деталі"
+  completeExerciseDetails: "Доповнити"
 };
 
 export function getUkrainianGoal(goal: FitnessGoal): string {
