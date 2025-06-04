@@ -104,7 +104,19 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
   const currentDayPlan = activeDay !== null ? (isWorkoutPlanValid ? workoutPlan.find(p => p.day === activeDay) : null) : (selectedDayForView !== null && isWorkoutPlanValid ? workoutPlan.find(p => p.day === selectedDayForView) : null);
   const exercisesToDisplay = activeDay !== null ? sessionExercises : (currentDayPlan && currentDayPlan.exercises && Array.isArray(currentDayPlan.exercises) ? currentDayPlan.exercises : []);
 
-  const allSessionExercisesLogged = activeDay !== null && sessionExercises.every(ex => ex.isCompletedDuringSession || (ex.sessionLoggedSets && ex.sessionLoggedSets.length === 0 && ex.sessionSuccess !== undefined) );
+  const handleEndWorkout = () => {
+    const unloggedExercises = sessionExercises.filter(ex => !ex.isCompletedDuringSession && (!ex.sessionLoggedSets || ex.sessionLoggedSets.length === 0));
+    
+    if (unloggedExercises.length > 0) {
+      const confirmMessage = `У вас є ${unloggedExercises.length} незалогованих вправ:\n${unloggedExercises.map(ex => `- ${ex.name}`).join('\n')}\n\nБажаєте завершити тренування без логування цих вправ?`;
+      
+      if (window.confirm(confirmMessage)) {
+        onEndWorkout();
+      }
+    } else {
+      onEndWorkout();
+    }
+  };
 
   return (
     <div className="space-y-6 px-4 sm:px-6 md:px-8">
@@ -159,13 +171,8 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
             День {activeDay} - {workoutTimerDisplay}
           </div>
           <button
-            onClick={onEndWorkout}
-            disabled={!allSessionExercisesLogged}
-            className={`px-4 py-2 rounded transition-colors ${
-              allSessionExercisesLogged
-                ? 'bg-green-600 hover:bg-green-700 text-white'
-                : 'bg-gray-500 cursor-not-allowed'
-            }`}
+            onClick={handleEndWorkout}
+            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded transition-colors"
           >
             Завершити тренування
           </button>
