@@ -22,6 +22,7 @@ const WorkoutEditMode: React.FC<WorkoutEditModeProps> = ({
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [loadingExerciseIndex, setLoadingExerciseIndex] = useState<number | null>(null);
+  const [changedExerciseNames, setChangedExerciseNames] = useState<Set<string>>(new Set());
 
   const handleDeleteExercise = (dayNumber: number, exerciseIndex: number) => {
     setEditedPlan(prevPlan => {
@@ -92,9 +93,15 @@ const WorkoutEditMode: React.FC<WorkoutEditModeProps> = ({
       if (dayIndex !== -1) {
         newPlan[dayIndex] = {
           ...newPlan[dayIndex],
-          exercises: newPlan[dayIndex].exercises.map((ex, index) => 
-            index === exerciseIndex ? { ...ex, [field]: value } : ex
-          )
+          exercises: newPlan[dayIndex].exercises.map((ex, index) => {
+            if (index === exerciseIndex) {
+              if (field === 'name') {
+                setChangedExerciseNames(prev => new Set(prev).add(`${dayNumber}-${exerciseIndex}`));
+              }
+              return { ...ex, [field]: value };
+            }
+            return ex;
+          })
         };
       }
       return newPlan;
@@ -196,10 +203,15 @@ const WorkoutEditMode: React.FC<WorkoutEditModeProps> = ({
                 ) : (
                   <button
                     onClick={() => handleCompleteDetails(selectedDay, index)}
-                    className="ml-2 px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-sm"
-                    title="Доповнити деталі вправи"
+                    className={`ml-2 px-3 py-1 rounded transition-colors text-sm ${
+                      changedExerciseNames.has(`${selectedDay}-${index}`)
+                        ? 'bg-green-600 hover:bg-green-700 text-white'
+                        : 'bg-gray-500 cursor-not-allowed text-gray-400'
+                    }`}
+                    title={UI_TEXT.completeExerciseDetails}
+                    disabled={!changedExerciseNames.has(`${selectedDay}-${index}`)}
                   >
-                    <i className="fas fa-magic"></i>
+                    {UI_TEXT.completeExerciseDetails}
                   </button>
                 )}
                 <div className="space-x-2">

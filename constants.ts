@@ -181,7 +181,8 @@ export const UI_TEXT = {
   generatingExercise: "Генерація вправи...",
   errorGeneratingExercise: "Помилка при генерації вправи",
   errorRegeneratingExercise: "Помилка при перегенерації вправи",
-  errorSavingPlan: "Помилка при збереженні плану"
+  errorSavingPlan: "Помилка при збереженні плану",
+  completeExerciseDetails: "Доповнити деталі"
 };
 
 export function getUkrainianGoal(goal: FitnessGoal): string {
