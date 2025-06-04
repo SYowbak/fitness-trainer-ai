@@ -302,7 +302,7 @@ const App: React.FC = () => {
     
     if (isLoading && currentView !== 'profile' && activeWorkoutDay === null) return <Spinner message={UI_TEXT.generatingWorkout} />;
     
-    if (userDataLoading && activeWorkoutDay === null) {
+    if (userDataLoading && !firestoreProfile && !workoutPlan && activeWorkoutDay === null) {
         return <Spinner message={UI_TEXT.loadingUserData} />;
     }
 
