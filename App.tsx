@@ -292,6 +292,14 @@ const App: React.FC = () => {
   }, [saveWorkoutPlan]);
 
   const renderView = () => {
+    console.log('RenderView State Check:', {
+      isLoading: isLoading,
+      userDataLoading: userDataLoading,
+      currentView: currentView,
+      firestoreProfile: !!firestoreProfile, // Перевірка на наявність профілю
+      workoutPlan: !!workoutPlan // Перевірка на наявність плану
+    });
+    
     if (isLoading && currentView !== 'profile' && activeWorkoutDay === null) return <Spinner message={UI_TEXT.generatingWorkout} />;
     
     if (userDataLoading && activeWorkoutDay === null) {
