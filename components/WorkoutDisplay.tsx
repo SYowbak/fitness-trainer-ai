@@ -101,15 +101,7 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-purple-300">{UI_TEXT.workoutPlanTitle}</h2>
         <div className="space-x-2">
-          {!isApiKeyMissing && (
-            <button
-              onClick={() => setIsEditMode(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-            >
-              <i className="fas fa-edit mr-2"></i>
-              Редагувати план
-            </button>
-          )}
+          
           <button
             onClick={onGenerateNewPlan}
             disabled={isApiKeyMissing}
@@ -126,19 +118,42 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
       </div>
 
       {activeDay === null ? (
-        <div className="mb-6">
-          <label className="block text-gray-300 mb-2">Виберіть день:</label>
-          <select
-            value={selectedDayForView || ''}
-            onChange={(e) => setSelectedDayForView(Number(e.target.value))}
-            className="w-full p-2 bg-gray-700 text-white rounded border border-gray-600"
+        <div className="mb-6 flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0 md:space-x-4">
+          <div className="flex-grow">
+            <label className="block text-gray-300 mb-2">{UI_TEXT.selectDay}:</label>
+            <select
+              value={selectedDayForView || ''}
+              onChange={(e) => setSelectedDayForView(Number(e.target.value))}
+              className="w-full p-2 bg-gray-700 text-white rounded border border-gray-600"
+            >
+              {workoutPlan.map(day => (
+                <option key={day.day} value={day.day}>
+                  {UI_TEXT.day} {day.day}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex space-x-2 mt-auto">
+             {!isApiKeyMissing && (
+            <button
+              onClick={() => setIsEditMode(true)}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+            >
+              <i className="fas fa-edit mr-2"></i>
+              {UI_TEXT.editWorkoutPlan}
+            </button>
+          )}
+           <button
+            onClick={() => selectedDayForView !== null && onStartWorkout(selectedDayForView)}
+            disabled={selectedDayForView === null}
+            className={`px-4 py-2 rounded transition-colors ${
+              selectedDayForView === null
+                ? 'bg-gray-500 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700 text-white'
+            }`}
           >
-            {workoutPlan.map(day => (
-              <option key={day.day} value={day.day}>
-                День {day.day}
-              </option>
-            ))}
-          </select>
+            {UI_TEXT.startWorkout}
+          </button>
+          </div>
         </div>
       ) : (
         <div className="flex justify-between items-center mb-6">
@@ -190,15 +205,6 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
           <h3 className="text-lg font-semibold text-purple-300 mb-2">Примітки:</h3>
           <p className="text-gray-300">{currentDayPlan.notes}</p>
         </div>
-      )}
-
-      {activeDay === null && (
-        <button
-          onClick={() => onStartWorkout(selectedDayForView!)}
-          className="w-full p-3 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
-        >
-          Почати тренування
-        </button>
       )}
     </div>
   );
