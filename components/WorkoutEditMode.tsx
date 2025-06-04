@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { DailyWorkoutPlan, Exercise, UserProfile } from '../types';
-import { generateNewExercise, regenerateExercise } from '../services/workoutEditService';
+import { generateNewExercise, regenerateExercise, completeExerciseDetails } from '../services/workoutEditService';
 import Spinner from './Spinner';
+import { UI_TEXT } from '../constants';
 
 interface WorkoutEditModeProps {
   userProfile: UserProfile;
@@ -20,6 +21,7 @@ const WorkoutEditMode: React.FC<WorkoutEditModeProps> = ({
   const [selectedDay, setSelectedDay] = useState<number>(workoutPlan[0]?.day || 1);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadingExerciseIndex, setLoadingExerciseIndex] = useState<number | null>(null);
 
   const handleDeleteExercise = (dayNumber: number, exerciseIndex: number) => {
     setEditedPlan(prevPlan => {
@@ -99,6 +101,40 @@ const WorkoutEditMode: React.FC<WorkoutEditModeProps> = ({
     });
   };
 
+  const handleCompleteDetails = async (dayNumber: number, exerciseIndex: number) => {
+    setIsLoading(true);
+    setLoadingExerciseIndex(exerciseIndex);
+    setError(null);
+    try {
+      const dayIndex = editedPlan.findIndex(d => d.day === dayNumber);
+      if (dayIndex === -1) throw new Error("День не знайдено");
+      
+      const exerciseToComplete = editedPlan[dayIndex].exercises[exerciseIndex];
+      if (!exerciseToComplete) throw new Error("Вправу не знайдено");
+
+      const completedExercise = await completeExerciseDetails(userProfile, editedPlan, dayNumber, exerciseToComplete);
+      
+      setEditedPlan(prevPlan => {
+        const newPlan = [...prevPlan];
+        const dayIdx = newPlan.findIndex(d => d.day === dayNumber);
+        if (dayIdx !== -1) {
+          newPlan[dayIdx] = {
+            ...newPlan[dayIdx],
+            exercises: newPlan[dayIdx].exercises.map((ex, idx) => 
+              idx === exerciseIndex ? completedExercise : ex
+            )
+          };
+        }
+        return newPlan;
+      });
+    } catch (e: any) {
+      setError(e.message || 'Помилка при доповненні деталей вправи');
+    } finally {
+      setIsLoading(false);
+      setLoadingExerciseIndex(null);
+    }
+  };
+
   const currentDayPlan = editedPlan.find(p => p.day === selectedDay);
 
   return (
@@ -153,18 +189,31 @@ const WorkoutEditMode: React.FC<WorkoutEditModeProps> = ({
                   type="text"
                   value={exercise.name}
                   onChange={(e) => handleUpdateExercise(selectedDay, index, 'name', e.target.value)}
-                  className="text-xl font-semibold bg-transparent border-b border-gray-600 focus:border-purple-500 outline-none text-white"
+                  className="text-xl font-semibold bg-transparent border-b border-gray-600 focus:border-purple-500 outline-none text-white flex-grow"
                 />
+                {isLoading && loadingExerciseIndex === index ? (
+                  <Spinner message="" />
+                ) : (
+                  <button
+                    onClick={() => handleCompleteDetails(selectedDay, index)}
+                    className="ml-2 px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-sm"
+                    title="Доповнити деталі вправи"
+                  >
+                    <i className="fas fa-magic"></i>
+                  </button>
+                )}
                 <div className="space-x-2">
                   <button
                     onClick={() => handleRegenerateExercise(selectedDay, index)}
                     className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                    title="Перегенерувати вправу"
                   >
                     Перегенерувати
                   </button>
                   <button
                     onClick={() => handleDeleteExercise(selectedDay, index)}
                     className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                    title="Видалити вправу"
                   >
                     Видалити
                   </button>

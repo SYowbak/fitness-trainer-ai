@@ -18,7 +18,8 @@ const constructExercisePrompt = (
   profile: UserProfile,
   currentPlan: DailyWorkoutPlan[],
   targetDay: number,
-  targetExerciseIndex?: number
+  targetExerciseIndex?: number,
+  exerciseToComplete?: Exercise
 ): string => {
   const { gender, bodyType, goal, trainingFrequency, name, targetMuscleGroups, height, weight, age, experienceLevel } = profile;
   
@@ -34,16 +35,56 @@ const constructExercisePrompt = (
   const currentDayPlan = currentPlan.find(p => p.day === targetDay);
   const currentExercises = currentDayPlan?.exercises || [];
 
-  const exerciseContext = targetExerciseIndex !== undefined 
-    ? `\n**Поточна вправа для перегенерації:**\n${JSON.stringify(currentExercises[targetExerciseIndex], null, 2)}`
-    : `\n**Поточні вправи в плані:**\n${JSON.stringify(currentExercises, null, 2)}`;
+  let exerciseContext = '';
+  let taskInstruction = '';
+  let targetExerciseJson = '';
 
-  return `Ти — висококваліфікований персональний фітнес-тренер, який допомагає коригувати індивідуальні програми тренувань. Твоя мета — згенерувати нову вправу або оновити існуючу для плану тренувань у тренажерному залі ${userNamePart}.
+  if (exerciseToComplete) {
+    exerciseContext = `\n**Вправа для доповнення деталей:**\n${JSON.stringify(exerciseToComplete, null, 2)}`;
+    taskInstruction = `Твоя мета — доповнити відсутні або уточнити наявні деталі для наданої вправи. Згенеруй лише JSON-об'єкт з повними даними цієї вправи, включаючи опис техніки, підходи, повторення, відпочинок, а також пропозиції для зображення та пошуку відео.`;
+    targetExerciseJson = JSON.stringify({
+      name: exerciseToComplete.name,
+      description: "<дуже детальний покроковий опис техніки>",
+      sets: "<кількість підходів, '3-4' або 4>",
+      reps: "<діапазон повторень, '8-12'>",
+      rest: "<час відпочинку, '60-90 секунд'>",
+      imageSuggestion: "<текстова пропозиція для зображення/GIF або null>",
+      videoSearchQuery: "<пошуковий запит для YouTube або null>"
+    }, null, 2);
+
+  } else if (targetExerciseIndex !== undefined) {
+    exerciseContext = `\n**Поточна вправа для перегенерації:**\n${JSON.stringify(currentExercises[targetExerciseIndex], null, 2)}`;
+    taskInstruction = `Твоя мета — перегенерувати надану вправу для плану тренувань у тренажерному залі ${userNamePart}. Згенеруй новий JSON-об'єкт для цієї вправи, враховуючи всі вхідні дані.`;
+    targetExerciseJson = JSON.stringify({
+      name: "<назва вправи>",
+      description: "<дуже детальний покроковий опис техніки>",
+      sets: "<кількість підходів, '3-4' або 4>",
+      reps: "<діапазон повторень, '8-12'>",
+      rest: "<час відпочинку, '60-90 секунд'>",
+      imageSuggestion: "<текстова пропозиція для зображення/GIF або null>",
+      videoSearchQuery: "<пошуковий запит для YouTube або null>"
+    }, null, 2);
+
+  } else {
+    exerciseContext = `\n**Поточні вправи в плані (для контексту):**\n${JSON.stringify(currentExercises, null, 2)}`;
+    taskInstruction = `Твоя мета — згенерувати нову вправу для плану тренувань у тренажерному залі ${userNamePart}. Згенеруй новий JSON-об'єкт для цієї вправи, враховуючи всі вхідні дані.`;
+    targetExerciseJson = JSON.stringify({
+      name: "<назва вправи>",
+      description: "<дуже детальний покроковий опис техніки>",
+      sets: "<кількість підходів, '3-4' або 4>",
+      reps: "<діапазон повторень, '8-12'>",
+      rest: "<час відпочинку, '60-90 секунд'>",
+      imageSuggestion: "<текстова пропозиція для зображення/GIF або null>",
+      videoSearchQuery: "<пошуковий запит для YouTube або null>"
+    }, null, 2);
+  }
+
+  return `Ти — висококваліфікований персональний фітнес-тренер, який допомагає коригувати індивідуальні програми тренувань. ${taskInstruction}
 
 **Дій як справжній персональний тренер:**
-*   **Індивідуалізація:** Вправа має бути глибоко персоналізованою, враховуючи всі надані дані.
+*   **Індивідуалізація:** Відповідь має бути глибоко персоналізованою, враховуючи всі надані дані.
 *   **Безпека та техніка:** Завжди наголошуй на важливості правильної техніки та безпеки.
-*   **Реалістичність:** Не ускладнюй тренування без потреби.
+*   **Реалістичність:** Не ускладнюй без потреби.
 *   **Мотивація:** Твій опис має бути чітким та мотивуючим.
 
 **Вхідні дані користувача:**
@@ -81,15 +122,7 @@ ${exerciseContext}
 Надай відповідь ВИКЛЮЧНО у форматі JSON-об'єкта, що представляє одну вправу. Не додавай жодних пояснень, коментарів або тексту поза JSON структурою.
 
 **Структура JSON для вправи:**
-{
-  "name": "<назва вправи>",
-  "description": "<дуже детальний покроковий опис техніки>",
-  "sets": "<кількість підходів, '3-4' або 4>",
-  "reps": "<діапазон повторень, '8-12'>",
-  "rest": "<час відпочинку, '60-90 секунд'>",
-  "imageSuggestion": "<текстова пропозиція для зображення/GIF або null>",
-  "videoSearchQuery": "<пошуковий запит для YouTube або null>"
-}`;
+${targetExerciseJson}`;
 };
 
 export const generateNewExercise = async (
@@ -200,5 +233,62 @@ export const regenerateExercise = async (
   } catch (error: any) {
     console.error("Error during exercise regeneration:", error);
     throw new Error(`Помилка перегенерації вправи: ${error.message || 'Невідома помилка'}`);
+  }
+};
+
+export const completeExerciseDetails = async (
+  profile: UserProfile,
+  currentPlan: DailyWorkoutPlan[],
+  targetDay: number,
+  exercise: Exercise
+): Promise<Exercise> => {
+  if (!ai) {
+    throw new Error("API ключ для Gemini не налаштовано");
+  }
+
+  const prompt = constructExercisePrompt(profile, currentPlan, targetDay, undefined, exercise);
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-preview-04-17',
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      config: {
+        responseMimeType: "application/json",
+      },
+    });
+
+    let jsonStr = (response.text ?? '').trim();
+
+    // Видаляємо можливі markdown-розмітки
+    const fenceRegex = /^```(?:json)?\s*\n?(.*?)\n?\s*```$/s;
+    const match = jsonStr.match(fenceRegex);
+    if (match && match[1]) {
+      jsonStr = match[1].trim();
+    }
+
+    try {
+      const completedExercise: Exercise = JSON.parse(jsonStr);
+
+      // Перевіряємо обов'язкові поля (назва має бути присутня з вхідних даних)
+      if (!completedExercise.description || !completedExercise.sets || !completedExercise.reps || !completedExercise.rest) {
+        throw new Error("Відсутні обов'язкові поля у згенерованих деталях вправи");
+      }
+
+      return {
+        ...exercise, // Зберігаємо оригінальну назву та інші поля, якщо потрібно
+        ...completedExercise,
+        targetWeight: exercise.targetWeight ?? null, // Зберігаємо наявну цільову вагу
+        targetReps: exercise.targetReps ?? null, // Зберігаємо наявні цільові повторення
+        isCompletedDuringSession: exercise.isCompletedDuringSession ?? false,
+        sessionLoggedSets: exercise.sessionLoggedSets ?? [],
+        sessionSuccess: exercise.sessionSuccess ?? undefined
+      };
+    } catch (e) {
+      console.error("Error parsing JSON from AI response during completion:", e);
+      throw new Error("Не вдалося розібрати відповідь від AI при доповненні деталей");
+    }
+  } catch (error: any) {
+    console.error("Error during exercise detail completion:", error);
+    throw new Error(`Помилка доповнення деталей вправи: ${error.message || 'Невідома помилка'}`);
   }
 }; 
