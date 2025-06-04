@@ -33,6 +33,9 @@ const App: React.FC = () => {
   const [workoutStartTime, setWorkoutStartTime] = useState<number | null>(null);
   const [workoutTimer, setWorkoutTimer] = useState<number>(0);
 
+  const ACTIVE_WORKOUT_LOCAL_STORAGE_KEY = 'active_workout_local_state';
+  const ACTIVE_WORKOUT_EXPIRATION_TIME = 24 * 60 * 60 * 1000; // 24 години у мілісекундах.
+
   useEffect(() => {
     if (typeof import.meta.env === 'undefined' || !import.meta.env.VITE_API_KEY) {
       setApiKeyMissing(true);
@@ -68,6 +71,45 @@ const App: React.FC = () => {
       if (timerInterval) clearInterval(timerInterval);
     };
   }, [workoutStartTime, activeWorkoutDay]);
+
+  // Load active workout state from localStorage on initial load
+  useEffect(() => {
+    const savedState = localStorage.getItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
+    if (savedState) {
+      try {
+        const savedObject = JSON.parse(savedState);
+        const { activeDay, exercises, startTime, timestamp } = savedObject;
+        
+        // Check if timestamp exists and is not expired
+        if (
+          typeof timestamp === 'number' &&
+          (Date.now() - timestamp) < ACTIVE_WORKOUT_EXPIRATION_TIME
+        ) {
+          // Basic validation of loaded data structure
+          if (
+            typeof activeDay === 'number' &&
+            Array.isArray(exercises) &&
+            exercises.every((ex: any) => typeof ex.name === 'string') && // Simple check for exercise structure
+            typeof startTime === 'number'
+          ) {
+            setActiveWorkoutDay(activeDay);
+            setSessionExercises(exercises);
+            setWorkoutStartTime(startTime);
+            // workoutTimer will be calculated by the timer effect
+          } else {
+             console.error("Loaded workout state has unexpected structure after timestamp check.", { activeDay, exercises, startTime });
+             localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY); // Clear potentially corrupted state
+          }
+        } else {
+          console.log("Saved workout state is expired or has no timestamp. Clearing.");
+          localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
+        }
+       } catch (e) {
+         console.error("Failed to parse or validate saved workout state from localStorage:", e);
+         localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY); // Clear corrupted state
+      }
+    }
+  }, []);
 
   const handleProfileSave = useCallback(async (profile: UserProfile) => {
     if (apiKeyMissing) {
