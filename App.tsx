@@ -17,26 +17,27 @@ import { auth } from './config/firebase';
 type View = 'profile' | 'workout' | 'progress';
 
 const App: React.FC = () => {
-  const { user, loading: authLoading, logout } = useAuth();
-  const { 
-    workoutPlan, saveWorkoutPlan, loading: userDataLoading, 
-    profile: firestoreProfile, workoutLogs: firestoreWorkoutLogs,
-    saveProfile, saveWorkoutLog, 
-    activeWorkoutSession, saveActiveWorkoutSession, clearActiveWorkoutSession, loadingActiveSession
-  } = useUserData();
+  const { user, loading, logout } = useAuth();
+  const { workoutPlan, saveWorkoutPlan, loading: userDataLoading, profile: firestoreProfile, workoutLogs: firestoreWorkoutLogs, saveProfile, saveWorkoutLog } = useUserData();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [currentWorkoutPlan, setCurrentWorkoutPlan] = useState<DailyWorkoutPlan[] | null>(null);
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
-  const isLoading = userDataLoading;
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<View>('profile');
   const [apiKeyMissing, setApiKeyMissing] = useState<boolean>(false);
 
-  // Active Workout Session State (керується через useUserData тепер)
-  const [activeWorkoutDay, setActiveWorkoutDay] = useState<number | null>(activeWorkoutSession?.day || null);
-  const [sessionExercises, setSessionExercises] = useState<Exercise[]>(activeWorkoutSession?.exercises || []);
-  const [workoutStartTime, setWorkoutStartTime] = useState<number | null>(activeWorkoutSession?.startTime || null);
+  // Active Workout Session State
+  const [activeWorkoutDay, setActiveWorkoutDay] = useState<number | null>(null); // Day number
+  const [sessionExercises, setSessionExercises] = useState<Exercise[]>([]);
+  const [workoutStartTime, setWorkoutStartTime] = useState<number | null>(null);
   const [workoutTimer, setWorkoutTimer] = useState<number>(0);
+
+  useEffect(() => {
+    if (typeof import.meta.env === 'undefined' || !import.meta.env.VITE_API_KEY) {
+      setApiKeyMissing(true);
+    }
+  }, []);
 
   useEffect(() => {
     if (workoutPlan) {
@@ -68,25 +69,12 @@ const App: React.FC = () => {
     };
   }, [workoutStartTime, activeWorkoutDay]);
 
-  // Save workout state to Firestore when it changes
-  useEffect(() => {
-    if (activeWorkoutDay !== null && sessionExercises.length > 0 && workoutStartTime !== null) {
-      saveActiveWorkoutSession({
-        day: activeWorkoutDay,
-        exercises: sessionExercises,
-        startTime: workoutStartTime,
-      });
-    } else {
-      // Clear session state in Firestore if workout is not active
-      clearActiveWorkoutSession();
-    }
-  }, [activeWorkoutDay, sessionExercises, workoutStartTime, saveActiveWorkoutSession, clearActiveWorkoutSession]);
-
   const handleProfileSave = useCallback(async (profile: UserProfile) => {
     if (apiKeyMissing) {
       setError(UI_TEXT.apiKeyMissing);
       return;
     }
+    setIsLoading(true);
     setError(null);
     try {
       const profileToSave: UserProfile = {
@@ -98,12 +86,13 @@ const App: React.FC = () => {
       await saveWorkoutPlan(plan);
       setActiveWorkoutDay(null); 
       setCurrentView('workout');
-      clearActiveWorkoutSession();
     } catch (e: any) {
       console.error("Error generating workout plan:", e);
       setError(e.message || UI_TEXT.errorOccurred);
+    } finally {
+      setIsLoading(false);
     }
-  }, [apiKeyMissing, saveWorkoutPlan, saveProfile, clearActiveWorkoutSession]);
+  }, [apiKeyMissing, saveWorkoutPlan, saveProfile]);
 
   const handleGenerateNewPlan = useCallback(async () => {
     if (apiKeyMissing) {
@@ -115,9 +104,8 @@ const App: React.FC = () => {
          if(!confirm("У вас є активне тренування. Створення нового плану завершить його без збереження. Продовжити?")) return;
          setActiveWorkoutDay(null); 
          setWorkoutStartTime(null);
-         setSessionExercises([]);
-         clearActiveWorkoutSession();
       }
+      setIsLoading(true);
       setError(null);
       try {
         const plan = await apiGenerateWorkoutPlan(userProfile, GEMINI_MODEL_TEXT);
@@ -126,12 +114,14 @@ const App: React.FC = () => {
       } catch (e: any) {
         console.error("Error generating new workout plan:", e);
         setError(e.message || UI_TEXT.errorOccurred);
+      } finally {
+        setIsLoading(false);
       }
     } else {
       setCurrentView('profile');
       setError("Будь ласка, спочатку заповніть та збережіть профіль.");
     }
-  }, [userProfile, apiKeyMissing, activeWorkoutDay, saveWorkoutPlan, clearActiveWorkoutSession]);
+  }, [userProfile, apiKeyMissing, activeWorkoutDay, saveWorkoutPlan]);
 
   const handleStartWorkout = useCallback((dayNumber: number) => {
     if (!currentWorkoutPlan || !Array.isArray(currentWorkoutPlan)) return;
@@ -200,8 +190,6 @@ const App: React.FC = () => {
     setWorkoutLogs(updatedLogs);
     await saveWorkoutLog(newLog); // Зберігаємо новий лог у Firestore через useUserData
 
-    // Clear session state (handled by useEffect watching activeWorkoutDay, sessionExercises, workoutStartTime)
-
     let planWasUpdated = false;
     const updatedPlan = currentWorkoutPlan.map(dayPlan => {
       if (dayPlan.day === activeWorkoutDay) {
@@ -236,6 +224,9 @@ const App: React.FC = () => {
     }
     
     alert(UI_TEXT.workoutLogged + (planWasUpdated ? " План оновлено з новими цілями!" : ""));
+    setActiveWorkoutDay(null);
+    setWorkoutStartTime(null);
+    setSessionExercises([]);
     setCurrentView('progress'); 
   }, [activeWorkoutDay, sessionExercises, currentWorkoutPlan, workoutLogs, workoutStartTime, userProfile, saveWorkoutPlan, saveWorkoutLog]);
 
@@ -286,43 +277,29 @@ const App: React.FC = () => {
   }, [saveWorkoutPlan]);
 
   const renderView = () => {
-    console.log('RenderView State Check:', {
-      isLoading: isLoading,
-      userDataLoading: userDataLoading,
-      currentView: currentView,
-      firestoreProfile: !!firestoreProfile, // Перевірка на наявність профілю
-      workoutPlan: !!workoutPlan // Перевірка на наявність плану
-    });
+    if (isLoading && currentView !== 'profile' && activeWorkoutDay === null) return <Spinner message={UI_TEXT.generatingWorkout} />;
     
-    // Якщо дані користувача або автентифікація завантажуються, показуємо спінер завантаження даних
-    if (userDataLoading || authLoading) {
+    if (userDataLoading && activeWorkoutDay === null) {
         return <Spinner message={UI_TEXT.loadingUserData} />;
     }
 
-    // Якщо користувача немає (автентифікація завершена, але user == null), показуємо форму авторизації
-    if (!user) {
-      return <AuthForm />;
-    }
-
-    // Якщо користувач є, але профілю немає, показуємо форму профілю
     if (!firestoreProfile) {
       return <UserProfileForm 
                 existingProfile={userProfile} 
                 onSave={handleProfileSave} 
                 apiKeyMissing={apiKeyMissing} 
-                isLoading={isLoading} // Використовуємо isLoading (що є userDataLoading)
+                isLoading={isLoading}
                 onLogout={logout}
                 onDeleteAccount={handleDeleteAccount}
               />;
     }
 
-    // Якщо є профіль, але немає плану, показуємо WorkoutDisplay з кнопкою генерації
     if (firestoreProfile && !workoutPlan) {
         return <WorkoutDisplay 
                 userProfile={firestoreProfile}
                 workoutPlan={null}
                 onGenerateNewPlan={handleGenerateNewPlan}
-                isLoading={isLoading || (apiKeyMissing && !userProfile)} // Використовуємо isLoading
+                isLoading={isLoading || (apiKeyMissing && !userProfile)}
                 activeDay={activeWorkoutDay}
                 sessionExercises={sessionExercises}
                 onStartWorkout={handleStartWorkout}
@@ -333,15 +310,14 @@ const App: React.FC = () => {
                 onSaveWorkoutPlan={handleSaveWorkoutPlan}
               />;
     }
-
-    // Якщо є і профіль, і план, показуємо відповідний вигляд залежно від currentView
+    
     switch (currentView) {
       case 'profile':
         return <UserProfileForm 
                   existingProfile={userProfile} 
                   onSave={handleProfileSave} 
                   apiKeyMissing={apiKeyMissing} 
-                  isLoading={isLoading} // Використовуємо isLoading
+                  isLoading={isLoading}
                   onLogout={logout}
                   onDeleteAccount={handleDeleteAccount}
                 />;
@@ -350,7 +326,7 @@ const App: React.FC = () => {
                   userProfile={userProfile}
                   workoutPlan={currentWorkoutPlan} 
                   onGenerateNewPlan={handleGenerateNewPlan}
-                  isLoading={isLoading || (apiKeyMissing && !userProfile)} // Використовуємо isLoading
+                  isLoading={isLoading || (apiKeyMissing && !userProfile)}
                   activeDay={activeWorkoutDay}
                   sessionExercises={sessionExercises}
                   onStartWorkout={handleStartWorkout}
@@ -367,12 +343,20 @@ const App: React.FC = () => {
                   existingProfile={userProfile} 
                   onSave={handleProfileSave} 
                   apiKeyMissing={apiKeyMissing} 
-                  isLoading={isLoading} // Використовуємо isLoading
+                  isLoading={isLoading}
                   onLogout={logout}
                   onDeleteAccount={handleDeleteAccount}
                 />;
     }
   };
+
+  if (loading) {
+    return <div className="flex items-center justify-center min-h-screen text-xl text-purple-400">Завантаження автентифікації...</div>;
+  }
+
+  if (!user) {
+    return <AuthForm />;
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-900 via-slate-800 to-purple-900">
@@ -388,7 +372,6 @@ const App: React.FC = () => {
                 setActiveWorkoutDay(null);
                 setWorkoutStartTime(null);
                 setSessionExercises([]);
-                clearActiveWorkoutSession();
               }
               setCurrentView(v);
             }} />
@@ -397,7 +380,7 @@ const App: React.FC = () => {
       </header>
 
       <main className="flex-grow container mx-auto p-3 sm:p-4 md:p-6">
-        {error && !isLoading && <ErrorMessage message={error} onClear={() => setError(null)} />} {/* Використовуємо isLoading */}
+        {error && !isLoading && <ErrorMessage message={error} onClear={() => setError(null)} />}
          {renderView()}
       </main>
 

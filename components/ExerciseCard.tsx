@@ -32,39 +32,24 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, exerciseIndex, is
   const [loggedSetsData, setLoggedSetsData] = useState<LoggedSetWithAchieved[]>(() => Array(numSets).fill({ repsAchieved: undefined, weightUsed: undefined }));
   const [allSetsSuccessful, setAllSetsSuccessful] = useState<boolean>(true);
 
-  const [restStartTime, setRestStartTime] = useState<number | null>(null);
   const [restTimer, setRestTimer] = useState<number>(0);
   const [isResting, setIsResting] = useState<boolean>(false);
 
   useEffect(() => {
     let interval: number | null = null;
-    if (isResting && restStartTime !== null) {
+    if (isResting && restTimer > 0) {
       interval = window.setInterval(() => {
-        const elapsedSeconds = Math.floor((Date.now() - restStartTime) / 1000);
-        const restStr = exercise.rest ?? '60';
-        let restSeconds = 60;
-        if (typeof restStr === 'string') {
-          if (restStr.includes('секунд')) {
-            restSeconds = parseInt(restStr.split(' ')[0], 10);
-          } else {
-            restSeconds = parseInt(restStr, 10);
-          }
-        } else if (typeof restStr === 'number') {
-          restSeconds = restStr;
-        }
-        const remainingSeconds = Math.max(0, restSeconds - elapsedSeconds);
-        setRestTimer(remainingSeconds);
-        if (remainingSeconds === 0) {
-          setIsResting(false);
-          setRestStartTime(null);
-          alert(`Відпочинок для "${exercise.name}" завершено!`);
-        }
+        setRestTimer(prev => prev - 1);
       }, 1000);
+    } else if (isResting && restTimer === 0) {
+      setIsResting(false);
+      // Optional: Play a sound or show notification
+      alert(`Відпочинок для "${exercise.name}" завершено!`);
     }
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isResting, restStartTime, exercise.name, exercise.rest]);
+  }, [isResting, restTimer, exercise.name]);
   
   // Reset form when exercise changes or completion status changes
   useEffect(() => {
@@ -77,6 +62,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, exerciseIndex, is
   const handleStartRest = () => {
     const restStr = exercise.rest ?? '60';
     let restSeconds = 60;
+    
     if (typeof restStr === 'string') {
       if (restStr.includes('секунд')) {
         restSeconds = parseInt(restStr.split(' ')[0], 10);
@@ -86,7 +72,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, exerciseIndex, is
     } else if (typeof restStr === 'number') {
       restSeconds = restStr;
     }
-    setRestStartTime(Date.now());
+    
     setRestTimer(restSeconds || 60);
     setIsResting(true);
   };

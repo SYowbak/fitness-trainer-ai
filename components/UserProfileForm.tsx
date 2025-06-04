@@ -12,8 +12,6 @@ interface UserProfileFormProps {
 }
 
 const UserProfileForm: React.FC<UserProfileFormProps> = ({ existingProfile, onSave, apiKeyMissing, isLoading, onLogout, onDeleteAccount }) => {
-  console.log('UserProfileForm is rendering');
-
   const [name, setName] = useState<string>('');
   const [gender, setGender] = useState<Gender>(GENDER_OPTIONS[0].value);
   const [bodyType, setBodyType] = useState<BodyType>(BODY_TYPE_OPTIONS[0].value);

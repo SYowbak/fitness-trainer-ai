@@ -18,11 +18,6 @@ service cloud.firestore {
       
       // Дозволяємо створювати новий профіль при реєстрації
       allow create: if isAuthenticated() && request.auth.uid == userId;
-
-      // Правила для підколекції активної сесії
-      match /activeSession/{sessionId} {
-        allow read, write, delete: if isOwner(userId);
-      }
     }
 
     // Правила для планів тренувань

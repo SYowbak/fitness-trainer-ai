@@ -77,7 +77,7 @@ export interface Exercise {
   targetWeight?: number | null;
   targetReps?: number | string | null;
   isCompletedDuringSession?: boolean; 
-  sessionLoggedSets: LoggedSetWithAchieved[];
+  sessionLoggedSets?: LoggedSetWithAchieved[];
   sessionSuccess?: boolean;
 }
 
