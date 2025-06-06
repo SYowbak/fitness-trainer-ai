@@ -530,6 +530,7 @@ const App: React.FC = () => {
         return <Spinner message="Аналізуємо тренування..." />;
     }
 
+    // Якщо профіль не заповнений, показуємо форму профілю
     if (!firestoreProfile) {
       return <UserProfileForm 
                 existingProfile={userProfile} 
@@ -541,6 +542,7 @@ const App: React.FC = () => {
               />;
     }
 
+    // Якщо профіль заповнений, але немає плану тренувань
     if (firestoreProfile && !workoutPlan) {
         return <WorkoutDisplay 
                   userProfile={firestoreProfile}
@@ -559,6 +561,7 @@ const App: React.FC = () => {
                 />;
     }
     
+    // Якщо профіль заповнений і є план тренувань
     switch (currentView) {
       case 'profile':
         return <UserProfileForm 
@@ -570,7 +573,6 @@ const App: React.FC = () => {
                   onDeleteAccount={handleDeleteAccount}
                 />;
       case 'workout':
-        console.log('Rendering WorkoutDisplay. isLoading:', isLoading, 'userDataLoading:', userDataLoading, 'isAnalyzingWorkout:', isAnalyzingWorkout);
         return <WorkoutDisplay 
                   userProfile={userProfile}
                   workoutPlan={currentWorkoutPlan} 
@@ -587,19 +589,26 @@ const App: React.FC = () => {
                   onWorkoutComplete={handleWorkoutComplete}
                 />;
       case 'progress':
-        console.log('Rendering ProgressView. workoutLogs:', workoutLogs);
         return <ProgressView 
                   workoutLogs={workoutLogs}
                   userProfile={userProfile}
                 />;
       default:
-        return <UserProfileForm 
-                  existingProfile={userProfile} 
-                  onSave={handleProfileSave} 
-                  apiKeyMissing={apiKeyMissing} 
-                  isLoading={isLoading}
-                  onLogout={logout}
-                  onDeleteAccount={handleDeleteAccount}
+        // За замовчуванням показуємо вкладку тренування, якщо профіль заповнений
+        return <WorkoutDisplay 
+                  userProfile={userProfile}
+                  workoutPlan={currentWorkoutPlan} 
+                  onGenerateNewPlan={handleGenerateNewPlan}
+                  isLoading={isLoading || (apiKeyMissing && !userProfile) || isAnalyzingWorkout}
+                  activeDay={activeWorkoutDay}
+                  sessionExercises={sessionExercises}
+                  onStartWorkout={handleStartWorkout}
+                  onEndWorkout={handleEndWorkout}
+                  onLogExercise={handleLogSingleExercise}
+                  workoutTimerDisplay={formatTime(workoutTimer)}
+                  isApiKeyMissing={apiKeyMissing}
+                  onSaveWorkoutPlan={handleSaveWorkoutPlan}
+                  onWorkoutComplete={handleWorkoutComplete}
                 />;
     }
   };
