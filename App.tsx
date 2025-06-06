@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { UserProfile, DailyWorkoutPlan, WorkoutLog, Exercise, LoggedExercise, LoggedSet } from './types';
-import { UI_TEXT, GEMINI_MODEL_TEXT, DEFAULT_WEIGHT_INCREMENT, formatTime } from './constants';
+import { UI_TEXT, GEMINI_MODEL_TEXT, formatTime } from './constants';
 import Navbar from './components/Navbar';
 import UserProfileForm from './components/UserProfileForm';
 import WorkoutDisplay from './components/WorkoutDisplay';
@@ -234,15 +234,15 @@ const App: React.FC = () => {
       }));
 
     if (loggedExercisesForSession.length === 0) {
-        setActiveWorkoutDay(null);
-        setWorkoutStartTime(null);
-        setSessionExercises([]);
-        try {
-          localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
-        } catch (e) {
-        }
-        alert("Тренування завершено, але жодної вправи не було залоговано.");
-        return;
+      setActiveWorkoutDay(null);
+      setWorkoutStartTime(null);
+      setSessionExercises([]);
+      try {
+        localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
+      } catch (e) {
+      }
+      alert("Тренування завершено, але жодної вправи не було залоговано.");
+      return;
     }
     
     const newLog: WorkoutLog = {
@@ -258,41 +258,8 @@ const App: React.FC = () => {
     const updatedLogs = [...workoutLogs, newLog];
     setWorkoutLogs(updatedLogs);
     await saveWorkoutLog(newLog);
-
-    let planWasUpdated = false;
-    const updatedPlan = currentWorkoutPlan.map(dayPlan => {
-      if (dayPlan.day === activeWorkoutDay) {
-        const newExercisesForDay = (dayPlan.exercises && Array.isArray(dayPlan.exercises) ? dayPlan.exercises : []).map(exInPlan => {
-          const loggedEx = loggedExercisesForSession.find(le => le.exerciseName === exInPlan.name);
-          if (loggedEx && Array.isArray(loggedEx.loggedSets) && loggedEx.loggedSets.length > 0) {
-            let newTargetWeight = exInPlan.targetWeight;
-            const averageWeightUsed = loggedEx.loggedSets.reduce((sum: number, set) => sum + (set.weightUsed ?? 0), 0) / loggedEx.loggedSets.length;
-
-            if (Array.isArray(loggedEx.loggedSets) && loggedEx.loggedSets.length > 0) {
-                if (exInPlan.targetWeight !== undefined && exInPlan.targetWeight !== null && averageWeightUsed >= exInPlan.targetWeight) {
-                    newTargetWeight = exInPlan.targetWeight + DEFAULT_WEIGHT_INCREMENT;
-                } else if ((exInPlan.targetWeight === undefined || exInPlan.targetWeight === null) && averageWeightUsed > 0) {
-                    newTargetWeight = averageWeightUsed + DEFAULT_WEIGHT_INCREMENT;
-                }
-            }
-
-            if (newTargetWeight !== exInPlan.targetWeight) {
-                planWasUpdated = true;
-                return { ...exInPlan, targetWeight: newTargetWeight };
-            }
-          }
-          return exInPlan;
-        });
-        return { ...dayPlan, exercises: newExercisesForDay };
-      }
-      return dayPlan;
-    });
-
-    if (planWasUpdated) {
-      setCurrentWorkoutPlan(updatedPlan);
-    }
     
-    alert(UI_TEXT.workoutLogged + (planWasUpdated ? " План оновлено з новими цілями!" : ""));
+    alert(UI_TEXT.workoutLogged);
     setActiveWorkoutDay(null);
     setWorkoutStartTime(null);
     setSessionExercises([]);
@@ -301,7 +268,7 @@ const App: React.FC = () => {
     } catch (e) {
     }
     setCurrentView('progress'); 
-  }, [activeWorkoutDay, sessionExercises, currentWorkoutPlan, workoutLogs, workoutStartTime, userProfile, saveWorkoutPlan, saveWorkoutLog]);
+  }, [activeWorkoutDay, sessionExercises, currentWorkoutPlan, workoutLogs, workoutStartTime, userProfile, saveWorkoutLog]);
 
   const handleDeleteAccount = async () => {
     if (!user) return;
@@ -381,6 +348,7 @@ const App: React.FC = () => {
                 workoutTimerDisplay={formatTime(workoutTimer)}
                 isApiKeyMissing={apiKeyMissing}
                 onSaveWorkoutPlan={handleSaveWorkoutPlan}
+                workoutLogs={workoutLogs}
               />;
     }
     
@@ -408,9 +376,13 @@ const App: React.FC = () => {
                   workoutTimerDisplay={formatTime(workoutTimer)}
                   isApiKeyMissing={apiKeyMissing}
                   onSaveWorkoutPlan={handleSaveWorkoutPlan}
+                  workoutLogs={workoutLogs}
                 />;
       case 'progress':
-        return <ProgressView workoutLogs={workoutLogs} userProfile={userProfile} />;
+        return <ProgressView 
+                  workoutLogs={workoutLogs}
+                  userProfile={userProfile}
+                />;
       default:
         return <UserProfileForm 
                   existingProfile={userProfile} 

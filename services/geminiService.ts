@@ -1,5 +1,5 @@
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
-import { UserProfile, DailyWorkoutPlan } from '../types';
+import { UserProfile, DailyWorkoutPlan, WorkoutLog } from '../types';
 import { 
   getUkrainianGoal, 
   getUkrainianBodyType, 
@@ -210,5 +210,97 @@ export const generateWorkoutPlan = async (profile: UserProfile, modelName: strin
         throw new Error("Помилка мережі при зверненні до AI сервісу. Перевірте ваше інтернет-з'єднання та спробуйте пізніше.");
     }
     throw new Error(`Помилка генерації плану: ${error.message || 'Невідома помилка сервісу AI'}`);
+  }
+};
+
+export const generateWorkoutAnalysis = async ({
+  userProfile,
+  dayPlan,
+  lastWorkoutLog
+}: {
+  userProfile: UserProfile;
+  dayPlan: DailyWorkoutPlan;
+  lastWorkoutLog: WorkoutLog | null;
+}): Promise<{
+  updatedPlan: DailyWorkoutPlan;
+  recommendation: {
+    text: string;
+    action: string;
+  };
+}> => {
+  const prompt = `Ти - елітний фітнес-аналітик, який аналізує тренування та дає рекомендації щодо прогресу.
+
+Профіль користувача:
+${JSON.stringify(userProfile, null, 2)}
+
+План тренування на день:
+${JSON.stringify(dayPlan, null, 2)}
+
+Останній лог тренування:
+${lastWorkoutLog ? JSON.stringify(lastWorkoutLog, null, 2) : 'Немає попередніх логів'}
+
+Проаналізуй дані та надай рекомендації згідно з наступними принципами:
+
+1. Подвійна прогресія для вправ з вагою:
+   - Спочатку збільшуй кількість повторень
+   - Після досягнення верхньої межі повторень - збільшуй вагу
+
+2. Спеціальна лінія прогресу для вправ без ваги:
+   - Для підтягувань: збільшення повторень
+   - Для планки: збільшення тривалості в секундах
+
+3. Адаптація під ціль користувача:
+   - MUSCLE_GAIN: фокус на гіпертрофії
+   - STRENGTH: фокус на силі
+   - ENDURANCE: фокус на витривалості
+
+4. Тон рекомендацій:
+   - Професійний
+   - Безособовий
+   - Конкретний
+   - Мотивуючий
+
+Надай відповідь у форматі JSON:
+{
+  "updatedPlan": {
+    // Оновлений план тренування з новими цілями
+  },
+  "recommendation": {
+    "text": "Текст рекомендації",
+    "action": "Конкретна дія для прогресу"
+  }
+}`;
+
+  const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${import.meta.env.VITE_API_KEY}`
+    },
+    body: JSON.stringify({
+      contents: [{
+        parts: [{
+          text: prompt
+        }]
+      }]
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error('Помилка при виклику Gemini API');
+  }
+
+  const data = await response.json();
+  const analysisText = data.candidates[0].content.parts[0].text;
+  
+  try {
+    const analysis = JSON.parse(analysisText);
+    return {
+      updatedPlan: analysis.updatedPlan,
+      recommendation: analysis.recommendation
+    };
+  } catch (error) {
+    console.error('Помилка при парсингу відповіді:', error);
+    throw new Error('Не вдалося обробити відповідь від AI');
   }
 };

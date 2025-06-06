@@ -96,10 +96,9 @@ export const EXPERIENCE_LEVEL_OPTIONS: Array<{ value: ExperienceLevel; label: st
 ];
 
 export const DEFAULT_TRAINING_FREQUENCY = 3;
-export const DEFAULT_WEIGHT_INCREMENT = 5; // kg for example
 export const DEFAULT_WEIGHT_DECREMENT = 5; // kg for example
 
-export const GEMINI_MODEL_TEXT = 'gemini-2.5-flash-preview-04-17';
+export const GEMINI_MODEL_TEXT = "gemini-pro";
 
 export const UI_TEXT = {
   appName: APP_NAME,
@@ -183,7 +182,13 @@ export const UI_TEXT = {
   errorGeneratingExercise: "Помилка при генерації вправи",
   errorRegeneratingExercise: "Помилка при перегенерації вправи",
   errorSavingPlan: "Помилка при збереженні плану",
-  completeExerciseDetails: "Доповнити"
+  completeExerciseDetails: "Доповнити",
+  workoutAnalysis: "Аналіз тренування",
+  workoutAnalysisLoading: "Аналіз тренування...",
+  workoutAnalysisError: "Помилка при аналізі тренування",
+  workoutAnalysisSuccess: "Тренування проаналізовано",
+  recommendation: "Рекомендація",
+  nextAction: "Наступна дія"
 };
 
 export function getUkrainianGoal(goal: FitnessGoal): string {

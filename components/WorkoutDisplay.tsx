@@ -1,9 +1,18 @@
-import React, { useState } from 'react';
-import { DailyWorkoutPlan, UserProfile, Exercise as ExerciseType, LoggedSet } from '../types';
+import React, { useState, useEffect } from 'react';
+import { DailyWorkoutPlan, UserProfile, Exercise as ExerciseType, LoggedSet, WorkoutLog } from '../types';
 import { UI_TEXT } from '../constants';
 import ExerciseCard from './ExerciseCard';
 import Spinner from './Spinner';
 import WorkoutEditMode from './WorkoutEditMode';
+import { analyzeWorkout } from '../services/workoutAnalysisService';
+
+// Функція для конвертації дати з Firestore в JavaScript Date
+const convertFirestoreDate = (date: Date | { seconds: number; nanoseconds: number }): Date => {
+  if (date instanceof Date) {
+    return date;
+  }
+  return new Date(date.seconds * 1000);
+};
 
 interface WorkoutDisplayProps {
   userProfile: UserProfile | null;
@@ -18,6 +27,7 @@ interface WorkoutDisplayProps {
   workoutTimerDisplay: string;
   isApiKeyMissing: boolean;
   onSaveWorkoutPlan: (plan: DailyWorkoutPlan[]) => void;
+  workoutLogs: WorkoutLog[];
 }
 
 const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
@@ -33,23 +43,42 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
   workoutTimerDisplay,
   isApiKeyMissing,
   onSaveWorkoutPlan,
+  workoutLogs
 }) => {
   const [selectedDayForView, setSelectedDayForView] = useState<number | null>(
     workoutPlan && workoutPlan.length > 0 ? workoutPlan[0].day : null
   );
   const [isEditMode, setIsEditMode] = useState<boolean>(false);
+  const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
+  const [analyzedPlan, setAnalyzedPlan] = useState<DailyWorkoutPlan | null>(null);
 
   const isWorkoutPlanValid = workoutPlan && Array.isArray(workoutPlan);
 
-  // START - WorkoutDisplay State Check - Moved
-  console.log('WorkoutDisplay State Check:', {
-    activeDay: activeDay,
-    isApiKeyMissing: isApiKeyMissing,
-    isEditMode: isEditMode,
-    workoutPlanExists: !!workoutPlan && workoutPlan.length > 0,
-    isWorkoutPlanValid: isWorkoutPlanValid
-  });
-  // END - WorkoutDisplay State Check - Moved
+  useEffect(() => {
+    const analyzeCurrentDay = async () => {
+      if (!userProfile || !selectedDayForView || !workoutPlan) return;
+
+      const currentDayPlan = workoutPlan.find(p => p.day === selectedDayForView);
+      if (!currentDayPlan) return;
+
+      // Знаходимо останній лог для цього дня
+      const lastWorkoutLog = workoutLogs
+        .filter(log => log.dayCompleted === selectedDayForView)
+        .sort((a, b) => convertFirestoreDate(b.date).getTime() - convertFirestoreDate(a.date).getTime())[0] || null;
+
+      setIsAnalyzing(true);
+      try {
+        const analysis = await analyzeWorkout(userProfile, currentDayPlan, lastWorkoutLog);
+        setAnalyzedPlan(analysis.updatedPlan);
+      } catch (error) {
+        console.error('Помилка при аналізі тренування:', error);
+      } finally {
+        setIsAnalyzing(false);
+      }
+    };
+
+    analyzeCurrentDay();
+  }, [userProfile, selectedDayForView, workoutPlan, workoutLogs]);
 
   if (isLoading && (!isWorkoutPlanValid || workoutPlan.length === 0) && activeDay === null) {
     return <Spinner message={UI_TEXT.generatingWorkout} />;
@@ -101,32 +130,16 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
     );
   }
 
-  const currentDayPlan = activeDay !== null ? (isWorkoutPlanValid ? workoutPlan.find(p => p.day === activeDay) : null) : (selectedDayForView !== null && isWorkoutPlanValid ? workoutPlan.find(p => p.day === selectedDayForView) : null);
-  const exercisesToDisplay = activeDay !== null ? sessionExercises : (currentDayPlan && currentDayPlan.exercises && Array.isArray(currentDayPlan.exercises) ? currentDayPlan.exercises : []);
+  const currentDayPlan = activeDay !== null 
+    ? (isWorkoutPlanValid ? workoutPlan.find(p => p.day === activeDay) : null) 
+    : (selectedDayForView !== null && isWorkoutPlanValid ? workoutPlan.find(p => p.day === selectedDayForView) : null);
 
-  const handleEndWorkout = () => {
-    const unloggedExercises = sessionExercises.filter(ex => !ex.isCompletedDuringSession && (!ex.sessionLoggedSets || ex.sessionLoggedSets.length === 0));
-    
-    if (unloggedExercises.length > 0) {
-      const confirmMessage = `У вас є ${unloggedExercises.length} незалогованих вправ:\n${unloggedExercises.map(ex => `- ${ex.name}`).join('\n')}\n\nБажаєте завершити тренування без логування цих вправ?`;
-      
-      if (window.confirm(confirmMessage)) {
-        onEndWorkout();
-      }
-    } else {
-      onEndWorkout();
-    }
-  };
+  const exercisesToDisplay = activeDay !== null 
+    ? sessionExercises 
+    : (analyzedPlan || currentDayPlan)?.exercises || [];
 
   return (
-    <div className="space-y-6 px-4 sm:px-6 md:px-8">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-purple-300">{UI_TEXT.workoutPlanTitle}</h2>
-        <div className="space-x-2">
-          
-        </div>
-      </div>
-
+    <div className="space-y-6">
       {activeDay === null ? (
         <div className="mb-6 flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0 md:space-x-4 w-full max-w-full overflow-hidden">
           <div className="flex-none md:flex-grow">
@@ -144,72 +157,69 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
             </select>
           </div>
           <div className="flex flex-col space-y-2 mt-auto w-full md:flex-row md:space-y-0 md:space-x-2 md:w-auto md:justify-start flex-shrink-0 min-w-0">
-             {!isApiKeyMissing && (
+            {!isApiKeyMissing && (
+              <button
+                onClick={() => setIsEditMode(true)}
+                className="w-full md:w-auto px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+              >
+                <i className="fas fa-edit mr-2"></i>
+                {UI_TEXT.editWorkoutPlan}
+              </button>
+            )}
             <button
-              onClick={() => setIsEditMode(true)}
-              className="w-full md:w-auto px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+              onClick={() => selectedDayForView !== null && onStartWorkout(selectedDayForView)}
+              disabled={selectedDayForView === null}
+              className={`w-full md:w-auto px-4 py-2 rounded transition-colors ${
+                selectedDayForView === null
+                  ? 'bg-gray-500 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700 text-white'
+              }`}
             >
-              <i className="fas fa-edit mr-2"></i>
-              {UI_TEXT.editWorkoutPlan}
+              {UI_TEXT.startWorkout}
             </button>
-          )}
-           <button
-            onClick={() => selectedDayForView !== null && onStartWorkout(selectedDayForView)}
-            disabled={selectedDayForView === null}
-            className={`w-full md:w-auto px-4 py-2 rounded transition-colors ${
-              selectedDayForView === null
-                ? 'bg-gray-500 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700 text-white'
-            }`}
-          >
-            {UI_TEXT.startWorkout}
-          </button>
           </div>
         </div>
       ) : (
         <div className="flex justify-between items-center mb-6">
-          <div className="text-xl font-semibold text-purple-300">
-            День {activeDay} - {workoutTimerDisplay}
+          <h2 className="text-xl sm:text-2xl font-bold text-purple-300">
+            <i className="fas fa-dumbbell mr-2"></i>
+            {UI_TEXT.activeWorkoutDay} {activeDay}
+          </h2>
+          <div className="flex items-center space-x-4">
+            <span className="text-yellow-400">
+              <i className="fas fa-stopwatch mr-2"></i>
+              {workoutTimerDisplay}
+            </span>
+            <button
+              onClick={onEndWorkout}
+              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+            >
+              {UI_TEXT.endWorkout}
+            </button>
           </div>
-          <button
-            onClick={handleEndWorkout}
-            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded transition-colors"
-          >
-            Завершити тренування
-          </button>
         </div>
       )}
 
-      {currentDayPlan?.warmup && (
-        <div className="p-4 bg-gray-700/50 rounded-lg">
-          <h3 className="text-lg font-semibold text-purple-300 mb-2">{UI_TEXT.warmup}</h3>
-          <p className="text-gray-300">{currentDayPlan.warmup}</p>
-        </div>
-      )}
-
-      <div className="space-y-4">
-        {exercisesToDisplay.map((exercise, index) => (
-          <ExerciseCard
-            key={index}
-            exercise={exercise}
-            exerciseIndex={index}
-            isActiveWorkout={activeDay !== null}
-            onLogExercise={onLogExercise}
-            isCompleted={activeDay !== null ? !!exercise.isCompletedDuringSession : false}
-          />
-        ))}
-      </div>
-
-      {currentDayPlan?.cooldown && (
-        <div className="p-4 bg-gray-700/50 rounded-lg">
-          <h3 className="text-lg font-semibold text-purple-300 mb-2">{UI_TEXT.cooldown}</h3>
-          <p className="text-gray-300">{currentDayPlan.cooldown}</p>
-        </div>
-      )}
-
-      {currentDayPlan?.notes && (
-        <div className="p-4 bg-gray-700/50 rounded-lg">
-          <h3 className="text-lg font-semibold text-purple-300 mb-2">Примітки:</h3>
-          <p className="text-gray-300">{currentDayPlan.notes}</p>
+      {isAnalyzing ? (
+        <Spinner message="Аналіз тренування..." />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {exercisesToDisplay.map((exercise, index) => (
+            <ExerciseCard
+              key={index}
+              exercise={exercise}
+              isActive={activeDay !== null}
+              onLogExercise={(loggedSets, success) => {
+                const updatedExercises = [...exercisesToDisplay];
+                updatedExercises[index] = {
+                  ...exercise,
+                  isCompletedDuringSession: true,
+                  sessionLoggedSets: loggedSets,
+                  sessionSuccess: success
+                };
+                onLogExercise(index, loggedSets, success);
+              }}
+            />
+          ))}
         </div>
       )}
     </div>

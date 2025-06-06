@@ -72,7 +72,11 @@ const ProgressView: React.FC<ProgressViewProps> = ({ workoutLogs, userProfile })
                     <div className="flex justify-between items-center mb-2">
                       <p className="font-semibold text-purple-300 text-base sm:text-lg">
                         <i className="fas fa-calendar-alt mr-2"></i>
-                        {log.date ? new Date(log.date).toLocaleDateString('uk-UA', { year: 'numeric', month: 'long', day: 'numeric' }) : 'Невідома дата'}
+                        {log.date && typeof log.date === 'object' && 'seconds' in log.date 
+                          ? new Date(log.date.seconds * 1000).toLocaleDateString('uk-UA', { year: 'numeric', month: 'long', day: 'numeric' })
+                          : log.date instanceof Date 
+                            ? log.date.toLocaleDateString('uk-UA', { year: 'numeric', month: 'long', day: 'numeric' })
+                            : 'Невідома дата'}
                       </p>
                       {log.workoutDuration !== undefined && (
                         <p className="text-xs sm:text-sm text-yellow-400"><i className="fas fa-stopwatch mr-1"></i>{log.workoutDuration}</p>

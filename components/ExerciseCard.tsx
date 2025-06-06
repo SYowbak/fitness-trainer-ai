@@ -4,15 +4,18 @@ import { UI_TEXT, formatTime } from '../constants';
 
 interface ExerciseCardProps {
   exercise: Exercise;
-  exerciseIndex: number;
-  isActiveWorkout: boolean;
-  onLogExercise: (exerciseIndex: number, loggedSets: LoggedSetWithAchieved[], success: boolean) => void;
-  isCompleted: boolean;
+  isActive: boolean;
+  onLogExercise: (loggedSets: LoggedSetWithAchieved[], success: boolean) => void;
 }
 
-const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, exerciseIndex, isActiveWorkout, onLogExercise, isCompleted }) => {
+const ExerciseCard: React.FC<ExerciseCardProps> = ({
+  exercise,
+  isActive,
+  onLogExercise
+}) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showLogForm, setShowLogForm] = useState(false);
+  const [isCompleted, setIsCompleted] = useState(false);
   
   // Додаємо логування для дебагу
   useEffect(() => {
@@ -114,13 +117,12 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, exerciseIndex, is
         if (!confirm("Ви не ввели дані для жодного підходу. Залогувати вправу як пропущену (без зарахування прогресу)?")) {
           return; 
         }
-        // Log as "attempted but no valid sets" - success will be based on allSetsSuccessful if user still wants to log it.
-         onLogExercise(exerciseIndex, [], allSetsSuccessful); // Pass empty array, but respect success flag
+        onLogExercise([], allSetsSuccessful);
     } else {
-        onLogExercise(exerciseIndex, validSets, allSetsSuccessful);
+        onLogExercise(validSets, allSetsSuccessful);
     }
     setShowLogForm(false);
-    // setIsExpanded(false); // Keep expanded to see completion status
+    setIsCompleted(true);
   };
   
   const cardBaseClasses = "p-3 sm:p-4 rounded-lg shadow-md transition-all duration-300";
@@ -189,7 +191,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, exerciseIndex, is
             )}
           </div>
 
-          {isActiveWorkout && !isCompleted && (
+          {isActive && !isCompleted && (
             <div className="mt-3 pt-3 border-t border-gray-500/50 space-y-2 sm:space-y-0 sm:flex sm:space-x-3">
               <button
                 onClick={handleStartRest}
@@ -213,7 +215,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, exerciseIndex, is
         </div>
       )}
 
-      {showLogForm && !isCompleted && isActiveWorkout && (
+      {showLogForm && !isCompleted && isActive && (
         <div className="fixed inset-0 bg-gray-900/80 backdrop-blur-sm flex items-center justify-center p-3 z-[100]" onClick={() => setShowLogForm(false)}>
           <div className="bg-gray-700 p-3 sm:p-5 rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg sm:text-xl font-semibold text-purple-300 mb-3">{UI_TEXT.logExercise}: {exercise.name}</h3>

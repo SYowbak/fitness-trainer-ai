@@ -65,20 +65,21 @@ export interface UserProfile {
 
 export interface Exercise {
   name: string;
-  sets: number | string; // Дозволяємо рядок для "3-4"
-  reps: number | string; // Дозволяємо рядок для "8-12"
-  weight?: number;
-  muscleGroup?: MuscleGroup;
-  notes?: string;
-  description?: string;
-  rest?: string;
-  imageSuggestion?: string | null;
-  videoSearchQuery?: string | null;
+  description: string;
+  sets: string | number;
+  reps: string;
+  rest: string;
+  videoSearchQuery: string | null;
   targetWeight?: number | null;
-  targetReps?: number | string | null;
-  isCompletedDuringSession?: boolean; 
+  targetReps?: number | null;
+  recommendation?: {
+    text: string;
+    action: string;
+  };
+  isCompletedDuringSession?: boolean;
   sessionLoggedSets?: LoggedSetWithAchieved[];
   sessionSuccess?: boolean;
+  notes?: string;
 }
 
 export interface DailyWorkoutPlan {
