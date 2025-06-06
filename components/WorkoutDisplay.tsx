@@ -51,6 +51,7 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
   const [isEditMode, setIsEditMode] = useState<boolean>(false);
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [analyzedPlan, setAnalyzedPlan] = useState<DailyWorkoutPlan | null>(null);
+  const [analysisRecommendation, setAnalysisRecommendation] = useState<string | null>(null);
 
   const isWorkoutPlanValid = workoutPlan && Array.isArray(workoutPlan);
 
@@ -70,8 +71,10 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
       try {
         const analysis = await analyzeWorkout(userProfile, currentDayPlan, lastWorkoutLog);
         setAnalyzedPlan(analysis.updatedPlan);
+        setAnalysisRecommendation(analysis.recommendation.text);
       } catch (error) {
         console.error('Помилка при аналізі тренування:', error);
+        setAnalysisRecommendation(null);
       } finally {
         setIsAnalyzing(false);
       }
@@ -204,25 +207,33 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
       {isAnalyzing ? (
         <Spinner message="Аналіз тренування..." />
       ) : (
-        <div className="space-y-4">
-          {exercisesToDisplay.map((exercise, index) => (
-            <ExerciseCard
-              key={index}
-              exercise={exercise}
-              isActive={activeDay !== null}
-              onLogExercise={(loggedSets, success) => {
-                const updatedExercises = [...exercisesToDisplay];
-                updatedExercises[index] = {
-                  ...exercise,
-                  isCompletedDuringSession: true,
-                  sessionLoggedSets: loggedSets,
-                  sessionSuccess: success
-                };
-                onLogExercise(index, loggedSets, success);
-              }}
-            />
-          ))}
-        </div>
+        <>
+          {analysisRecommendation && (
+            <div className="p-4 bg-blue-800/30 text-blue-200 rounded-lg shadow-md mb-6">
+              <h3 className="font-semibold text-lg mb-2 text-blue-100">Рекомендація від AI:</h3>
+              <p>{analysisRecommendation}</p>
+            </div>
+          )}
+          <div className="space-y-4">
+            {exercisesToDisplay.map((exercise, index) => (
+              <ExerciseCard
+                key={index}
+                exercise={exercise}
+                isActive={activeDay !== null}
+                onLogExercise={(loggedSets, success) => {
+                  const updatedExercises = [...exercisesToDisplay];
+                  updatedExercises[index] = {
+                    ...exercise,
+                    isCompletedDuringSession: true,
+                    sessionLoggedSets: loggedSets,
+                    sessionSuccess: success
+                  };
+                  onLogExercise(index, loggedSets, success);
+                }}
+              />
+            ))}
+          </div>
+        </>
       )}
     </div>
   );
