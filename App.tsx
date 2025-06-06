@@ -84,7 +84,6 @@ const App: React.FC = () => {
       };
       try {
         localStorage.setItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY, JSON.stringify(stateToSave));
-        console.log("Saved workout state to localStorage:", stateToSave);
       } catch (e) {
         console.error("Failed to save workout state to localStorage:", e);
       }
@@ -93,11 +92,9 @@ const App: React.FC = () => {
 
   // Load active workout state from localStorage on initial load
   useEffect(() => {
-    console.log("Attempting to load workout state from localStorage...");
     try {
       const savedState = localStorage.getItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
       if (!savedState) {
-        console.log("No saved workout state found");
         return;
       }
 
@@ -113,14 +110,12 @@ const App: React.FC = () => {
 
       // Якщо тренування було завершене, видаляємо стан
       if (isWorkoutCompleted) {
-        console.log("Workout was already completed, clearing state");
         localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
         return;
       }
 
       // Перевіряємо чи не закінчився термін дії
       if (Date.now() - timestamp > ACTIVE_WORKOUT_EXPIRATION_TIME) {
-        console.log("Saved workout state has expired");
         localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
         return;
       }
@@ -135,7 +130,6 @@ const App: React.FC = () => {
         setActiveWorkoutDay(activeDay);
         setSessionExercises(exercises);
         setWorkoutStartTime(startTime);
-        console.log("Successfully loaded workout state from localStorage");
       } else {
         console.error("Invalid data structure in saved workout state");
         localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
