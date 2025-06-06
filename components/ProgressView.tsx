@@ -1,7 +1,7 @@
-import React from 'react';
-import { WorkoutLog, UserProfile, LoggedExercise, Exercise, ExerciseProgress } from '../types';
+import React, { useState, useEffect } from 'react';
+import { WorkoutLog, UserProfile, LoggedExercise, Exercise, ExerciseProgressRecommendation } from '../types';
 import { UI_TEXT } from '../constants';
-import { ProgressCalculator } from '../utils/progressCalculator';
+import { analyzeProgress } from '../services/geminiService';
 
 interface ProgressViewProps {
   workoutLogs: WorkoutLog[];
@@ -10,11 +10,11 @@ interface ProgressViewProps {
 
 interface ExerciseLogRowProps {
   loggedEx: LoggedExercise;
-  exerciseProgress: ExerciseProgress | null;
+  aiRecommendation: ExerciseProgressRecommendation | undefined;
   originalExercise: Exercise | undefined;
 }
 
-const ExerciseLogRow: React.FC<ExerciseLogRowProps> = ({ loggedEx, exerciseProgress, originalExercise }) => {
+const ExerciseLogRow: React.FC<ExerciseLogRowProps> = ({ loggedEx, aiRecommendation, originalExercise }) => {
   if (!loggedEx || typeof loggedEx !== 'object') {
     console.warn('Invalid logged exercise data:', loggedEx);
     return null;
@@ -62,34 +62,64 @@ const ExerciseLogRow: React.FC<ExerciseLogRowProps> = ({ loggedEx, exerciseProgr
         </div>
       )}
 
-      {exerciseProgress && (
+      {aiRecommendation && (
         <div className="mt-2 pt-2 border-t border-gray-500">
           <h5 className="text-sm font-semibold text-blue-300 mb-1">Аналітика прогресу:</h5>
-          {(averageLoggedWeightActual !== undefined && averageLoggedRepsActual !== undefined && averageLoggedSetsActual !== undefined) ? (
+          {aiRecommendation.lastPerformanceSummary ? (
             <p className="text-xs text-gray-300">
-              Попередній факт: ~{averageLoggedWeightActual.toFixed(1)} кг x ~{averageLoggedRepsActual.toFixed(1)} повт.
-              ({averageLoggedSetsActual.toFixed(1)} підх.)
+              {aiRecommendation.lastPerformanceSummary}
             </p>
           ) : (
-             <p className="text-xs text-gray-300">Попередній факт: Немає даних</p>
+            (averageLoggedWeightActual !== undefined && averageLoggedRepsActual !== undefined && averageLoggedSetsActual !== undefined && 
+              (averageLoggedWeightActual > 0 || averageLoggedRepsActual > 0 || averageLoggedSetsActual > 0)) ? (
+              <p className="text-xs text-gray-300">
+                Попередній факт: ~{averageLoggedWeightActual.toFixed(1)} кг x ~{averageLoggedRepsActual.toFixed(1)} повт.
+                ({averageLoggedSetsActual.toFixed(1)} підх.)
+              </p>
+            ) : (
+              <p className="text-xs text-gray-300">Попередній факт: Немає даних</p>
+            )
           )}
-          {(exerciseProgress.recommendedWeight !== undefined && exerciseProgress.recommendedWeight !== 0) ||
-           (exerciseProgress.recommendedReps !== undefined && exerciseProgress.recommendedReps !== 0) ||
-           (exerciseProgress.recommendedSets !== undefined && exerciseProgress.recommendedSets !== 0) ? (
-            <p className="text-sm font-medium text-green-400 mt-1">
-              Рекомендована ціль:
-              {exerciseProgress.recommendedWeight !== undefined && exerciseProgress.recommendedWeight !== 0 ? `${exerciseProgress.recommendedWeight.toFixed(1)} кг, ` : ''}
-              {exerciseProgress.recommendedSets !== undefined && exerciseProgress.recommendedSets !== 0 ? `${exerciseProgress.recommendedSets} підх., ` : ''}
-              {exerciseProgress.recommendedReps !== undefined && exerciseProgress.recommendedReps !== 0 ? `${exerciseProgress.recommendedReps} повт.` : ''}
-            </p>
+          
+          {(aiRecommendation.recommendedWeight !== undefined && aiRecommendation.recommendedWeight !== 0) ||
+           (aiRecommendation.recommendedReps !== undefined && aiRecommendation.recommendedReps !== '-' && aiRecommendation.recommendedReps !== '0') ||
+           (aiRecommendation.recommendedSets !== undefined && aiRecommendation.recommendedSets !== '-' && aiRecommendation.recommendedSets !== '0') ? (
+            <div className="mt-2">
+              <p className="text-sm font-medium text-green-400">
+                Рекомендована ціль:
+              </p>
+              <div className="mt-1 space-y-1">
+                {aiRecommendation.recommendedWeight !== undefined && aiRecommendation.recommendedWeight !== 0 && (
+                  <p className="text-sm text-green-300">
+                    <i className="fas fa-dumbbell mr-1"></i>
+                    Вага: {aiRecommendation.recommendedWeight.toFixed(1)} кг
+                  </p>
+                )}
+                {aiRecommendation.recommendedSets !== undefined && aiRecommendation.recommendedSets !== '-' && aiRecommendation.recommendedSets !== '0' && (
+                  <p className="text-sm text-green-300">
+                    <i className="fas fa-layer-group mr-1"></i>
+                    Підходи: {aiRecommendation.recommendedSets}
+                  </p>
+                )}
+                {aiRecommendation.recommendedReps !== undefined && aiRecommendation.recommendedReps !== '-' && aiRecommendation.recommendedReps !== '0' && (
+                  <p className="text-sm text-green-300">
+                    <i className="fas fa-redo mr-1"></i>
+                    Повторення: {aiRecommendation.recommendedReps}
+                  </p>
+                )}
+              </div>
+            </div>
           ) : (
             <p className="text-sm font-medium text-yellow-400 mt-1">
               Рекомендована ціль: Підберіть вагу для
               {plannedSets ?? '-'} підходів по {plannedReps ?? '-'} повторень.
             </p>
           )}
-          {exerciseProgress.recommendationReason && (
-            <p className="text-xs text-gray-400 mt-1">Причина: {exerciseProgress.recommendationReason}</p>
+          {aiRecommendation.recommendationReason && (
+            <p className="text-xs text-gray-400 mt-2">
+              <i className="fas fa-info-circle mr-1"></i>
+              {aiRecommendation.recommendationReason}
+            </p>
           )}
         </div>
       )}
@@ -107,6 +137,34 @@ const formatDate = (date: Date | { seconds: number; nanoseconds: number }): stri
 };
 
 const ProgressView: React.FC<ProgressViewProps> = ({ workoutLogs, userProfile }) => {
+  const [aiRecommendations, setAiRecommendations] = useState<ExerciseProgressRecommendation[]>([]);
+  const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
+  const [recommendationsError, setRecommendationsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchRecommendations = async () => {
+      if (!userProfile || !workoutLogs || workoutLogs.length === 0) {
+        setAiRecommendations([]);
+        return;
+      }
+
+      setIsLoadingRecommendations(true);
+      setRecommendationsError(null);
+
+      try {
+        const recommendations = await analyzeProgress(userProfile, workoutLogs);
+        setAiRecommendations(recommendations);
+      } catch (error: any) {
+        console.error("Error fetching AI recommendations:", error);
+        setRecommendationsError(error.message || "Не вдалося завантажити рекомендації.");
+      } finally {
+        setIsLoadingRecommendations(false);
+      }
+    };
+
+    fetchRecommendations();
+  }, [userProfile, workoutLogs]);
+
   return (
     <div className="p-4 sm:p-6 bg-gray-800/80 rounded-xl shadow-2xl backdrop-blur-sm">
       <h2 className="text-2xl sm:text-3xl font-bold text-center mb-6 sm:mb-8 text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">
@@ -130,11 +188,11 @@ const ProgressView: React.FC<ProgressViewProps> = ({ workoutLogs, userProfile })
           ) : (
             <div className="mt-6">
               <h3 className="text-xl sm:text-2xl font-semibold text-purple-300 mb-4">Історія Тренувань:</h3>
+              {isLoadingRecommendations && <p className="text-center text-yellow-400">Завантаження рекомендацій від AI...</p>}
+              {recommendationsError && <p className="text-center text-red-400">Помилка: {recommendationsError}</p>}
               <div className="max-h-[60vh] sm:max-h-[70vh] overflow-y-auto bg-gray-700/50 p-3 sm:p-4 rounded-md shadow-inner space-y-3 sm:space-y-4">
                 {userProfile && Array.isArray(workoutLogs) && workoutLogs.slice().reverse().map((log, index) => {
                   if (!log || typeof log !== 'object') return null;
-
-                  const progressCalculator = new ProgressCalculator(workoutLogs, userProfile);
 
                   return (
                     <div key={index} className="text-gray-200 p-3 sm:p-4 border border-gray-600 rounded-md bg-gray-600/30 hover:bg-gray-600/40 transition-colors">
@@ -155,14 +213,14 @@ const ProgressView: React.FC<ProgressViewProps> = ({ workoutLogs, userProfile })
                         <div>
                           <h4 className="text-sm font-medium text-pink-400 mt-2 mb-1">Виконані вправи:</h4>
                           {log.loggedExercises.map((ex, exIdx) => {
-                            const exerciseProgress = progressCalculator.calculateExerciseProgress(ex.exerciseName);
+                            const aiRecommendation = aiRecommendations.find(rec => rec.exerciseName === ex.exerciseName);
                             const originalExercise = undefined;
                             
                             return ex && typeof ex === 'object' ? 
                               <ExerciseLogRow 
                                 key={exIdx} 
                                 loggedEx={ex} 
-                                exerciseProgress={exerciseProgress} 
+                                aiRecommendation={aiRecommendation}
                                 originalExercise={originalExercise} 
                               /> : null;
                           })}

@@ -1,5 +1,5 @@
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
-import { UserProfile, DailyWorkoutPlan } from '../types';
+import { UserProfile, DailyWorkoutPlan, WorkoutLog, ExerciseProgressRecommendation } from '../types';
 import { 
   getUkrainianGoal, 
   getUkrainianBodyType, 
@@ -211,4 +211,111 @@ export const generateWorkoutPlan = async (profile: UserProfile, modelName: strin
     }
     throw new Error(`Помилка генерації плану: ${error.message || 'Невідома помилка сервісу AI'}`);
   }
+};
+
+// Нова функція для аналізу прогресу тренувань за допомогою ШІ
+export const analyzeProgress = async (userProfile: UserProfile, workoutLogs: WorkoutLog[], modelName: string = GEMINI_MODEL_TEXT): Promise<ExerciseProgressRecommendation[]> => {
+  if (!ai) {
+    throw new Error(UI_TEXT.apiKeyMissing);
+  }
+
+  // Формуємо детальний запит для ШІ
+  const prompt = constructProgressAnalysisPrompt(userProfile, workoutLogs);
+
+  try {
+    const response: GenerateContentResponse = await ai.models.generateContent({
+        model: modelName,
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        config: {
+            responseMimeType: "application/json",
+        },
+    });
+
+    let jsonStr = (response.text ?? '').trim();
+
+    // Видаляємо можливі markdown-розмітки
+    const fenceRegex = /^```(?:json)?\s*\n?(.*?)\n?\s*```$/s;
+    const match = jsonStr.match(fenceRegex);
+    if (match && match[1]) {
+      jsonStr = match[1].trim();
+    }
+
+    try {
+      const parsedRecommendations: any[] = JSON.parse(jsonStr);
+
+      // Перевіряємо базову структуру (масив об'єктів)
+      if (!Array.isArray(parsedRecommendations)) {
+        throw new Error("AI повернув не масив рекомендацій");
+      }
+
+      // Перевіряємо структуру кожного об'єкта та приводимо до потрібного типу
+      return parsedRecommendations.map((rec, index): ExerciseProgressRecommendation => {
+        if (typeof rec.exerciseName !== 'string' || 
+            typeof rec.recommendedWeight !== 'number' || 
+            typeof rec.recommendedReps !== 'string' || 
+            typeof rec.recommendedSets !== 'string' ||
+            typeof rec.recommendationReason !== 'string')
+         {
+          throw new Error(`Неправильна структура рекомендації для елемента ${index}`);
+        }
+
+        return {
+          exerciseName: rec.exerciseName,
+          recommendedWeight: rec.recommendedWeight,
+          recommendedReps: rec.recommendedReps,
+          recommendedSets: rec.recommendedSets,
+          recommendationReason: rec.recommendationReason,
+          lastPerformanceSummary: rec.lastPerformanceSummary || undefined, // Необов'язкове поле
+        };
+      });
+
+    } catch (e) {
+      console.error("Error parsing JSON from AI progress analysis response:", e);
+      console.error("Received string (after processing):", jsonStr);
+      console.error("Original AI response text:", response.text);
+      throw new Error("Не вдалося розібрати рекомендації прогресу від AI.");
+    }
+
+  } catch (error: any) {
+    console.error("Error during progress analysis via Gemini API:", error);
+     if (error.message && (error.message.includes("API_KEY_INVALID") || (error.response && error.response.status === 400))) {
+         throw new Error("Наданий API ключ недійсний або не має дозволів. Будь ласка, перевірте ваш API ключ.");
+    }
+    if (error.message && error.message.toLowerCase().includes("candidate.safetyratings")) {
+        throw new Error("Відповідь від AI була заблокована через налаштування безпеки. Спробуйте змінити запит.");
+    }
+    if (error.message && error.message.toLowerCase().includes("fetch")) { 
+        throw new Error("Помилка мережі при зверненні до AI сервісу. Перевірте ваше інтернет-з'єднання та спробуйте пізніше.");
+    }
+    throw new Error(`Помилка аналізу прогресу: ${error.message || 'Невідома помилка сервісу AI'}`);
+  }
+};
+
+// Допоміжна функція для формування промпту аналізу прогресу
+const constructProgressAnalysisPrompt = (userProfile: UserProfile, workoutLogs: WorkoutLog[]): string => {
+  const { goal, experienceLevel, name } = userProfile;
+
+  let prompt = `Ти — висококваліфікований персональний фітнес-тренер, який аналізує історію тренувань користувача та надає рекомендації для прогресу.\n\n**Вхідні дані користувача:**\n*   Ім'я: ${name || 'Користувач'}\n*   Головна фітнес-ціль: ${getUkrainianGoal(goal)}\n*   Рівень підготовки: ${getUkrainianExperienceLevel(experienceLevel)}\n\n**Історія тренувань:**\nНижче наведена історія тренувань користувача у форматі JSON. Проаналізуй результати для КОЖНОЇ вправи, яку користувач виконував хоча б один раз. Врахуй динаміку ваги, повторень, кількості підходів, успішність виконання з часом.\n\n`;
+
+  // Додаємо логи тренувань у форматі JSON
+  // Вибираємо тільки необхідні поля для економії токенів
+  const simplifiedLogs = workoutLogs.map(log => ({
+      date: log.date instanceof Date ? log.date.toISOString() : (log.date as any)?.seconds ? new Date(log.date.seconds * 1000).toISOString() : 'Невідома дата',
+      dayCompleted: log.dayCompleted,
+      loggedExercises: log.loggedExercises.map(ex => ({
+          exerciseName: ex.exerciseName,
+          originalSets: ex.originalSets,
+          originalReps: ex.originalReps,
+          targetWeightAtLogging: ex.targetWeightAtLogging,
+          loggedSets: ex.loggedSets ? ex.loggedSets.map(set => ({
+              repsAchieved: set.repsAchieved,
+              weightUsed: set.weightUsed,
+              completed: set.completed,
+          })) : []
+      })),
+  }));
+
+  prompt += `\`\`\`json\n${JSON.stringify(simplifiedLogs, null, 2)}\n\`\`\`\n\n**Завдання:**\nПроаналізуй історію виконання кожної унікальної вправи. На основі аналізу, головної цілі користувача та його рівня підготовки, надай конкретні РЕКОМЕНДАЦІЇ щодо ЦІЛЬОВОЇ ВАГИ, КІЛЬКОСТІ ПІДХОДІВ та КІЛЬКОСТІ ПОВТОРЕНЬ для НАСТУПНОГО виконання КОЖНОЇ з цих вправ.\n\nВраховуй наступні принципи:\n- **Прогресія:** Рекомендуй поступове збільшення навантаження (вага, повторення, підходи) тільки якщо користувач успішно виконує поточне з хорошою технікою.\n- **Адаптація:** Якщо користувач нещодавно збільшив вагу/повторення і результати стабільні, можеш рекомендувати закріпити результат або зробити невеликий крок вперед.\n- **Регресія/Плато:** Якщо є послідовні невдачі або тривале плато, рекомендуй зменшити вагу/повторення або змінити підхід для відновлення прогресу та вдосконалення техніки.\n- **Ціль користувача:** Рекомендації щодо діапазонів повторень та підходів мають відповідати фітнес-цілі (сила, гіпертрофія, витривалість).\n- **Рівень підготовки:** Адаптуй розмір кроків прогресії та загальну складність рекомендацій до рівня користувача (початківець, проміжний, просунутий).\n\n**Формат відповіді:**\nНадай відповідь ВИКЛЮЧНО у форматі JSON-масиву об'єктів. Кожен об'єкт у масиві представляє рекомендацію для ОДНІЄЇ унікальної вправи, яку користувач виконував. Включи рекомендації тільки для тих вправ, які є в історії тренувань.\nНе додавай жодних пояснень, коментарів або тексту поза JSON структурою. JSON має бути ідеально валідним.\n\n**Структура JSON для кожної рекомендації:**\n[\n  {\n    \"exerciseName\": \"<Назва вправи>\",\n    \"recommendedWeight\": <Рекомендована вага для наступного тренування, число, наприклад 105.0. Округляй до найближчого кроку ваги, наприклад 2.5кг. Вага не може бути від'ємною.>, \n    \"recommendedReps\": \"<Рекомендований діапазон повторень для наступного тренування, рядок, наприклад \\\"8-12\\\">\",\n    \"recommendedSets\": \"<Рекомендована кількість підходів для наступного тренування, рядок, наприклад \\\"3-4\\\">\",\n    \"recommendationReason\": \"<Коротке пояснення причини рекомендації (наприклад, 'Прогресія ваги після успішного виконання', 'Зменшення ваги через послідовні невдачі', 'Період адаптації'). Має бути українською.>\",\n    \"lastPerformanceSummary\": \"<Необов'язково: Короткий підсумок останнього виконання вправи (наприклад, \\\"Останнє: 100 кг x 8 повт x 3 підх\\\"). Українською. Якщо даних немає, залиш поле відсутнім. >\"\n  }\n  // ... рекомендації для інших вправ\n]\n\n**Приклад структури відповіді (заповни реальними рекомендаціями):**\n[\n  {\n    \"exerciseName\": \"Жим штанги лежачи на горизонтальній лаві\",\n    \"recommendedWeight\": 102.5,\n    \"recommendedReps\": \"8-10\",\n    \"recommendedSets\": \"4\",\n    \"recommendationReason\": \"Невелике збільшення ваги після успішного виконання минулого тренування.\",\n    \"lastPerformanceSummary\": \"Останнє: 100 кг x 9 повт x 4 підх\"\n  },\n  {\n    \"exerciseName\": \"Присідання зі штангою на плечах\",\n    \"recommendedWeight\": 140.0,\n    \"recommendedReps\": \"5-7\",\n    \"recommendedSets\": \"5\",\n    \"recommendationReason\": \"Прогресія навантаження для розвитку сили.\",\n    \"lastPerformanceSummary\": \"Останнє: 135 кг x 6 повт x 5 підх\"\n  }\n]\n\nПереконайся, що JSON валідний, всі текстові поля заповнені українською мовою, а рекомендовані значення відповідають історії та цілям користувача. Надай рекомендації ТІЛЬКИ для вправ, які є в наданій історії тренувань.`;
+
+  return prompt;
 };
