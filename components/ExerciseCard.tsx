@@ -80,10 +80,19 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   
   // Reset form when exercise changes or completion status changes
   useEffect(() => {
-     setLoggedSetsData(Array(numSets).fill({ repsAchieved: undefined, weightUsed: undefined }));
+     // Initialize logged sets data based on current numSets when exercise changes
+     const initialLoggedSets = Array(numSets).fill({ repsAchieved: undefined, weightUsed: undefined });
+     setLoggedSetsData(initialLoggedSets);
      setAllSetsSuccessful(true);
-     setShowLogForm(false); // Close log form if it was open for a previous interaction
-  }, [exercise, numSets, isCompleted]);
+     // Only close the form if the exercise or completion status changes, not just numSets
+     if (isCompleted) { // Form should definitely close on completion
+         setShowLogForm(false);
+     } else if (exercise) { // When the exercise itself changes (e.g., moving to next exercise)
+        // Potentially add a check here if needed, but exercise change should reset
+        // setShowLogForm(false); // This line might be what was causing issues if exercise prop reference changes unexpectedly
+     }
+     // Note: We specifically do NOT call setShowLogForm(false) when numSets changes here
+  }, [exercise, isCompleted, numSets]); // numSets is needed here to re-initialize loggedSetsData
 
 
   const handleStartRest = () => {

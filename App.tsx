@@ -194,11 +194,14 @@ const App: React.FC = () => {
     if (!currentWorkoutPlan || !Array.isArray(currentWorkoutPlan)) return;
     const planForDay = currentWorkoutPlan.find(d => d.day === dayNumber);
     if (planForDay && planForDay.exercises && Array.isArray(planForDay.exercises)) {
-      setSessionExercises(planForDay.exercises.map(ex => ({ 
-        ...ex, 
+      setSessionExercises(planForDay.exercises.map(ex => ({
+        ...ex,
         isCompletedDuringSession: false,
         sessionLoggedSets: [],
         sessionSuccess: undefined,
+        recommendation: ex.recommendation,
+        targetReps: ex.targetReps,
+        targetWeight: ex.targetWeight,
       })));
       setActiveWorkoutDay(dayNumber);
       setWorkoutStartTime(Date.now());
@@ -396,6 +399,11 @@ const App: React.FC = () => {
     
     if (userDataLoading && activeWorkoutDay === null) {
         return <Spinner message={UI_TEXT.loadingUserData} />;
+    }
+
+    // Add spinner for workout analysis
+    if (isAnalyzingWorkout) {
+        return <Spinner message="Аналізуємо тренування..." />;
     }
 
     if (!firestoreProfile) {

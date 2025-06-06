@@ -46,7 +46,8 @@ function cleanWorkoutPlanForFirestore(plan: DailyWorkoutPlan[]): DailyWorkoutPla
           videoSearchQuery,
           imageSuggestion,
           targetWeight,
-          targetReps
+          targetReps,
+          recommendation
         } = ex;
 
         // Конвертуємо rest в секунди, якщо він заданий у форматі "X секунд"
@@ -72,7 +73,8 @@ function cleanWorkoutPlanForFirestore(plan: DailyWorkoutPlan[]): DailyWorkoutPla
           videoSearchQuery,
           imageSuggestion,
           targetWeight,
-          targetReps
+          targetReps,
+          recommendation
         });
       })
     })
