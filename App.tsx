@@ -314,6 +314,10 @@ const App: React.FC = () => {
           updatedLogs.filter((log: WorkoutLog) => log.id !== newLog.id) // Pass all other logs, Explicitly type log
         );
         console.log('Analysis completed. Result:', analysisResult);
+        // Додаємо детальне логування вмісту updatedPlan.exercises
+        if (analysisResult?.updatedPlan?.exercises) {
+            console.log('Analyzed plan exercises with recommendations:', analysisResult.updatedPlan.exercises);
+        }
         
         // Update the main workout plan state with the analyzed plan
         if (analysisResult?.updatedPlan) {
