@@ -24,6 +24,24 @@ const ExerciseLogRow: React.FC<ExerciseLogRowProps> = ({ loggedEx, exerciseProgr
   const plannedSets = originalExercise?.sets ?? loggedEx.originalSets;
   const plannedWeight = originalExercise?.targetWeight ?? loggedEx.targetWeightAtLogging;
 
+  let totalLoggedWeightActual = 0;
+  let totalLoggedRepsActual = 0;
+  let totalLoggedSetsActual = 0;
+  const validLoggedSetsActual = (Array.isArray(loggedEx.loggedSets) ? loggedEx.loggedSets : []).filter(set =>
+    (set.repsAchieved !== undefined && set.repsAchieved !== null && !isNaN(set.repsAchieved)) ||
+    (set.weightUsed !== undefined && set.weightUsed !== null && !isNaN(set.weightUsed))
+  );
+
+  validLoggedSetsActual.forEach(set => {
+    totalLoggedRepsActual += set.repsAchieved ?? 0;
+    totalLoggedWeightActual += set.weightUsed ?? 0;
+    totalLoggedSetsActual += 1;
+  });
+
+  const averageLoggedRepsActual = validLoggedSetsActual.length > 0 ? totalLoggedRepsActual / validLoggedSetsActual.length : 0;
+  const averageLoggedWeightActual = validLoggedSetsActual.length > 0 ? totalLoggedWeightActual / validLoggedSetsActual.length : 0;
+  const averageLoggedSetsActual = validLoggedSetsActual.length > 0 ? totalLoggedSetsActual / validLoggedSetsActual.length : 0;
+
   return (
     <div className="p-3 bg-gray-600/50 rounded-md my-2 text-xs sm:text-sm">
       <p className="font-semibold text-yellow-400">{loggedEx.exerciseName || 'Невідома вправа'}</p>
@@ -47,10 +65,10 @@ const ExerciseLogRow: React.FC<ExerciseLogRowProps> = ({ loggedEx, exerciseProgr
       {exerciseProgress && (
         <div className="mt-2 pt-2 border-t border-gray-500">
           <h5 className="text-sm font-semibold text-blue-300 mb-1">Аналітика прогресу:</h5>
-          {(exerciseProgress.averageLoggedWeight !== undefined && exerciseProgress.averageLoggedReps !== undefined && exerciseProgress.averageLoggedSets !== undefined) ? (
+          {(averageLoggedWeightActual !== undefined && averageLoggedRepsActual !== undefined && averageLoggedSetsActual !== undefined) ? (
             <p className="text-xs text-gray-300">
-              Попередній факт: ~{exerciseProgress.averageLoggedWeight.toFixed(1)} кг x ~{exerciseProgress.averageLoggedReps.toFixed(1)} повт.
-              ({exerciseProgress.averageLoggedSets.toFixed(1)} підх.)
+              Попередній факт: ~{averageLoggedWeightActual.toFixed(1)} кг x ~{averageLoggedRepsActual.toFixed(1)} повт.
+              ({averageLoggedSetsActual.toFixed(1)} підх.)
             </p>
           ) : (
              <p className="text-xs text-gray-300">Попередній факт: Немає даних</p>
