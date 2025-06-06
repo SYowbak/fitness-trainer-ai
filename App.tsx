@@ -15,6 +15,10 @@ import { deleteUser } from 'firebase/auth';
 import { auth } from './config/firebase';
 import { analyzeWorkout } from './services/workoutAnalysisService';
 
+// Import Firestore functions
+import { doc, deleteDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from './config/firebase';
+
 type View = 'profile' | 'workout' | 'progress';
 
 const App: React.FC = () => {
@@ -361,20 +365,47 @@ const App: React.FC = () => {
       localStorage.removeItem('fitnessAiAppWorkoutPlan_v1');
       localStorage.removeItem('fitnessAiAppWorkoutLogs_v1');
       
-      // Очищення даних з Firestore (якщо користувач автентифікований)
+      // --- Видалення даних користувача з Firestore ---
       if (user && user.uid) {
-         // Тут потрібна логіка видалення документів користувача з Firestore.
-         // Це може включати видалення документа профілю та колекції логів тренувань.
-         // Оскільки у нас немає прямого доступу до Firestore тут, я залишу placeholder.
-         // В реальному застосунку тут були б виклики до Firebase SDK для видалення.
-         console.log(`Placeholder: Видалення даних користувача ${user.uid} з Firestore`);
-         // Приклад (потрібно адаптувати до вашої структури Firestore):
-         // const userProfileRef = doc(db, "userProfiles", user.uid);
-         // await deleteDoc(userProfileRef);
-         // const workoutLogsCollectionRef = collection(db, "users", user.uid, "workoutLogs");
-         // const querySnapshot = await getDocs(workoutLogsCollectionRef);
-         // querySnapshot.forEach(async (doc) => { await deleteDoc(doc.ref); });
+         const userId = user.uid;
+         console.log(`Видалення даних користувача ${userId} з Firestore`);
+
+         // 1. Видалення документа профілю
+         try {
+            const userProfileRef = doc(db, "users", userId);
+            await deleteDoc(userProfileRef);
+            console.log(`Профіль користувача ${userId} видалено з Firestore`);
+         } catch (profileError: any) {
+            console.error(`Помилка при видаленні профілю користувача ${userId}:`, profileError);
+            // Продовжуємо видаляти інші дані, навіть якщо профіль не видалився
+         }
+
+         // 2. Видалення документа плану тренувань
+         try {
+            const workoutPlanRef = doc(db, "workoutPlans", userId);
+            await deleteDoc(workoutPlanRef);
+            console.log(`План тренувань користувача ${userId} видалено з Firestore`);
+         } catch (planError: any) {
+            console.error(`Помилка при видаленні плану тренувань користувача ${userId}:`, planError);
+            // Продовжуємо видаляти інші дані, навіть якщо план не видалився
+         }
+
+         // 3. Видалення логів тренувань (це колекція, потрібно видалити кожен документ)
+         try {
+            const workoutLogsCollectionRef = collection(db, "workoutLogs");
+            const q = query(workoutLogsCollectionRef, where("userId", "==", userId));
+            const querySnapshot = await getDocs(q);
+
+            const deletePromises = querySnapshot.docs.map(docSnapshot => deleteDoc(docSnapshot.ref));
+            await Promise.all(deletePromises);
+            console.log(`Логи тренувань користувача ${userId} видалено з Firestore`);
+         } catch (logsError: any) {
+            console.error(`Помилка при видаленні логів тренувань користувача ${userId}:`, logsError);
+            // Продовжуємо, навіть якщо логи не видалилися
+         }
+
       }
+      // --- Кінець видалення даних користувача з Firestore ---
       
       await deleteUser(auth.currentUser!);
       alert('Акаунт успішно видалено.');
