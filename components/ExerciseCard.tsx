@@ -32,8 +32,12 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   const numSets = typeof exercise.sets === 'string' 
     ? (parseInt(exercise.sets.split('-')[0], 10) || 3) 
     : (typeof exercise.sets === 'number' ? exercise.sets : 3);
-  const [loggedSetsData, setLoggedSetsData] = useState<LoggedSetWithAchieved[]>(() => Array(numSets).fill({ repsAchieved: undefined, weightUsed: undefined }));
   const [allSetsSuccessful, setAllSetsSuccessful] = useState<boolean>(true);
+
+  // State to manage the number of sets actually shown/logged in the form
+  const [currentLoggedSets, setCurrentLoggedSets] = useState<LoggedSetWithAchieved[]>(() => 
+    Array(numSets).fill({ repsAchieved: 0, weightUsed: 0, completedSuccessfully: false })
+  );
 
   const [restTimer, setRestTimer] = useState<number>(0);
   const [isResting, setIsResting] = useState<boolean>(false);
@@ -79,10 +83,13 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   
   // Reset form when exercise changes or completion status changes
   useEffect(() => {
-     setLoggedSetsData(Array(numSets).fill({ repsAchieved: undefined, weightUsed: undefined }));
+     // Initialize with the planned number of sets
+     const initialSets = Array(numSets).fill({ repsAchieved: 0, weightUsed: 0, completedSuccessfully: false });
+     setCurrentLoggedSets(initialSets);
      setAllSetsSuccessful(true);
      setShowLogForm(false); // Close log form if it was open for a previous interaction
-  }, [exercise, numSets, isCompleted]);
+     setIsCompleted(false); // Ensure completion status is reset
+  }, [exercise, numSets]);
 
 
   const handleStartRest = () => {
@@ -104,14 +111,15 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   };
 
   const handleSetDataChange = (setIndex: number, field: keyof LoggedSetWithAchieved, value: string) => {
-    const newLoggedSetsData = [...loggedSetsData];
+    const newLoggedSetsData = [...currentLoggedSets]; // Use currentLoggedSets state
     newLoggedSetsData[setIndex] = { ...newLoggedSetsData[setIndex], [field]: value ? parseFloat(value) : undefined };
-    setLoggedSetsData(newLoggedSetsData);
+    setCurrentLoggedSets(newLoggedSetsData); // Update currentLoggedSets state
   };
   
   const handleLogFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const validSets = loggedSetsData.filter(s => s.repsAchieved !== undefined && s.repsAchieved !== null && s.weightUsed !== undefined && s.weightUsed !== null) as LoggedSetWithAchieved[];
+    // Use currentLoggedSets for filtering and submitting
+    const validSets = currentLoggedSets.filter(s => s.repsAchieved !== undefined && s.repsAchieved !== null && s.weightUsed !== undefined && s.weightUsed !== null) as LoggedSetWithAchieved[];
     
     if (validSets.length === 0) {
         if (!confirm("Ви не ввели дані для жодного підходу. Залогувати вправу як пропущену (без зарахування прогресу)?")) {
@@ -229,7 +237,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
             {exercise.targetWeight !== null && exercise.targetWeight !== undefined && <p className="text-xs sm:text-sm text-gray-300 mb-2">Цільова вага: {exercise.targetWeight} кг.</p>}
             
             <form onSubmit={handleLogFormSubmit} className="space-y-3">
-              {Array.from({ length: numSets }).map((_, setIndex) => (
+              {currentLoggedSets.map((_, setIndex) => (
                 <div key={setIndex} className="p-2 sm:p-3 bg-gray-600/70 rounded-md space-y-2">
                   <p className="text-xs sm:text-sm font-medium text-yellow-300">Підхід {setIndex + 1}</p>
                   <div className="grid grid-cols-2 gap-2">
@@ -242,42 +250,87 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                         placeholder={typeof (exercise.targetReps || exercise.reps) === 'string' 
                           ? (exercise.targetReps || exercise.reps).toString().split('-')[0] 
                           : (exercise.targetReps || exercise.reps)?.toString()}
-                        value={loggedSetsData[setIndex]?.repsAchieved ?? ''}
+                        value={currentLoggedSets[setIndex]?.repsAchieved ?? ''}
                         onChange={(e) => handleSetDataChange(setIndex, 'repsAchieved', e.target.value)}
                         className="w-full p-2 bg-gray-500 border border-gray-400 rounded-md text-gray-100 text-xs sm:text-sm"
                         required
                       />
                     </div>
                     <div>
-                      <label htmlFor={`weight-${setIndex}`} className="block text-xs text-purple-200 mb-1">{UI_TEXT.weightUsed}</label>
+                      <label htmlFor={`weight-${setIndex}`} className="block text-xs text-purple-200 mb-1">{UI_TEXT.weightUsed} (кг)</label>
                       <input 
                         type="number" 
                         id={`weight-${setIndex}`}
                         min="0"
-                        step="0.5"
-                        placeholder={exercise.targetWeight?.toString() ?? ''}
-                        value={loggedSetsData[setIndex]?.weightUsed ?? ''}
+                        placeholder={exercise.targetWeight?.toString() || '0'}
+                        value={currentLoggedSets[setIndex]?.weightUsed ?? ''}
                         onChange={(e) => handleSetDataChange(setIndex, 'weightUsed', e.target.value)}
                         className="w-full p-2 bg-gray-500 border border-gray-400 rounded-md text-gray-100 text-xs sm:text-sm"
                         required
                       />
                     </div>
                   </div>
+                  <div className="flex items-center mt-2">
+                     <input
+                        type="checkbox"
+                        id={`set-success-${setIndex}`}
+                        checked={currentLoggedSets[setIndex]?.completedSuccessfully ?? false}
+                        onChange={(e) => {
+                           const newLoggedSets = [...currentLoggedSets];
+                           newLoggedSets[setIndex] = { ...newLoggedSets[setIndex], completedSuccessfully: e.target.checked };
+                           setCurrentLoggedSets(newLoggedSets);
+                        }}
+                        className="mr-2 h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                     />
+                     <label htmlFor={`set-success-${setIndex}`} className="text-xs text-gray-300">{UI_TEXT.setCompletedSuccessfully}</label>
+                  </div>
                 </div>
               ))}
-              <div className="flex justify-end space-x-2 mt-4">
-                <button 
+
+              {/* Add/Remove Set Buttons */}
+              <div className="flex justify-end space-x-2 mt-3">
+                 <button
+                    type="button"
+                    onClick={() => setCurrentLoggedSets([...currentLoggedSets, { repsAchieved: 0, weightUsed: 0, completedSuccessfully: false }])}
+                    className="bg-blue-500 hover:bg-blue-600 text-white text-xs py-1 px-2 rounded transition duration-200"
+                 >
+                    + {UI_TEXT.addSet}
+                 </button>
+                 {currentLoggedSets.length > 1 && (
+                    <button
+                       type="button"
+                       onClick={() => setCurrentLoggedSets(currentLoggedSets.slice(0, -1))}
+                       className="bg-red-500 hover:bg-red-600 text-white text-xs py-1 px-2 rounded transition duration-200"
+                    >
+                       - {UI_TEXT.removeLastSet}
+                    </button>
+                 )}
+              </div>
+
+              <div className="flex items-center mt-3">
+                <input
+                  type="checkbox"
+                  id={`all-sets-success-${exercise.name.replace(/\s+/g, '-')}`}
+                  checked={allSetsSuccessful}
+                  onChange={(e) => setAllSetsSuccessful(e.target.checked)}
+                  className="mr-2 h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                />
+                <label htmlFor={`all-sets-success-${exercise.name.replace(/\s+/g, '-')}`} className="text-sm text-gray-300">{UI_TEXT.allSetsCompletedSuccessfully}</label>
+              </div>
+
+              <div className="flex justify-end mt-4 space-x-3">
+                <button
                   type="button"
                   onClick={() => setShowLogForm(false)}
-                  className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-xs sm:text-sm"
+                  className="bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-md shadow-sm transition duration-300 ease-in-out text-sm"
                 >
                   {UI_TEXT.cancel}
                 </button>
-                <button 
+                <button
                   type="submit"
-                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-xs sm:text-sm"
+                  className="bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 px-4 rounded-md shadow-sm transition duration-300 ease-in-out text-sm"
                 >
-                  {UI_TEXT.save}
+                  {UI_TEXT.logExercise}
                 </button>
               </div>
             </form>

@@ -210,6 +210,7 @@ const App: React.FC = () => {
   }, [currentWorkoutPlan]);
 
   const handleLogSingleExercise = useCallback((exerciseIndex: number, loggedSets: LoggedSet[], success: boolean) => {
+    console.log('handleLogSingleExercise called:', { exerciseIndex, loggedSets, success });
     setSessionExercises(prev =>
       prev.map((ex, idx) =>
         idx === exerciseIndex
@@ -217,10 +218,13 @@ const App: React.FC = () => {
           : ex
       )
     );
+    console.log('sessionExercises state after update attempt:', sessionExercises);
   }, []);
   
   const handleEndWorkout = useCallback(async () => {
     if (activeWorkoutDay === null || !currentWorkoutPlan || !Array.isArray(currentWorkoutPlan) || !workoutStartTime || !userProfile) return;
+
+    console.log('handleEndWorkout called. sessionExercises:', sessionExercises);
 
     // Find the current day's plan before clearing active workout state
     const currentDayPlan = currentWorkoutPlan.find(p => p.day === activeWorkoutDay);
@@ -270,6 +274,10 @@ const App: React.FC = () => {
     // Declare updatedLogs here to be accessible after the try block
     let updatedLogs: WorkoutLog[];
 
+    // --- Start Workout Analysis --- moved up --- 
+    setIsAnalyzingWorkout(true); // Set analysis loading state
+    // --- End Start Workout Analysis ---
+
     // Save the new log first
     try {
         await saveWorkoutLog(newLog);
@@ -279,22 +287,10 @@ const App: React.FC = () => {
     } catch (e: any) {
         console.error("Error saving workout log:", e);
         setError(e.message || "Помилка при збереженні логу тренування.");
-        // Decide if you want to proceed with analysis if saving log failed
         return; // Exit if log saving failed
     }
 
-    // Clear active workout state and local storage AFTER saving log
-    setActiveWorkoutDay(null);
-    setWorkoutStartTime(null);
-    setSessionExercises([]);
-    try {
-      localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
-    } catch (e) {
-        console.error("Error removing workout state from local storage after saving log", e);
-    }
-    
-    // --- Start Workout Analysis ---
-    setIsAnalyzingWorkout(true); // Set analysis loading state
+    // --- Continue Workout Analysis ---
     try {
         // Find the latest log again from the potentially updated logs state
         const latestLog = updatedLogs.find((log: WorkoutLog) => log.id === newLog.id) || null; // Explicitly type log
@@ -332,6 +328,16 @@ const App: React.FC = () => {
         setCurrentView('progress');
     } finally {
         setIsAnalyzingWorkout(false); // Reset analysis loading state
+        // --- Clear active workout state and local storage AFTER analysis is complete ---
+        setActiveWorkoutDay(null);
+        setWorkoutStartTime(null);
+        setSessionExercises([]);
+        try {
+          localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
+        } catch (e) {
+            console.error("Error removing workout state from local storage after analysis", e);
+        }
+        // --- End clear state ---
     }
 
   }, [activeWorkoutDay, sessionExercises, currentWorkoutPlan, workoutStartTime, userProfile, workoutLogs, saveWorkoutLog, saveWorkoutPlan]);
