@@ -25,7 +25,10 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
       videoSearchQuery: exercise.videoSearchQuery,
       sets: exercise.sets,
       reps: exercise.reps,
-      rest: exercise.rest
+      rest: exercise.rest,
+      recommendation: exercise.recommendation,
+      targetReps: exercise.targetReps,
+      targetWeight: exercise.targetWeight
     });
   }, [exercise]);
 

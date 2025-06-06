@@ -47,10 +47,8 @@ const App: React.FC = () => {
   useEffect(() => {
     if (workoutPlan) {
       setCurrentWorkoutPlan(workoutPlan);
-      setCurrentView('workout');
     } else {
       setCurrentWorkoutPlan(null);
-      setCurrentView('profile');
     }
   }, [workoutPlan]);
 
