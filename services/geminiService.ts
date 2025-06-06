@@ -271,7 +271,7 @@ ${lastWorkoutLog ? JSON.stringify(lastWorkoutLog, null, 2) : 'Немає поп�
   }
 }`;
 
-  const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent', {
+  const response = await fetch('https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -287,7 +287,8 @@ ${lastWorkoutLog ? JSON.stringify(lastWorkoutLog, null, 2) : 'Немає поп�
   });
 
   if (!response.ok) {
-    throw new Error('Помилка при виклику Gemini API');
+    const errorData = await response.json();
+    throw new Error(`Помилка при виклику Gemini API: ${errorData.error?.message || response.statusText}`);
   }
 
   const data = await response.json();
