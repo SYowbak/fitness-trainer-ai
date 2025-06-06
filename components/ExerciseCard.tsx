@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Exercise, LoggedSetWithAchieved } from '../types';
 import { UI_TEXT, formatTime } from '../constants';
-import { ExerciseProgressRecommendation } from '../types';
 
 interface ExerciseCardProps {
   exercise: Exercise;
@@ -9,21 +8,28 @@ interface ExerciseCardProps {
   isActiveWorkout: boolean;
   onLogExercise: (exerciseIndex: number, loggedSets: LoggedSetWithAchieved[], success: boolean) => void;
   isCompleted: boolean;
-  aiRecommendation: ExerciseProgressRecommendation | undefined;
-  isLoadingRecommendations: boolean;
-  recommendationsError: string | null;
 }
 
-const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, exerciseIndex, isActiveWorkout, onLogExercise, isCompleted, aiRecommendation, isLoadingRecommendations, recommendationsError }) => {
+const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, exerciseIndex, isActiveWorkout, onLogExercise, isCompleted }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showLogForm, setShowLogForm] = useState(false);
   
+  // Додаємо логування для дебагу
+  useEffect(() => {
+    console.log('Exercise data:', {
+      name: exercise.name,
+      description: exercise.description,
+      videoSearchQuery: exercise.videoSearchQuery,
+      sets: exercise.sets,
+      reps: exercise.reps,
+      rest: exercise.rest
+    });
+  }, [exercise]);
+
   const numSets = typeof exercise.sets === 'string' 
     ? (parseInt(exercise.sets.split('-')[0], 10) || 3) 
     : (typeof exercise.sets === 'number' ? exercise.sets : 3);
   const [loggedSetsData, setLoggedSetsData] = useState<LoggedSetWithAchieved[]>(() => Array(numSets).fill({ repsAchieved: undefined, weightUsed: undefined }));
-  const [setsToLogCount, setSetsToLogCount] = useState<number>(numSets);
-  
   const [allSetsSuccessful, setAllSetsSuccessful] = useState<boolean>(true);
 
   const [restTimer, setRestTimer] = useState<number>(0);
@@ -70,15 +76,10 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, exerciseIndex, is
   
   // Reset form when exercise changes or completion status changes
   useEffect(() => {
-    // Ініціалізуємо loggedSetsData та setsToLogCount на основі початкової кількості підходів
-    const initialSets = typeof exercise.sets === 'string' 
-      ? (parseInt(exercise.sets.split('-')[0], 10) || 3) 
-      : (typeof exercise.sets === 'number' ? exercise.sets : 3);
-    setSetsToLogCount(initialSets);
-    setLoggedSetsData(Array(initialSets).fill({ repsAchieved: undefined, weightUsed: undefined }));
-    setAllSetsSuccessful(true);
-    setShowLogForm(false); // Close log form if it was open for a previous interaction
-  }, [exercise, isCompleted]); // Залежність numSets тепер не потрібна, використовуємо exercise
+     setLoggedSetsData(Array(numSets).fill({ repsAchieved: undefined, weightUsed: undefined }));
+     setAllSetsSuccessful(true);
+     setShowLogForm(false); // Close log form if it was open for a previous interaction
+  }, [exercise, numSets, isCompleted]);
 
 
   const handleStartRest = () => {
@@ -101,21 +102,13 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, exerciseIndex, is
 
   const handleSetDataChange = (setIndex: number, field: keyof LoggedSetWithAchieved, value: string) => {
     const newLoggedSetsData = [...loggedSetsData];
-    // Забезпечуємо, що масив достатнього розміру перед оновленням
-    while (newLoggedSetsData.length <= setIndex) {
-      newLoggedSetsData.push({});
-    }
     newLoggedSetsData[setIndex] = { ...newLoggedSetsData[setIndex], [field]: value ? parseFloat(value) : undefined };
     setLoggedSetsData(newLoggedSetsData);
   };
   
   const handleLogFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Фільтруємо тільки ті підходи, для яких є хоча б одне введене значення (вага або повторення)
-    const validSets = loggedSetsData.filter(s => 
-      (s.repsAchieved !== undefined && s.repsAchieved !== null && !isNaN(s.repsAchieved)) || 
-      (s.weightUsed !== undefined && s.weightUsed !== null && !isNaN(s.weightUsed))
-    ) as LoggedSetWithAchieved[];
+    const validSets = loggedSetsData.filter(s => s.repsAchieved !== undefined && s.repsAchieved !== null && s.weightUsed !== undefined && s.weightUsed !== null) as LoggedSetWithAchieved[];
     
     if (validSets.length === 0) {
         if (!confirm("Ви не ввели дані для жодного підходу. Залогувати вправу як пропущену (без зарахування прогресу)?")) {
@@ -188,41 +181,9 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, exerciseIndex, is
               <strong className="block text-purple-200 mb-0.5"><i className="fas fa-stopwatch mr-1"></i>{UI_TEXT.rest}</strong>
               <span className="text-gray-100">{exercise.rest || '-'}</span>
             </div>
-            {isLoadingRecommendations && (
-               <div className="bg-gray-600/70 p-2 rounded shadow col-span-full text-center text-yellow-300">
-                 <i className="fas fa-spinner fa-spin mr-2"></i>Завантаження рекомендацій...
-               </div>
-            )}
-            {recommendationsError && (
-                <div className="bg-red-700/60 p-2 rounded shadow col-span-full text-red-200">
-                   <i className="fas fa-exclamation-circle mr-1"></i>Помилка рекомендацій: {recommendationsError}
-                </div>
-            )}
-            {aiRecommendation && !isLoadingRecommendations && !recommendationsError && (
-               <div className="bg-purple-700/60 p-2 rounded shadow col-span-full">
-                  <strong className="block text-yellow-200 mb-1"><i className="fas fa-brain mr-1"></i>Рекомендація AI для наступного тренування:</strong>
-                  <div className="text-gray-100 font-semibold space-y-1">
-                    {aiRecommendation.recommendedWeight !== undefined && aiRecommendation.recommendedWeight !== 0 && (
-                       <p><i className="fas fa-dumbbell mr-1"></i>Вага: {aiRecommendation.recommendedWeight.toFixed(1)} кг</p>
-                    )}
-                     {aiRecommendation.recommendedSets !== undefined && aiRecommendation.recommendedSets !== '-' && aiRecommendation.recommendedSets !== '0' && (
-                       <p><i className="fas fa-layer-group mr-1"></i>Підходи: {aiRecommendation.recommendedSets}</p>
-                     )}
-                     {aiRecommendation.recommendedReps !== undefined && aiRecommendation.recommendedReps !== '-' && aiRecommendation.recommendedReps !== '0' && (
-                       <p><i className="fas fa-redo mr-1"></i>Повторення: {aiRecommendation.recommendedReps}</p>
-                     )}
-                  </div>
-                   {aiRecommendation.recommendationReason && (
-                      <p className="text-xs text-gray-300 mt-2"><i className="fas fa-info-circle mr-1"></i>Причина: {aiRecommendation.recommendationReason}</p>
-                   )}
-                   {aiRecommendation.lastPerformanceSummary && (
-                      <p className="text-xs text-gray-300 mt-1"><i className="fas fa-history mr-1"></i>Останнє: {aiRecommendation.lastPerformanceSummary}</p>
-                   )}
-               </div>
-            )}
-            {!aiRecommendation && exercise.targetWeight !== undefined && exercise.targetWeight !== null && (
+            {exercise.targetWeight !== undefined && exercise.targetWeight !== null && (
                  <div className="bg-purple-700/60 p-2 rounded shadow col-span-full">
-                    <strong className="block text-yellow-200 mb-0.5"><i className="fas fa-bullseye mr-1"></i>{UI_TEXT.targetWeight} (стара логіка)</strong>
+                    <strong className="block text-yellow-200 mb-0.5"><i className="fas fa-bullseye mr-1"></i>{UI_TEXT.targetWeight}</strong>
                     <span className="text-gray-100 font-semibold">{exercise.targetWeight} kg</span>
                  </div>
             )}
@@ -260,28 +221,9 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, exerciseIndex, is
             {exercise.targetWeight !== null && exercise.targetWeight !== undefined && <p className="text-xs sm:text-sm text-gray-300 mb-2">Цільова вага: {exercise.targetWeight} кг.</p>}
             
             <form onSubmit={handleLogFormSubmit} className="space-y-3">
-              {Array.from({ length: setsToLogCount }).map((_, setIndex) => (
+              {Array.from({ length: numSets }).map((_, setIndex) => (
                 <div key={setIndex} className="p-2 sm:p-3 bg-gray-600/70 rounded-md space-y-2">
-                  <div className="flex justify-between items-center">
-                    <p className="text-xs sm:text-sm font-medium text-yellow-300">Підхід {setIndex + 1}</p>
-                    <div className="flex space-x-1">
-                      <button 
-                        type="button" 
-                        onClick={() => setSetsToLogCount(prev => Math.max(1, prev - 1))} // Мінімум 1 підхід
-                        className="w-6 h-6 bg-red-600 hover:bg-red-700 text-white text-xs rounded flex items-center justify-center"
-                        disabled={setsToLogCount <= 1 && setIndex === 0} // Не можна видалити останній підхід якщо він один
-                      >
-                        -
-                      </button>
-                      <button 
-                        type="button" 
-                        onClick={() => setSetsToLogCount(prev => prev + 1)}
-                        className="w-6 h-6 bg-green-600 hover:bg-green-700 text-white text-xs rounded flex items-center justify-center"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
+                  <p className="text-xs sm:text-sm font-medium text-yellow-300">Підхід {setIndex + 1}</p>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label htmlFor={`reps-${setIndex}`} className="block text-xs text-purple-200 mb-1">{UI_TEXT.repsAchieved}</label>

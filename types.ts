@@ -83,10 +83,10 @@ export interface Exercise {
 
 export interface DailyWorkoutPlan {
   day: number;
-  warmup?: string;
   exercises: Exercise[];
-  cooldown?: string;
   notes?: string;
+  warmup?: string;
+  cooldown?: string;
 }
 
 export interface LoggedSet {
@@ -121,14 +121,4 @@ export interface WorkoutLog {
   dayCompleted?: number; // День плану, який був завершений
   workoutDuration?: string; // Тривалість тренування у форматі HH:MM:SS
   loggedExercises: LoggedExercise[]; // Виконані вправи
-}
-
-// Новий тип для рекомендацій прогресу від ШІ
-export interface ExerciseProgressRecommendation {
-  exerciseName: string; // Назва вправи
-  recommendedWeight: number; // Рекомендована вага
-  recommendedReps: string; // Рекомендований діапазон повторень (наприклад, "8-12")
-  recommendedSets: string; // Рекомендована кількість підходів (наприклад, "3-4")
-  recommendationReason: string; // Причина рекомендації
-  lastPerformanceSummary?: string; // Короткий підсумок останнього виконання (наприклад, "100 кг x 8 повт x 3 підх")
 }

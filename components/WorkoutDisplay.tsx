@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { DailyWorkoutPlan, UserProfile, Exercise as ExerciseType, LoggedSet } from '../types';
 import { UI_TEXT } from '../constants';
 import ExerciseCard from './ExerciseCard';
 import Spinner from './Spinner';
 import WorkoutEditMode from './WorkoutEditMode';
-import { analyzeProgress } from '../services/geminiService';
 
 interface WorkoutDisplayProps {
   userProfile: UserProfile | null;
@@ -39,38 +38,18 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
     workoutPlan && workoutPlan.length > 0 ? workoutPlan[0].day : null
   );
   const [isEditMode, setIsEditMode] = useState<boolean>(false);
-  const [aiRecommendations, setAiRecommendations] = useState<ExerciseProgressRecommendation[]>([] as ExerciseProgressRecommendation[]);
-  const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
-  const [recommendationsError, setRecommendationsError] = useState<string | null>(null);
 
   const isWorkoutPlanValid = workoutPlan && Array.isArray(workoutPlan);
 
-  useEffect(() => {
-    const fetchRecommendations = async () => {
-      if (!userProfile || !userProfile.workoutLogs || userProfile.workoutLogs.length === 0 || isApiKeyMissing) {
-        setAiRecommendations([]);
-        setIsLoadingRecommendations(false);
-        setRecommendationsError(null);
-        return;
-      }
-
-      setIsLoadingRecommendations(true);
-      setRecommendationsError(null);
-
-      try {
-        const recommendations = await analyzeProgress(userProfile, userProfile.workoutLogs);
-        setAiRecommendations(recommendations);
-      } catch (error: any) {
-        console.error("Error fetching AI recommendations for WorkoutDisplay:", error);
-        setRecommendationsError(error.message || "Не вдалося завантажити рекомендації.");
-        setAiRecommendations([]);
-      } finally {
-        setIsLoadingRecommendations(false);
-      }
-    };
-
-    fetchRecommendations();
-  }, [userProfile, isApiKeyMissing]);
+  // START - WorkoutDisplay State Check - Moved
+  console.log('WorkoutDisplay State Check:', {
+    activeDay: activeDay,
+    isApiKeyMissing: isApiKeyMissing,
+    isEditMode: isEditMode,
+    workoutPlanExists: !!workoutPlan && workoutPlan.length > 0,
+    isWorkoutPlanValid: isWorkoutPlanValid
+  });
+  // END - WorkoutDisplay State Check - Moved
 
   if (isLoading && (!isWorkoutPlanValid || workoutPlan.length === 0) && activeDay === null) {
     return <Spinner message={UI_TEXT.generatingWorkout} />;
@@ -208,23 +187,16 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
       )}
 
       <div className="space-y-4">
-        {exercisesToDisplay.map((exercise, index) => {
-          const aiRecommendation = aiRecommendations.find(rec => rec.exerciseName === exercise.name);
-
-          return (
-            <ExerciseCard
-              key={index}
-              exercise={exercise}
-              exerciseIndex={index}
-              isActiveWorkout={activeDay !== null}
-              onLogExercise={onLogExercise}
-              isCompleted={activeDay !== null ? !!exercise.isCompletedDuringSession : false}
-              aiRecommendation={aiRecommendation}
-              isLoadingRecommendations={isLoadingRecommendations}
-              recommendationsError={recommendationsError}
-            />
-          );
-        })}
+        {exercisesToDisplay.map((exercise, index) => (
+          <ExerciseCard
+            key={index}
+            exercise={exercise}
+            exerciseIndex={index}
+            isActiveWorkout={activeDay !== null}
+            onLogExercise={onLogExercise}
+            isCompleted={activeDay !== null ? !!exercise.isCompletedDuringSession : false}
+          />
+        ))}
       </div>
 
       {currentDayPlan?.cooldown && (
