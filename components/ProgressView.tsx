@@ -1,23 +1,35 @@
 import React from 'react';
-import { WorkoutLog, UserProfile, LoggedExercise } from '../types';
+import { WorkoutLog, UserProfile, LoggedExercise, Exercise, ExerciseProgress } from '../types';
 import { UI_TEXT } from '../constants';
+import { ProgressCalculator } from '../utils/progressCalculator';
 
 interface ProgressViewProps {
   workoutLogs: WorkoutLog[];
   userProfile: UserProfile | null;
 }
 
-const ExerciseLogRow: React.FC<{loggedEx: LoggedExercise}> = ({loggedEx}) => {
+interface ExerciseLogRowProps {
+  loggedEx: LoggedExercise;
+  exerciseProgress: ExerciseProgress | null;
+  originalExercise: Exercise | undefined;
+}
+
+const ExerciseLogRow: React.FC<ExerciseLogRowProps> = ({ loggedEx, exerciseProgress, originalExercise }) => {
   if (!loggedEx || typeof loggedEx !== 'object') {
     console.warn('Invalid logged exercise data:', loggedEx);
     return null;
   }
+
+  const plannedReps = originalExercise?.reps ?? loggedEx.originalReps;
+  const plannedSets = originalExercise?.sets ?? loggedEx.originalSets;
+  const plannedWeight = originalExercise?.targetWeight ?? loggedEx.targetWeightAtLogging;
+
   return (
     <div className="p-3 bg-gray-600/50 rounded-md my-2 text-xs sm:text-sm">
       <p className="font-semibold text-yellow-400">{loggedEx.exerciseName || 'Невідома вправа'}</p>
-      {(loggedEx.originalSets !== undefined || loggedEx.originalReps !== undefined) && (
-         <p>План: {loggedEx.originalSets ?? '-'} x {loggedEx.originalReps ?? '-'}
-           {loggedEx.targetWeightAtLogging !== undefined && ` @ ${loggedEx.targetWeightAtLogging}kg`}
+      {(plannedSets !== undefined || plannedReps !== undefined) && (
+         <p>План: {plannedSets ?? '-'} x {plannedReps ?? '-'}
+           {plannedWeight !== undefined && plannedWeight !== 0 && ` @ ${plannedWeight}kg`}
          </p>
       )}
       {Array.isArray(loggedEx.loggedSets) && loggedEx.loggedSets.length > 0 && (
@@ -31,10 +43,33 @@ const ExerciseLogRow: React.FC<{loggedEx: LoggedExercise}> = ({loggedEx}) => {
           ))}
         </div>
       )}
-      {loggedEx.completedSuccessfully !== undefined && (
-         <p className={`mt-1 font-medium ${loggedEx.completedSuccessfully ? 'text-green-400' : 'text-red-400'}`}>
-           {loggedEx.completedSuccessfully ? 'Успішно виконано' : 'Не всі цілі досягнуто'}
-         </p>
+
+      {exerciseProgress && (
+        <div className="mt-2 pt-2 border-t border-gray-500">
+          <h5 className="text-sm font-semibold text-blue-300 mb-1">Аналітика прогресу:</h5>
+          <p className="text-xs text-gray-300">
+            Попередній факт: ~{exerciseProgress.averageLoggedWeight.toFixed(1)} кг x ~{exerciseProgress.averageLoggedReps.toFixed(1)} повт.
+            ({exerciseProgress.averageLoggedSets.toFixed(1)} підх.)
+          </p>
+          {(exerciseProgress.recommendedWeight !== undefined && exerciseProgress.recommendedWeight !== 0) || 
+           (exerciseProgress.recommendedReps !== undefined && exerciseProgress.recommendedReps !== 0) || 
+           (exerciseProgress.recommendedSets !== undefined && exerciseProgress.recommendedSets !== 0) ? (
+            <p className="text-sm font-medium text-green-400 mt-1">
+              Рекомендована ціль: 
+              {exerciseProgress.recommendedWeight !== undefined && exerciseProgress.recommendedWeight !== 0 ? `${exerciseProgress.recommendedWeight.toFixed(1)} кг, ` : ''}
+              {exerciseProgress.recommendedSets !== undefined && exerciseProgress.recommendedSets !== 0 ? `${exerciseProgress.recommendedSets} підх., ` : ''}
+              {exerciseProgress.recommendedReps !== undefined && exerciseProgress.recommendedReps !== 0 ? `${exerciseProgress.recommendedReps} повт.` : ''}
+            </p>
+          ) : (
+            <p className="text-sm font-medium text-yellow-400 mt-1">
+              Рекомендована ціль: Підберіть вагу для 
+              {plannedSets ?? '-'} підходів по {plannedReps ?? '-'} повторень.
+            </p>
+          )}
+          {exerciseProgress.recommendationReason && (
+            <p className="text-xs text-gray-400 mt-1">Причина: {exerciseProgress.recommendationReason}</p>
+          )}
+        </div>
       )}
     </div>
   );
@@ -74,33 +109,46 @@ const ProgressView: React.FC<ProgressViewProps> = ({ workoutLogs, userProfile })
             <div className="mt-6">
               <h3 className="text-xl sm:text-2xl font-semibold text-purple-300 mb-4">Історія Тренувань:</h3>
               <div className="max-h-[60vh] sm:max-h-[70vh] overflow-y-auto bg-gray-700/50 p-3 sm:p-4 rounded-md shadow-inner space-y-3 sm:space-y-4">
-                {Array.isArray(workoutLogs) && workoutLogs.slice().reverse().map((log, index) => ( 
-                  log && typeof log === 'object' ? (
-                  <div key={index} className="text-gray-200 p-3 sm:p-4 border border-gray-600 rounded-md bg-gray-600/30 hover:bg-gray-600/40 transition-colors">
-                    <div className="flex justify-between items-center mb-2">
-                      <p className="font-semibold text-purple-300 text-base sm:text-lg">
-                        <i className="fas fa-calendar-alt mr-2"></i>
-                        {log.date ? formatDate(log.date) : 'Невідома дата'}
-                      </p>
-                      {log.workoutDuration !== undefined && (
-                        <p className="text-xs sm:text-sm text-yellow-400"><i className="fas fa-stopwatch mr-1"></i>{log.workoutDuration}</p>
-                      )}
-                    </div>
-                    {log.dayCompleted !== undefined && (
-                       <p className="text-sm mb-2"><i className="fas fa-running mr-2"></i>День плану: {log.dayCompleted}</p>
-                    )}
-                    
-                    {Array.isArray(log.loggedExercises) && log.loggedExercises.length > 0 && (
-                      <div>
-                        <h4 className="text-sm font-medium text-pink-400 mt-2 mb-1">Виконані вправи:</h4>
-                        {log.loggedExercises.map((ex, exIdx) => 
-                          ex && typeof ex === 'object' ? <ExerciseLogRow key={exIdx} loggedEx={ex} /> : null
+                {userProfile && Array.isArray(workoutLogs) && workoutLogs.slice().reverse().map((log, index) => {
+                  if (!log || typeof log !== 'object') return null;
+
+                  const progressCalculator = new ProgressCalculator(workoutLogs, userProfile);
+
+                  return (
+                    <div key={index} className="text-gray-200 p-3 sm:p-4 border border-gray-600 rounded-md bg-gray-600/30 hover:bg-gray-600/40 transition-colors">
+                      <div className="flex justify-between items-center mb-2">
+                        <p className="font-semibold text-purple-300 text-base sm:text-lg">
+                          <i className="fas fa-calendar-alt mr-2"></i>
+                          {log.date ? formatDate(log.date) : 'Невідома дата'}
+                        </p>
+                        {log.workoutDuration !== undefined && (
+                          <p className="text-xs sm:text-sm text-yellow-400"><i className="fas fa-stopwatch mr-1"></i>{log.workoutDuration}</p>
                         )}
                       </div>
-                    )}
-                  </div>
-                ) : null
-                ))}
+                      {log.dayCompleted !== undefined && (
+                         <p className="text-sm mb-2"><i className="fas fa-running mr-2"></i>День плану: {log.dayCompleted}</p>
+                      )}
+                      
+                      {Array.isArray(log.loggedExercises) && log.loggedExercises.length > 0 && (
+                        <div>
+                          <h4 className="text-sm font-medium text-pink-400 mt-2 mb-1">Виконані вправи:</h4>
+                          {log.loggedExercises.map((ex, exIdx) => {
+                            const exerciseProgress = progressCalculator.calculateExerciseProgress(ex.exerciseName);
+                            const originalExercise = undefined;
+                            
+                            return ex && typeof ex === 'object' ? 
+                              <ExerciseLogRow 
+                                key={exIdx} 
+                                loggedEx={ex} 
+                                exerciseProgress={exerciseProgress} 
+                                originalExercise={originalExercise} 
+                              /> : null;
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
                <p className="text-gray-400 mt-6 text-sm">{UI_TEXT.progressSoon}</p>
             </div>
