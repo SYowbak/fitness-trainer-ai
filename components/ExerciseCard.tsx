@@ -18,6 +18,8 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, exerciseIndex, is
     ? (parseInt(exercise.sets.split('-')[0], 10) || 3) 
     : (typeof exercise.sets === 'number' ? exercise.sets : 3);
   const [loggedSetsData, setLoggedSetsData] = useState<LoggedSetWithAchieved[]>(() => Array(numSets).fill({ repsAchieved: undefined, weightUsed: undefined }));
+  const [setsToLogCount, setSetsToLogCount] = useState<number>(numSets);
+  
   const [allSetsSuccessful, setAllSetsSuccessful] = useState<boolean>(true);
 
   const [restTimer, setRestTimer] = useState<number>(0);
@@ -64,10 +66,15 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, exerciseIndex, is
   
   // Reset form when exercise changes or completion status changes
   useEffect(() => {
-     setLoggedSetsData(Array(numSets).fill({ repsAchieved: undefined, weightUsed: undefined }));
-     setAllSetsSuccessful(true);
-     setShowLogForm(false); // Close log form if it was open for a previous interaction
-  }, [exercise, numSets, isCompleted]);
+    // Ініціалізуємо loggedSetsData та setsToLogCount на основі початкової кількості підходів
+    const initialSets = typeof exercise.sets === 'string' 
+      ? (parseInt(exercise.sets.split('-')[0], 10) || 3) 
+      : (typeof exercise.sets === 'number' ? exercise.sets : 3);
+    setSetsToLogCount(initialSets);
+    setLoggedSetsData(Array(initialSets).fill({ repsAchieved: undefined, weightUsed: undefined }));
+    setAllSetsSuccessful(true);
+    setShowLogForm(false); // Close log form if it was open for a previous interaction
+  }, [exercise, isCompleted]); // Залежність numSets тепер не потрібна, використовуємо exercise
 
 
   const handleStartRest = () => {
@@ -90,13 +97,21 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, exerciseIndex, is
 
   const handleSetDataChange = (setIndex: number, field: keyof LoggedSetWithAchieved, value: string) => {
     const newLoggedSetsData = [...loggedSetsData];
+    // Забезпечуємо, що масив достатнього розміру перед оновленням
+    while (newLoggedSetsData.length <= setIndex) {
+      newLoggedSetsData.push({});
+    }
     newLoggedSetsData[setIndex] = { ...newLoggedSetsData[setIndex], [field]: value ? parseFloat(value) : undefined };
     setLoggedSetsData(newLoggedSetsData);
   };
   
   const handleLogFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const validSets = loggedSetsData.filter(s => s.repsAchieved !== undefined && s.repsAchieved !== null && s.weightUsed !== undefined && s.weightUsed !== null) as LoggedSetWithAchieved[];
+    // Фільтруємо тільки ті підходи, для яких є хоча б одне введене значення (вага або повторення)
+    const validSets = loggedSetsData.filter(s => 
+      (s.repsAchieved !== undefined && s.repsAchieved !== null && !isNaN(s.repsAchieved)) || 
+      (s.weightUsed !== undefined && s.weightUsed !== null && !isNaN(s.weightUsed))
+    ) as LoggedSetWithAchieved[];
     
     if (validSets.length === 0) {
         if (!confirm("Ви не ввели дані для жодного підходу. Залогувати вправу як пропущену (без зарахування прогресу)?")) {
@@ -209,9 +224,28 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, exerciseIndex, is
             {exercise.targetWeight !== null && exercise.targetWeight !== undefined && <p className="text-xs sm:text-sm text-gray-300 mb-2">Цільова вага: {exercise.targetWeight} кг.</p>}
             
             <form onSubmit={handleLogFormSubmit} className="space-y-3">
-              {Array.from({ length: numSets }).map((_, setIndex) => (
+              {Array.from({ length: setsToLogCount }).map((_, setIndex) => (
                 <div key={setIndex} className="p-2 sm:p-3 bg-gray-600/70 rounded-md space-y-2">
-                  <p className="text-xs sm:text-sm font-medium text-yellow-300">Підхід {setIndex + 1}</p>
+                  <div className="flex justify-between items-center">
+                    <p className="text-xs sm:text-sm font-medium text-yellow-300">Підхід {setIndex + 1}</p>
+                    <div className="flex space-x-1">
+                      <button 
+                        type="button" 
+                        onClick={() => setSetsToLogCount(prev => Math.max(1, prev - 1))} // Мінімум 1 підхід
+                        className="w-6 h-6 bg-red-600 hover:bg-red-700 text-white text-xs rounded flex items-center justify-center"
+                        disabled={setsToLogCount <= 1 && setIndex === 0} // Не можна видалити останній підхід якщо він один
+                      >
+                        -
+                      </button>
+                      <button 
+                        type="button" 
+                        onClick={() => setSetsToLogCount(prev => prev + 1)}
+                        className="w-6 h-6 bg-green-600 hover:bg-green-700 text-white text-xs rounded flex items-center justify-center"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label htmlFor={`reps-${setIndex}`} className="block text-xs text-purple-200 mb-1">{UI_TEXT.repsAchieved}</label>
