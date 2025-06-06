@@ -79,11 +79,18 @@ const App: React.FC = () => {
     if (savedState) {
       try {
         const savedObject = JSON.parse(savedState);
-        const { activeDay, exercises, startTime, timestamp } = savedObject;
+        const { activeDay, exercises, startTime, timestamp, isWorkoutCompleted } = savedObject;
         
         // Перевіряємо чи є всі необхідні поля
-        if (!activeDay || !exercises || !startTime || !timestamp) {
+        if (!activeDay || !exercises || !startTime || !timestamp || isWorkoutCompleted === undefined) {
           console.error("Missing required fields in saved workout state");
+          localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
+          return;
+        }
+
+        // Якщо тренування було завершене, видаляємо стан
+        if (isWorkoutCompleted) {
+          console.log("Workout was already completed, clearing state");
           localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
           return;
         }
@@ -125,6 +132,7 @@ const App: React.FC = () => {
         exercises: sessionExercises,
         startTime: workoutStartTime,
         timestamp: Date.now(),
+        isWorkoutCompleted: false
       };
       localStorage.setItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY, JSON.stringify(stateToSave));
       console.log("Saved workout state to localStorage:", stateToSave);
@@ -232,7 +240,19 @@ const App: React.FC = () => {
         setActiveWorkoutDay(null);
         setWorkoutStartTime(null);
         setSessionExercises([]);
-        localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY); // Очищаємо localStorage
+        // Позначаємо тренування як завершене перед видаленням
+        const stateToSave = {
+          activeDay: activeWorkoutDay,
+          exercises: sessionExercises,
+          startTime: workoutStartTime,
+          timestamp: Date.now(),
+          isWorkoutCompleted: true
+        };
+        localStorage.setItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY, JSON.stringify(stateToSave));
+        // Даємо час на збереження стану
+        setTimeout(() => {
+          localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
+        }, 100);
         alert("Тренування завершено, але жодної вправи не було залоговано.");
         return;
     }
@@ -288,7 +308,19 @@ const App: React.FC = () => {
     setActiveWorkoutDay(null);
     setWorkoutStartTime(null);
     setSessionExercises([]);
-    localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY); // Очищаємо localStorage після завершення
+    // Позначаємо тренування як завершене перед видаленням
+    const stateToSave = {
+      activeDay: activeWorkoutDay,
+      exercises: sessionExercises,
+      startTime: workoutStartTime,
+      timestamp: Date.now(),
+      isWorkoutCompleted: true
+    };
+    localStorage.setItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY, JSON.stringify(stateToSave));
+    // Даємо час на збереження стану
+    setTimeout(() => {
+      localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
+    }, 100);
     setCurrentView('progress'); 
   }, [activeWorkoutDay, sessionExercises, currentWorkoutPlan, workoutLogs, workoutStartTime, userProfile, saveWorkoutPlan, saveWorkoutLog]);
 
