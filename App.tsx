@@ -72,58 +72,6 @@ const App: React.FC = () => {
     };
   }, [workoutStartTime, activeWorkoutDay]);
 
-  // Load active workout state from localStorage on initial load
-  useEffect(() => {
-    console.log("Attempting to load workout state from localStorage...");
-    const savedState = localStorage.getItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
-    if (savedState) {
-      try {
-        const savedObject = JSON.parse(savedState);
-        const { activeDay, exercises, startTime, timestamp, isWorkoutCompleted } = savedObject;
-        
-        // Перевіряємо чи є всі необхідні поля
-        if (!activeDay || !exercises || !startTime || !timestamp || isWorkoutCompleted === undefined) {
-          console.error("Missing required fields in saved workout state");
-          localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
-          return;
-        }
-
-        // Якщо тренування було завершене, видаляємо стан
-        if (isWorkoutCompleted) {
-          console.log("Workout was already completed, clearing state");
-          localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
-          return;
-        }
-
-        // Перевіряємо чи не закінчився термін дії
-        if (Date.now() - timestamp > ACTIVE_WORKOUT_EXPIRATION_TIME) {
-          console.log("Saved workout state has expired");
-          localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
-          return;
-        }
-
-        // Перевіряємо структуру даних
-        if (
-          typeof activeDay === 'number' &&
-          Array.isArray(exercises) &&
-          exercises.every((ex: any) => typeof ex.name === 'string') &&
-          typeof startTime === 'number'
-        ) {
-          setActiveWorkoutDay(activeDay);
-          setSessionExercises(exercises);
-          setWorkoutStartTime(startTime);
-          console.log("Successfully loaded workout state from localStorage");
-        } else {
-          console.error("Invalid data structure in saved workout state");
-          localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
-        }
-      } catch (e) {
-        console.error("Failed to parse saved workout state:", e);
-        localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
-      }
-    }
-  }, []);
-
   // Save active workout state to localStorage whenever it changes
   useEffect(() => {
     if (activeWorkoutDay !== null && workoutStartTime !== null) {
@@ -134,10 +82,69 @@ const App: React.FC = () => {
         timestamp: Date.now(),
         isWorkoutCompleted: false
       };
-      localStorage.setItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY, JSON.stringify(stateToSave));
-      console.log("Saved workout state to localStorage:", stateToSave);
+      try {
+        localStorage.setItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY, JSON.stringify(stateToSave));
+        console.log("Saved workout state to localStorage:", stateToSave);
+      } catch (e) {
+        console.error("Failed to save workout state to localStorage:", e);
+      }
     }
   }, [activeWorkoutDay, workoutStartTime, sessionExercises]);
+
+  // Load active workout state from localStorage on initial load
+  useEffect(() => {
+    console.log("Attempting to load workout state from localStorage...");
+    try {
+      const savedState = localStorage.getItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
+      if (!savedState) {
+        console.log("No saved workout state found");
+        return;
+      }
+
+      const savedObject = JSON.parse(savedState);
+      const { activeDay, exercises, startTime, timestamp, isWorkoutCompleted } = savedObject;
+      
+      // Перевіряємо чи є всі необхідні поля
+      if (!activeDay || !exercises || !startTime || !timestamp || isWorkoutCompleted === undefined) {
+        console.error("Missing required fields in saved workout state");
+        localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
+        return;
+      }
+
+      // Якщо тренування було завершене, видаляємо стан
+      if (isWorkoutCompleted) {
+        console.log("Workout was already completed, clearing state");
+        localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
+        return;
+      }
+
+      // Перевіряємо чи не закінчився термін дії
+      if (Date.now() - timestamp > ACTIVE_WORKOUT_EXPIRATION_TIME) {
+        console.log("Saved workout state has expired");
+        localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
+        return;
+      }
+
+      // Перевіряємо структуру даних
+      if (
+        typeof activeDay === 'number' &&
+        Array.isArray(exercises) &&
+        exercises.every((ex: any) => typeof ex.name === 'string') &&
+        typeof startTime === 'number'
+      ) {
+        setActiveWorkoutDay(activeDay);
+        setSessionExercises(exercises);
+        setWorkoutStartTime(startTime);
+        console.log("Successfully loaded workout state from localStorage");
+      } else {
+        console.error("Invalid data structure in saved workout state");
+        localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
+      }
+    } catch (e) {
+      console.error("Failed to parse saved workout state:", e);
+      localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
+    }
+  }, []);
 
   const handleProfileSave = useCallback(async (profile: UserProfile) => {
     if (apiKeyMissing) {
@@ -240,19 +247,11 @@ const App: React.FC = () => {
         setActiveWorkoutDay(null);
         setWorkoutStartTime(null);
         setSessionExercises([]);
-        // Позначаємо тренування як завершене перед видаленням
-        const stateToSave = {
-          activeDay: activeWorkoutDay,
-          exercises: sessionExercises,
-          startTime: workoutStartTime,
-          timestamp: Date.now(),
-          isWorkoutCompleted: true
-        };
-        localStorage.setItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY, JSON.stringify(stateToSave));
-        // Даємо час на збереження стану
-        setTimeout(() => {
+        try {
           localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
-        }, 100);
+        } catch (e) {
+          console.error("Failed to clear workout state from localStorage:", e);
+        }
         alert("Тренування завершено, але жодної вправи не було залоговано.");
         return;
     }
@@ -308,19 +307,11 @@ const App: React.FC = () => {
     setActiveWorkoutDay(null);
     setWorkoutStartTime(null);
     setSessionExercises([]);
-    // Позначаємо тренування як завершене перед видаленням
-    const stateToSave = {
-      activeDay: activeWorkoutDay,
-      exercises: sessionExercises,
-      startTime: workoutStartTime,
-      timestamp: Date.now(),
-      isWorkoutCompleted: true
-    };
-    localStorage.setItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY, JSON.stringify(stateToSave));
-    // Даємо час на збереження стану
-    setTimeout(() => {
+    try {
       localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
-    }, 100);
+    } catch (e) {
+      console.error("Failed to clear workout state from localStorage:", e);
+    }
     setCurrentView('progress'); 
   }, [activeWorkoutDay, sessionExercises, currentWorkoutPlan, workoutLogs, workoutStartTime, userProfile, saveWorkoutPlan, saveWorkoutLog]);
 
