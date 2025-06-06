@@ -216,11 +216,13 @@ export const generateWorkoutPlan = async (profile: UserProfile, modelName: strin
 export const generateWorkoutAnalysis = async ({
   userProfile,
   dayPlan,
-  lastWorkoutLog
+  lastWorkoutLog,
+  previousWorkoutLogs = []
 }: {
   userProfile: UserProfile;
   dayPlan: DailyWorkoutPlan;
   lastWorkoutLog: WorkoutLog | null;
+  previousWorkoutLogs?: WorkoutLog[];
 }): Promise<{
   updatedPlan: DailyWorkoutPlan;
   recommendation: {
@@ -228,7 +230,87 @@ export const generateWorkoutAnalysis = async ({
     action: string;
   };
 }> => {
-  const prompt = `Ти - елітний фітнес-аналітик, який аналізує тренування та дає рекомендації щодо прогресу.\n\nПрофіль користувача:\n${JSON.stringify(userProfile, null, 2)}\n\nПлан тренування на день:\n${JSON.stringify(dayPlan, null, 2)}\n\nОстанній лог тренування:\n${lastWorkoutLog ? JSON.stringify(lastWorkoutLog, null, 2) : 'Немає попередніх логів'}\n\nПроаналізуй дані та надай рекомендації згідно з наступними принципами:\n\n1. Подвійна прогресія для вправ з вагою:\n   - Спочатку збільшуй кількість повторень\n   - Після досягнення верхньої межі повторень - збільшуй вагу\n\n2. Спеціальна лінія прогресу для вправ без ваги:\n   - Для підтягувань: збільшення повторень\n   - Для планки: збільшення тривалості в секундах\n\n3. Адаптація під ціль користувача:\n   - MUSCLE_GAIN: фокус на гіпертрофії\n   - STRENGTH: фокус на силі\n   - ENDURANCE: фокус на витривалості\n\n4. Тон рекомендацій:\n   - Професійний\n   - Безособовий\n   - Конкретний\n   - Мотивуючий\n\nНадай відповідь у форматі JSON:\n{\n  \"updatedPlan\": {\n    // Оновлений план тренування з новими цілями\n  },\n  \"recommendation\": {\n    \"text\": \"Текст рекомендації\",\n    \"action\": \"Конкретна дія для прогресу\"\n  }\n}`;
+  const prompt = `Ти - елітний фітнес-аналітик, який аналізує тренування та дає рекомендації щодо прогресу.
+
+ВАЖЛИВО: Відповідь має бути ВИКЛЮЧНО у форматі JSON без жодних додаткових пояснень, коментарів або тексту поза JSON структурою.
+
+Профіль користувача:
+${JSON.stringify(userProfile, null, 2)}
+
+План тренування на день:
+${JSON.stringify(dayPlan, null, 2)}
+
+Останні тренування (від найновішого до старішого):
+${lastWorkoutLog ? JSON.stringify([lastWorkoutLog, ...previousWorkoutLogs], null, 2) : 'Немає попередніх логів'}
+
+Проаналізуй дані та надай рекомендації згідно з наступними принципами:
+
+1. Подвійна прогресія для вправ з вагою:
+   - Спочатку збільшуй кількість повторень
+   - Після досягнення верхньої межі повторень - збільшуй вагу
+
+2. Спеціальна лінія прогресу для вправ без ваги:
+   - Для підтягувань: збільшення повторень
+   - Для планки: збільшення тривалості в секундах
+   - Або інше, якщо це відповідає цілям користувача.
+
+3. Адаптація під ціль користувача:
+   - WEIGHT_LOSS: фокус на зниженні ваги
+   - MUSCLE_GAIN: фокус на гіпертрофії
+   - STRENGTH: фокус на силі
+   - ENDURANCE: фокус на витривалості
+   - GENERAL_FITNESS: фокус на загальному фітнесі
+
+4. Тон рекомендацій:
+   - Професійний
+   - Безособовий
+   - Конкретний
+   - Мотивуючий
+
+5. Аналіз періодизації:
+   - Враховуй інтенсивність попередніх тренувань
+   - Забезпечуй правильне чергування важких та легких тренувань
+   - Рекомендуй зміну навантаження на основі загальної тенденції
+
+Структура JSON відповіді:
+{
+  "updatedPlan": {
+    "day": number,
+    "notes": string,
+    "exercises": [
+      {
+        "name": string,
+        "description": string,
+        "sets": string,
+        "reps": string,
+        "rest": string,
+        "videoSearchQuery": string | null,
+        "targetWeight": number | null,
+        "targetReps": number | null
+      }
+    ]
+  },
+  "recommendation": {
+    "text": string,
+    "action": string
+  }
+}
+
+Приклади значень:
+- sets: "3-4" або "4"
+- reps: "8-12" або "12-15"
+- rest: "60-90 секунд"
+- targetWeight: 50 (в кг)
+- targetReps: 12
+
+ВАЖЛИВО: 
+1. Не додавай жодних пояснень поза JSON структурою
+2. Не використовуй markdown-розмітку
+3. Не додавай коментарів в JSON
+4. Переконайся, що всі текстові поля заповнені українською мовою
+5. Всі числові значення мають бути числами, а не рядками
+6. Якщо значення може бути null, вкажи це явно
+7. При аналізі враховуй загальну тенденцію навантаження з попередніх тренувань`;
 
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent?key=${import.meta.env.VITE_API_KEY}`, {
     method: 'POST',
@@ -254,13 +336,16 @@ export const generateWorkoutAnalysis = async ({
   const analysisText = data.candidates[0].content.parts[0].text;
   
   try {
-    const analysis = JSON.parse(analysisText);
+    // Видаляємо markdown-розмітку з відповіді
+    const jsonStr = analysisText.replace(/```json\n?|\n?```/g, '').trim();
+    const analysis = JSON.parse(jsonStr);
     return {
       updatedPlan: analysis.updatedPlan,
       recommendation: analysis.recommendation
     };
   } catch (error) {
     console.error('Помилка при парсингу відповіді:', error);
+    console.error('Оригінальна відповідь:', analysisText);
     throw new Error('Не вдалося обробити відповідь від AI');
   }
 };
