@@ -32,10 +32,8 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
     });
   }, [exercise]);
 
-  const numSets = typeof exercise.sets === 'string' 
-    ? (parseInt(exercise.sets.split('-')[0], 10) || 3) 
-    : (typeof exercise.sets === 'number' ? exercise.sets : 3);
-  const [loggedSetsData, setLoggedSetsData] = useState<LoggedSetWithAchieved[]>(() => Array(numSets).fill({ repsAchieved: undefined, weightUsed: undefined }));
+  const [loggedSetsData, setLoggedSetsData] = useState<LoggedSetWithAchieved[]>([]);
+  const [numSets, setNumSets] = useState(parseInt(exercise.sets.toString()) || 3); // Initialize with exercise.sets
   const [allSetsSuccessful, setAllSetsSuccessful] = useState<boolean>(true);
 
   const [restTimer, setRestTimer] = useState<number>(0);
@@ -127,7 +125,19 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
     setShowLogForm(false);
     setIsCompleted(true);
   };
-  
+
+  const handleAddSet = () => {
+    setNumSets(prev => prev + 1);
+    setLoggedSetsData(prev => [...prev, { repsAchieved: undefined, weightUsed: undefined }]);
+  };
+
+  const handleRemoveSet = () => {
+    if (numSets > 1) {
+      setNumSets(prev => prev - 1);
+      setLoggedSetsData(prev => prev.slice(0, -1));
+    }
+  };
+
   const cardBaseClasses = "p-3 sm:p-4 rounded-lg shadow-md transition-all duration-300";
   const cardBgClasses = isCompleted ? "bg-green-800/50 hover:bg-green-700/60" : "bg-gray-700/60 hover:bg-gray-700/80";
   const completedTextClasses = isCompleted ? "text-green-300" : "text-yellow-300";
@@ -232,6 +242,26 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
             {exercise.targetWeight !== null && exercise.targetWeight !== undefined && <p className="text-xs sm:text-sm text-gray-300 mb-2">Цільова вага: {exercise.targetWeight} кг.</p>}
             
             <form onSubmit={handleLogFormSubmit} className="space-y-3">
+              <div className="flex justify-between items-center mb-2">
+                <p className="text-xs sm:text-sm font-medium text-yellow-300">Кількість підходів: {numSets}</p>
+                <div className="flex space-x-2">
+                  <button 
+                    type="button"
+                    onClick={handleRemoveSet}
+                    disabled={numSets <= 1}
+                    className="px-2 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-xs sm:text-sm disabled:bg-gray-500 disabled:cursor-not-allowed"
+                  >
+                    <i className="fas fa-minus"></i>
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={handleAddSet}
+                    className="px-2 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-xs sm:text-sm"
+                  >
+                    <i className="fas fa-plus"></i>
+                  </button>
+                </div>
+              </div>
               {Array.from({ length: numSets }).map((_, setIndex) => (
                 <div key={setIndex} className="p-2 sm:p-3 bg-gray-600/70 rounded-md space-y-2">
                   <p className="text-xs sm:text-sm font-medium text-yellow-300">Підхід {setIndex + 1}</p>
