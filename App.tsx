@@ -32,10 +32,71 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>(localStorage.getItem('currentView') as View || 'profile');
   const [apiKeyMissing, setApiKeyMissing] = useState<boolean>(false);
 
-  // Active Workout Session State
-  const [activeWorkoutDay, setActiveWorkoutDay] = useState<number | null>(null); // Day number
-  const [sessionExercises, setSessionExercises] = useState<Exercise[]>([]);
-  const [workoutStartTime, setWorkoutStartTime] = useState<number | null>(null);
+  // Active Workout Session State - Attempt to load synchronously from localStorage
+  const getInitialActiveWorkoutState = () => {
+    try {
+      const savedState = localStorage.getItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
+      console.log('localStorage savedState (sync):', savedState);
+      if (!savedState) {
+        console.log('No saved state found in localStorage (sync).');
+        return { activeDay: null, sessionExercises: [], workoutStartTime: null };
+      }
+
+      const savedObject = JSON.parse(savedState);
+      console.log('Parsed saved state (sync):', savedObject);
+      const { activeDay, exercises, startTime, timestamp, isWorkoutCompleted } = savedObject;
+
+      // Перевіряємо чи є всі необхідні поля
+      if (!activeDay || !exercises || !startTime || !timestamp || isWorkoutCompleted === undefined) {
+        console.warn('Incomplete or invalid saved state in localStorage (sync). Removing.', savedObject);
+        localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
+        return { activeDay: null, sessionExercises: [], workoutStartTime: null };
+      }
+
+      // Якщо тренування було завершене, видаляємо стан
+      if (isWorkoutCompleted) {
+        console.log('Saved state indicates workout was completed (sync). Removing from localStorage.');
+        localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
+        return { activeDay: null, sessionExercises: [], workoutStartTime: null };
+      }
+
+      // Перевіряємо чи не закінчився термін дії
+      if (Date.now() - timestamp > ACTIVE_WORKOUT_EXPIRATION_TIME) {
+        console.log('Saved state expired (sync). Removing from localStorage.');
+        localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
+        return { activeDay: null, sessionExercises: [], workoutStartTime: null };
+      }
+
+      // Перевіряємо структуру даних
+      if (
+        typeof activeDay === 'number' &&
+        Array.isArray(exercises) &&
+        exercises.every((ex: any) => typeof ex.name === 'string') && // Проста перевірка структури вправи
+        typeof startTime === 'number'
+      ) {
+        console.log('Loading valid saved state (sync).', { activeDay, exercises, startTime });
+        return {
+          activeDay: activeDay as number,
+          sessionExercises: exercises as Exercise[],
+          workoutStartTime: startTime as number,
+        };
+      } else {
+        console.warn('Invalid structure in saved state (sync). Removing.', savedObject);
+        localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
+        return { activeDay: null, sessionExercises: [], workoutStartTime: null };
+      }
+    } catch (e) {
+      console.error('Error loading active workout state from localStorage (sync):', e);
+      localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
+      return { activeDay: null, sessionExercises: [], workoutStartTime: null };
+    }
+  };
+
+  const initialActiveWorkoutState = getInitialActiveWorkoutState();
+
+  const [activeWorkoutDay, setActiveWorkoutDay] = useState<number | null>(initialActiveWorkoutState.activeDay); // Day number
+  const [sessionExercises, setSessionExercises] = useState<Exercise[]>(initialActiveWorkoutState.sessionExercises);
+  const [workoutStartTime, setWorkoutStartTime] = useState<number | null>(initialActiveWorkoutState.workoutStartTime);
   const [workoutTimer, setWorkoutTimer] = useState<number>(0);
   const [isAnalyzingWorkout, setIsAnalyzingWorkout] = useState<boolean>(false);
 
@@ -60,6 +121,8 @@ const App: React.FC = () => {
   useEffect(() => {
     setUserProfile(firestoreProfile);
     setWorkoutLogs(firestoreWorkoutLogs);
+    // Важливо: Цей хук не повинен скидати стан активного тренування (activeWorkoutDay, sessionExercises, workoutStartTime)
+    // Стан активного тренування завантажується окремо з localStorage.
   }, [firestoreProfile, firestoreWorkoutLogs]);
 
   useEffect(() => {
@@ -75,64 +138,6 @@ const App: React.FC = () => {
       if (timerInterval) clearInterval(timerInterval);
     };
   }, [workoutStartTime, activeWorkoutDay]);
-
-  // Load active workout state from localStorage on initial load
-  useEffect(() => {
-    console.log('Attempting to load active workout state from localStorage...');
-    try {
-      const savedState = localStorage.getItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
-      console.log('localStorage savedState:', savedState);
-      if (!savedState) {
-        console.log('No saved state found in localStorage.');
-        return;
-      }
-
-      const savedObject = JSON.parse(savedState);
-      console.log('Parsed saved state:', savedObject);
-      const { activeDay, exercises, startTime, timestamp, isWorkoutCompleted } = savedObject;
-      
-      // Перевіряємо чи є всі необхідні поля
-      if (!activeDay || !exercises || !startTime || !timestamp || isWorkoutCompleted === undefined) {
-        console.warn('Incomplete or invalid saved state in localStorage. Removing.', savedObject);
-        localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
-        return;
-      }
-
-      // Якщо тренування було завершене, видаляємо стан
-      if (isWorkoutCompleted) {
-        console.log('Saved state indicates workout was completed. Removing from localStorage.');
-        localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
-        return;
-      }
-
-      // Перевіряємо чи не закінчився термін дії
-      if (Date.now() - timestamp > ACTIVE_WORKOUT_EXPIRATION_TIME) {
-        console.log('Saved state expired. Removing from localStorage.');
-        localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
-        return;
-      }
-
-      // Перевіряємо структуру даних
-      if (
-        typeof activeDay === 'number' &&
-        Array.isArray(exercises) &&
-        exercises.every((ex: any) => typeof ex.name === 'string') && // Проста перевірка структури вправи
-        typeof startTime === 'number'
-      ) {
-        console.log('Loading valid saved state.', { activeDay, exercises, startTime });
-        setActiveWorkoutDay(activeDay);
-        setSessionExercises(exercises);
-        setWorkoutStartTime(startTime);
-        console.log('Active workout state loaded successfully.');
-      } else {
-        console.warn('Invalid structure in saved state. Removing.', savedObject);
-        localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
-      }
-    } catch (e) {
-      console.error('Error loading active workout state from localStorage:', e);
-      localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
-    }
-  }, []);
 
   // Save active workout state to localStorage whenever it changes
   useEffect(() => {
