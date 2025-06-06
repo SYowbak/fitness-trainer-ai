@@ -36,7 +36,7 @@ const constructPrompt = (profile: UserProfile): string => {
   const experienceLevelText = getUkrainianExperienceLevel(experienceLevel);
   const targetMuscleGroupsText = targetMuscleGroups.length > 0 
     ? `з особливим акцентом на ${targetMuscleGroups.map(group => getUkrainianMuscleGroup(group)).join(', ')}`
-    : 'із загальним розвитком всіх груп м'язів';
+    : "із загальним розвитком всіх груп м'язів";
 
   return `Ти — висококваліфікований персональний фітнес-тренер, який створює індивідуальні програми тренувань. Твоя мета — розробити максимально ефективний, безпечний та логічний план тренувань у тренажерному залі ${userNamePart}.
 
@@ -228,10 +228,7 @@ export const generateWorkoutAnalysis = async ({
     action: string;
   };
 }> => {
-  const prompt = `Ти - елітний фітнес-аналітик, який аналізує тренування та дає рекомендації щодо прогресу.\n\nПрофіль користувача:\n${JSON.stringify(userProfile, null, 2)}\n\nПлан тренування на день:\n${JSON.stringify(dayPlan, null, 2)}\n\nОстанній лог тренування:\n${lastWorkoutLog ? JSON.stringify(lastWorkoutLog, null, 2) : 'Немає попередніх логів'}\n\nПроаналізуй дані та надай рекомендації згідно з наступними принципами:\n\n1. Подвійна прогресія для вправ з вагою:\n   - Спочатку збільшуй кількість повторень\n   - Після досягнення верхньої межі повторень - збільшуй вагу\n\n2. Спеціальна лінія прогресу для вправ без ваги:\n   - Для підтягувань: збільшення повторень\n   - Для планки: збільшення тривалості в секундах\n\n3. Адаптація під ціль користувача:\n   - MUSCLE_GAIN: фокус на гіпертрофії\n   - STRENGTH: фокус на силі\n   - ENDURANCE: фокус на витривалості\n\n4. Тон рекомендацій:\n   - Професійний\n   - Безособовий\n   - Конкретний\n   - Мотивуючий\n\nНадай відповідь у форматі JSON:\n{\n  \"updatedPlan\": {\n    // Оновлений план тренування з новими цілями\n  },\n  \"recommendation\": {\n    \"text\": \"Текст рекомендації\",\n    \"action\": \"Конкретна дія для прогресу\"\n  }
-}\`;
-
-  console.log("Sending prompt to Gemini API for analysis:", prompt); // Додаємо лог
+  const prompt = `Ти - елітний фітнес-аналітик, який аналізує тренування та дає рекомендації щодо прогресу.\n\nПрофіль користувача:\n${JSON.stringify(userProfile, null, 2)}\n\nПлан тренування на день:\n${JSON.stringify(dayPlan, null, 2)}\n\nОстанній лог тренування:\n${lastWorkoutLog ? JSON.stringify(lastWorkoutLog, null, 2) : 'Немає попередніх логів'}\n\nПроаналізуй дані та надай рекомендації згідно з наступними принципами:\n\n1. Подвійна прогресія для вправ з вагою:\n   - Спочатку збільшуй кількість повторень\n   - Після досягнення верхньої межі повторень - збільшуй вагу\n\n2. Спеціальна лінія прогресу для вправ без ваги:\n   - Для підтягувань: збільшення повторень\n   - Для планки: збільшення тривалості в секундах\n\n3. Адаптація під ціль користувача:\n   - MUSCLE_GAIN: фокус на гіпертрофії\n   - STRENGTH: фокус на силі\n   - ENDURANCE: фокус на витривалості\n\n4. Тон рекомендацій:\n   - Професійний\n   - Безособовий\n   - Конкретний\n   - Мотивуючий\n\nНадай відповідь у форматі JSON:\n{\n  \"updatedPlan\": {\n    // Оновлений план тренування з новими цілями\n  },\n  \"recommendation\": {\n    \"text\": \"Текст рекомендації\",\n    \"action\": \"Конкретна дія для прогресу\"\n  }\n}`;
 
   const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent', {
     method: 'POST',
@@ -250,7 +247,7 @@ export const generateWorkoutAnalysis = async ({
 
   if (!response.ok) {
     const errorData = await response.json();
-    console.error("Gemini API error response:", errorData); // Логуємо відповідь з помилкою
+    console.error("Gemini API error response:", errorData);
     throw new Error(`Помилка при виклику Gemini API: ${errorData.error?.message || response.statusText}`);
   }
 
