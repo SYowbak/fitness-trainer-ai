@@ -29,7 +29,13 @@ const App: React.FC = () => {
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [currentView, setCurrentView] = useState<View>(localStorage.getItem('currentView') as View || 'profile');
+  const [currentView, setCurrentView] = useState<View>(() => {
+    // Перевіряємо чи є профіль в Firestore
+    if (firestoreProfile) {
+      return 'workout';
+    }
+    return 'profile';
+  });
   const [apiKeyMissing, setApiKeyMissing] = useState<boolean>(false);
 
   // Active Workout Session State
