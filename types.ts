@@ -80,6 +80,7 @@ export interface Exercise {
   sessionLoggedSets?: LoggedSetWithAchieved[];
   sessionSuccess?: boolean;
   notes?: string;
+  restTimeRemaining?: number | null;
 }
 
 export interface DailyWorkoutPlan {

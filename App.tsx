@@ -29,13 +29,7 @@ const App: React.FC = () => {
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [currentView, setCurrentView] = useState<View>(() => {
-    // Перевіряємо чи є профіль в Firestore
-    if (firestoreProfile) {
-      return 'workout';
-    }
-    return 'profile';
-  });
+  const [currentView, setCurrentView] = useState<View>('profile');
   const [apiKeyMissing, setApiKeyMissing] = useState<boolean>(false);
 
   // Active Workout Session State
@@ -47,6 +41,15 @@ const App: React.FC = () => {
 
   const ACTIVE_WORKOUT_LOCAL_STORAGE_KEY = 'active_workout_local_state';
   const ACTIVE_WORKOUT_EXPIRATION_TIME = 24 * 60 * 60 * 1000; // 24 години
+
+  // Ефект для автоматичного переключення вкладок на основі стану профілю
+  useEffect(() => {
+    if (firestoreProfile) {
+      setCurrentView('workout');
+    } else {
+      setCurrentView('profile');
+    }
+  }, [firestoreProfile]);
 
   // Функція для збереження стану тренування
   const saveWorkoutState = useCallback((state: {
@@ -70,7 +73,7 @@ const App: React.FC = () => {
           sessionSuccess: ex.sessionSuccess,
           currentSet: ex.sessionLoggedSets?.length || 0,
           lastSetTime: ex.sessionLoggedSets?.[ex.sessionLoggedSets.length - 1]?.timestamp || null,
-          restTimeRemaining: ex.rest ? parseInt(ex.rest) * 1000 : null,
+          restTimeRemaining: ex.restTimeRemaining || (ex.rest ? parseInt(ex.rest) * 1000 : null),
           targetWeight: ex.targetWeight,
           targetReps: ex.targetReps,
           recommendation: ex.recommendation,
@@ -137,7 +140,7 @@ const App: React.FC = () => {
             // Відновлюємо час відпочинку, якщо він був активний
             const restTimeRemaining = savedProgress.lastSetTime ? 
               Math.max(0, (parseInt(ex.rest) * 1000) - (Date.now() - savedProgress.lastSetTime)) : 
-              (ex.rest ? parseInt(ex.rest) * 1000 : null);
+              savedProgress.restTimeRemaining || (ex.rest ? parseInt(ex.rest) * 1000 : null);
 
             return {
               ...ex,

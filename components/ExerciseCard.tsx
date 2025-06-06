@@ -97,21 +97,49 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
 
   const handleStartRest = () => {
     const restStr = exercise.rest ?? '60';
-    
-    if (typeof restStr === 'string') {
-      if (restStr.includes('секунд')) {
-        // The value is no longer needed here, as we use restStartTime
-      } else {
-        // The value is no longer needed here
-      }
-    } else if (typeof restStr === 'number') {
-      // The value is no longer needed here
-    }
-    
-    // setRestTimer(restSeconds || 60); // Більше не встановлюємо початковий візуальний таймер тут
-    setRestStartTime(Date.now()); // Фіксуємо час початку відпочинку
+    const restSeconds = parseInt(restStr);
+    setRestStartTime(Date.now());
     setIsResting(true);
+    setRestTimer(restSeconds);
   };
+
+  // Оновлення таймера відпочинку
+  useEffect(() => {
+    let timerInterval: NodeJS.Timeout;
+    if (isResting && restStartTime) {
+      timerInterval = setInterval(() => {
+        const elapsedTime = Math.floor((Date.now() - restStartTime) / 1000);
+        const remainingTime = Math.max(0, parseInt(exercise.rest || '60') - elapsedTime);
+        setRestTimer(remainingTime);
+        
+        if (remainingTime <= 0) {
+          setIsResting(false);
+          setRestStartTime(null);
+          clearInterval(timerInterval);
+        }
+      }, 1000);
+    }
+    return () => {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+      }
+    };
+  }, [isResting, restStartTime, exercise.rest]);
+
+  // Відновлення таймера при завантаженні
+  useEffect(() => {
+    if (exercise.restTimeRemaining) {
+      const restSeconds = parseInt(exercise.rest || '60');
+      const elapsedTime = Math.floor((Date.now() - (exercise.sessionLoggedSets?.[exercise.sessionLoggedSets.length - 1]?.timestamp || Date.now())) / 1000);
+      const remainingTime = Math.max(0, restSeconds - elapsedTime);
+      
+      if (remainingTime > 0) {
+        setRestTimer(remainingTime);
+        setIsResting(true);
+        setRestStartTime(Date.now() - (restSeconds - remainingTime) * 1000);
+      }
+    }
+  }, [exercise.restTimeRemaining, exercise.rest, exercise.sessionLoggedSets]);
 
   const handleSetDataChange = (setIndex: number, field: keyof LoggedSetWithAchieved, value: string) => {
     const newLoggedSetsData = [...loggedSetsData];
