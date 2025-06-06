@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Exercise, LoggedSetWithAchieved } from '../types';
 import { UI_TEXT, formatTime } from '../constants';
+import { ExerciseProgressRecommendation } from '../types';
 
 interface ExerciseCardProps {
   exercise: Exercise;
@@ -8,9 +9,12 @@ interface ExerciseCardProps {
   isActiveWorkout: boolean;
   onLogExercise: (exerciseIndex: number, loggedSets: LoggedSetWithAchieved[], success: boolean) => void;
   isCompleted: boolean;
+  aiRecommendation: ExerciseProgressRecommendation | undefined;
+  isLoadingRecommendations: boolean;
+  recommendationsError: string | null;
 }
 
-const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, exerciseIndex, isActiveWorkout, onLogExercise, isCompleted }) => {
+const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, exerciseIndex, isActiveWorkout, onLogExercise, isCompleted, aiRecommendation, isLoadingRecommendations, recommendationsError }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showLogForm, setShowLogForm] = useState(false);
   
@@ -184,9 +188,41 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, exerciseIndex, is
               <strong className="block text-purple-200 mb-0.5"><i className="fas fa-stopwatch mr-1"></i>{UI_TEXT.rest}</strong>
               <span className="text-gray-100">{exercise.rest || '-'}</span>
             </div>
-            {exercise.targetWeight !== undefined && exercise.targetWeight !== null && (
+            {isLoadingRecommendations && (
+               <div className="bg-gray-600/70 p-2 rounded shadow col-span-full text-center text-yellow-300">
+                 <i className="fas fa-spinner fa-spin mr-2"></i>Завантаження рекомендацій...
+               </div>
+            )}
+            {recommendationsError && (
+                <div className="bg-red-700/60 p-2 rounded shadow col-span-full text-red-200">
+                   <i className="fas fa-exclamation-circle mr-1"></i>Помилка рекомендацій: {recommendationsError}
+                </div>
+            )}
+            {aiRecommendation && !isLoadingRecommendations && !recommendationsError && (
+               <div className="bg-purple-700/60 p-2 rounded shadow col-span-full">
+                  <strong className="block text-yellow-200 mb-1"><i className="fas fa-brain mr-1"></i>Рекомендація AI для наступного тренування:</strong>
+                  <div className="text-gray-100 font-semibold space-y-1">
+                    {aiRecommendation.recommendedWeight !== undefined && aiRecommendation.recommendedWeight !== 0 && (
+                       <p><i className="fas fa-dumbbell mr-1"></i>Вага: {aiRecommendation.recommendedWeight.toFixed(1)} кг</p>
+                    )}
+                     {aiRecommendation.recommendedSets !== undefined && aiRecommendation.recommendedSets !== '-' && aiRecommendation.recommendedSets !== '0' && (
+                       <p><i className="fas fa-layer-group mr-1"></i>Підходи: {aiRecommendation.recommendedSets}</p>
+                     )}
+                     {aiRecommendation.recommendedReps !== undefined && aiRecommendation.recommendedReps !== '-' && aiRecommendation.recommendedReps !== '0' && (
+                       <p><i className="fas fa-redo mr-1"></i>Повторення: {aiRecommendation.recommendedReps}</p>
+                     )}
+                  </div>
+                   {aiRecommendation.recommendationReason && (
+                      <p className="text-xs text-gray-300 mt-2"><i className="fas fa-info-circle mr-1"></i>Причина: {aiRecommendation.recommendationReason}</p>
+                   )}
+                   {aiRecommendation.lastPerformanceSummary && (
+                      <p className="text-xs text-gray-300 mt-1"><i className="fas fa-history mr-1"></i>Останнє: {aiRecommendation.lastPerformanceSummary}</p>
+                   )}
+               </div>
+            )}
+            {!aiRecommendation && exercise.targetWeight !== undefined && exercise.targetWeight !== null && (
                  <div className="bg-purple-700/60 p-2 rounded shadow col-span-full">
-                    <strong className="block text-yellow-200 mb-0.5"><i className="fas fa-bullseye mr-1"></i>{UI_TEXT.targetWeight}</strong>
+                    <strong className="block text-yellow-200 mb-0.5"><i className="fas fa-bullseye mr-1"></i>{UI_TEXT.targetWeight} (стара логіка)</strong>
                     <span className="text-gray-100 font-semibold">{exercise.targetWeight} kg</span>
                  </div>
             )}
