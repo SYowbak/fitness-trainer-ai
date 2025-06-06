@@ -80,7 +80,6 @@ export interface Exercise {
   sessionLoggedSets?: LoggedSetWithAchieved[];
   sessionSuccess?: boolean;
   notes?: string;
-  restTimeRemaining?: number | null;
 }
 
 export interface DailyWorkoutPlan {
@@ -101,7 +100,6 @@ export interface LoggedSetWithAchieved {
   repsAchieved?: number;
   weightUsed?: number;
   completed?: boolean;
-  timestamp?: number;
 }
 
 export interface LoggedExercise {

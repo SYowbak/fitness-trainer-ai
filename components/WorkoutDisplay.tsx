@@ -18,7 +18,6 @@ interface WorkoutDisplayProps {
   workoutTimerDisplay: string;
   isApiKeyMissing: boolean;
   onSaveWorkoutPlan: (plan: DailyWorkoutPlan[]) => void;
-  onWorkoutComplete: () => void;
 }
 
 const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
@@ -34,7 +33,6 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
   workoutTimerDisplay,
   isApiKeyMissing,
   onSaveWorkoutPlan,
-  onWorkoutComplete,
 }) => {
   const [selectedDayForView, setSelectedDayForView] = useState<number | null>(
     workoutPlan && workoutPlan.length > 0 ? workoutPlan[0].day : null
@@ -162,10 +160,7 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
               {workoutTimerDisplay}
             </span>
             <button
-              onClick={() => {
-                onEndWorkout();
-                onWorkoutComplete();
-              }}
+              onClick={onEndWorkout}
               className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
             >
               {UI_TEXT.endWorkout}

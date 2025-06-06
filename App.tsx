@@ -12,17 +12,14 @@ import { useAuth } from './hooks/useAuth';
 import { AuthForm } from './components/AuthForm';
 import { useUserData } from './hooks/useUserData';
 import { deleteUser } from 'firebase/auth';
-import { auth } from './config/firebase';
-import { analyzeWorkout } from './services/workoutAnalysisService';
-
-// Import Firestore functions
-import { doc, deleteDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from './config/firebase';
+import { doc, deleteDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { analyzeWorkout } from './services/workoutAnalysisService';
 
 type View = 'profile' | 'workout' | 'progress';
 
 const App: React.FC = () => {
-  const { user, loading, logout } = useAuth();
+  const { user, loading, logout, setUser } = useAuth();
   const { workoutPlan, saveWorkoutPlan, loading: userDataLoading, profile: firestoreProfile, workoutLogs: firestoreWorkoutLogs, saveProfile, saveWorkoutLog } = useUserData();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [currentWorkoutPlan, setCurrentWorkoutPlan] = useState<DailyWorkoutPlan[] | null>(null);
@@ -33,182 +30,11 @@ const App: React.FC = () => {
   const [apiKeyMissing, setApiKeyMissing] = useState<boolean>(false);
 
   // Active Workout Session State
-  const [activeWorkoutDay, setActiveWorkoutDay] = useState<number | null>(null);
+  const [activeWorkoutDay, setActiveWorkoutDay] = useState<number | null>(null); // Day number
   const [sessionExercises, setSessionExercises] = useState<Exercise[]>([]);
   const [workoutStartTime, setWorkoutStartTime] = useState<number | null>(null);
   const [workoutTimer, setWorkoutTimer] = useState<number>(0);
   const [isAnalyzingWorkout, setIsAnalyzingWorkout] = useState<boolean>(false);
-
-  const ACTIVE_WORKOUT_LOCAL_STORAGE_KEY = 'active_workout_local_state';
-  const ACTIVE_WORKOUT_EXPIRATION_TIME = 24 * 60 * 60 * 1000; // 24 години
-
-  // Ефект для автоматичного переключення вкладок на основі стану профілю
-  useEffect(() => {
-    if (firestoreProfile) {
-      setCurrentView('workout');
-    } else {
-      setCurrentView('profile');
-    }
-  }, [firestoreProfile]);
-
-  // Функція для збереження стану тренування
-  const saveWorkoutState = useCallback((state: {
-    activeDay: number | null;
-    exercises: Exercise[];
-    startTime: number | null;
-    isWorkoutCompleted?: boolean;
-  }) => {
-    try {
-      // Зберігаємо всі необхідні дані для відновлення сесії
-      const stateToSave = {
-        activeDay: state.activeDay,
-        startTime: state.startTime,
-        timestamp: Date.now(),
-        isWorkoutCompleted: state.isWorkoutCompleted || false,
-        // Зберігаємо повний прогрес по вправах
-        exerciseProgress: state.exercises.map(ex => ({
-          name: ex.name,
-          isCompletedDuringSession: ex.isCompletedDuringSession,
-          sessionLoggedSets: ex.sessionLoggedSets || [],
-          sessionSuccess: ex.sessionSuccess,
-          currentSet: ex.sessionLoggedSets?.length || 0,
-          lastSetTime: ex.sessionLoggedSets?.[ex.sessionLoggedSets.length - 1]?.timestamp || null,
-          restTimeRemaining: ex.restTimeRemaining || (ex.rest ? parseInt(ex.rest) * 1000 : null),
-          targetWeight: ex.targetWeight,
-          targetReps: ex.targetReps,
-          recommendation: ex.recommendation,
-          notes: ex.notes
-        }))
-      };
-
-      localStorage.setItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY, JSON.stringify(stateToSave));
-      console.log('Workout session state saved:', stateToSave);
-    } catch (e) {
-      console.error('Error saving workout session state:', e);
-    }
-  }, []);
-
-  // Функція для завантаження стану тренування
-  const loadWorkoutState = useCallback(() => {
-    try {
-      const savedState = localStorage.getItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
-      if (!savedState) {
-        console.log('No saved workout session state found');
-        return null;
-      }
-
-      const state = JSON.parse(savedState);
-      console.log('Loaded workout session state:', state);
-
-      // Перевіряємо чи не закінчився термін дії
-      if (Date.now() - state.timestamp > ACTIVE_WORKOUT_EXPIRATION_TIME) {
-        console.log('Workout session state expired');
-        localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
-        return null;
-      }
-
-      // Перевіряємо чи не завершено тренування
-      if (state.isWorkoutCompleted) {
-        console.log('Workout session was completed');
-        localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
-        return null;
-      }
-
-      return state;
-    } catch (e) {
-      console.error('Error loading workout session state:', e);
-      localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
-      return null;
-    }
-  }, []);
-
-  // Завантаження стану при ініціалізації
-  useEffect(() => {
-    const savedState = loadWorkoutState();
-    if (savedState && currentWorkoutPlan) {
-      // Знаходимо план для збереженого дня
-      const planForDay = currentWorkoutPlan.find((p: DailyWorkoutPlan) => p.day === savedState.activeDay);
-      if (planForDay) {
-        // Відновлюємо базовий стан
-        setActiveWorkoutDay(savedState.activeDay);
-        setWorkoutStartTime(savedState.startTime);
-        
-        // Відновлюємо прогрес по вправах
-        const exercisesWithProgress = planForDay.exercises.map(ex => {
-          const savedProgress = savedState.exerciseProgress.find((p: { name: string }) => p.name === ex.name);
-          if (savedProgress) {
-            // Відновлюємо час відпочинку, якщо він був активний
-            const restTimeRemaining = savedProgress.lastSetTime ? 
-              Math.max(0, (parseInt(ex.rest) * 1000) - (Date.now() - savedProgress.lastSetTime)) : 
-              savedProgress.restTimeRemaining || (ex.rest ? parseInt(ex.rest) * 1000 : null);
-
-            return {
-              ...ex,
-              isCompletedDuringSession: savedProgress.isCompletedDuringSession,
-              sessionLoggedSets: savedProgress.sessionLoggedSets || [],
-              sessionSuccess: savedProgress.sessionSuccess,
-              targetWeight: savedProgress.targetWeight,
-              targetReps: savedProgress.targetReps,
-              recommendation: savedProgress.recommendation,
-              notes: savedProgress.notes,
-              restTimeRemaining
-            };
-          }
-          return ex;
-        });
-        
-        setSessionExercises(exercisesWithProgress);
-        
-        // Відновлюємо таймер
-        if (savedState.startTime) {
-          const elapsedTime = Math.floor((Date.now() - savedState.startTime) / 1000);
-          setWorkoutTimer(elapsedTime);
-        }
-      }
-    }
-  }, [loadWorkoutState, currentWorkoutPlan]);
-
-  // Зберігаємо стан при кожній зміні
-  useEffect(() => {
-    if (activeWorkoutDay !== null && workoutStartTime !== null) {
-      saveWorkoutState({
-        activeDay: activeWorkoutDay,
-        exercises: sessionExercises,
-        startTime: workoutStartTime
-      });
-    }
-  }, [activeWorkoutDay, sessionExercises, workoutStartTime, saveWorkoutState]);
-
-  // Оновлення таймера
-  useEffect(() => {
-    let timerInterval: NodeJS.Timeout;
-    if (workoutStartTime && !isAnalyzingWorkout) {
-      timerInterval = setInterval(() => {
-        const elapsedTime = Math.floor((Date.now() - workoutStartTime) / 1000);
-        setWorkoutTimer(elapsedTime);
-      }, 1000);
-    }
-    return () => {
-      if (timerInterval) {
-        clearInterval(timerInterval);
-      }
-    };
-  }, [workoutStartTime, isAnalyzingWorkout]);
-
-  // Функція для завершення тренування
-  const handleWorkoutComplete = useCallback(() => {
-    saveWorkoutState({
-      activeDay: activeWorkoutDay,
-      exercises: sessionExercises,
-      startTime: workoutStartTime,
-      isWorkoutCompleted: true
-    });
-    localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
-    setActiveWorkoutDay(null);
-    setSessionExercises([]);
-    setWorkoutStartTime(null);
-    setWorkoutTimer(0);
-  }, [activeWorkoutDay, sessionExercises, workoutStartTime, saveWorkoutState]);
 
   useEffect(() => {
     if (typeof import.meta.env === 'undefined' || !import.meta.env.VITE_API_KEY) {
@@ -228,9 +54,21 @@ const App: React.FC = () => {
   useEffect(() => {
     setUserProfile(firestoreProfile);
     setWorkoutLogs(firestoreWorkoutLogs);
-    // Важливо: Цей хук не повинен скидати стан активного тренування (activeWorkoutDay, sessionExercises, workoutStartTime)
-    // Стан активного тренування завантажується окремо з localStorage.
   }, [firestoreProfile, firestoreWorkoutLogs]);
+
+  useEffect(() => {
+    let timerInterval: number | null = null;
+    if (workoutStartTime && activeWorkoutDay !== null) {
+      timerInterval = window.setInterval(() => {
+        setWorkoutTimer(Math.floor((Date.now() - workoutStartTime) / 1000));
+      }, 1000);
+    } else {
+      setWorkoutTimer(0); // Reset timer if workout not active
+    }
+    return () => {
+      if (timerInterval) clearInterval(timerInterval);
+    };
+  }, [workoutStartTime, activeWorkoutDay]);
 
   const handleProfileSave = useCallback(async (profile: UserProfile) => {
     if (apiKeyMissing) {
@@ -349,11 +187,6 @@ const App: React.FC = () => {
       setActiveWorkoutDay(null);
       setWorkoutStartTime(null);
       setSessionExercises([]);
-      try {
-        localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
-      } catch (e) {
-        console.error("Error removing workout state from local storage", e);
-      }
       alert("Тренування завершено, але жодної вправи не було залоговано.");
       return;
     }
@@ -389,11 +222,6 @@ const App: React.FC = () => {
     setActiveWorkoutDay(null);
     setWorkoutStartTime(null);
     setSessionExercises([]);
-    try {
-      localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
-    } catch (e) {
-        console.error("Error removing workout state from local storage after saving log", e);
-    }
     
     // --- Start Workout Analysis ---
     console.log('Starting workout analysis...');
@@ -450,64 +278,26 @@ const App: React.FC = () => {
 
   const handleDeleteAccount = async () => {
     if (!user) return;
-    if (!window.confirm('Ви впевнені, що хочете видалити свій акаунт? Цю дію не можна скасувати!')) return;
+    
     try {
-      // Очищення даних з локального сховища (залишаємо для надійності, хоча вже не використовуємо активно)
-      localStorage.removeItem('fitnessAiAppUserProfile_v1');
-      localStorage.removeItem('fitnessAiAppWorkoutPlan_v1');
-      localStorage.removeItem('fitnessAiAppWorkoutLogs_v1');
+      // Видаляємо дані з Firestore
+      await deleteDoc(doc(db, 'users', user.uid));
+      await deleteDoc(doc(db, 'workoutPlans', user.uid));
       
-      // --- Видалення даних користувача з Firestore ---
-      if (user && user.uid) {
-         const userId = user.uid;
-         console.log(`Видалення даних користувача ${userId} з Firestore`);
-
-         // 1. Видалення документа профілю
-         try {
-            const userProfileRef = doc(db, "users", userId);
-            await deleteDoc(userProfileRef);
-            console.log(`Профіль користувача ${userId} видалено з Firestore`);
-         } catch (profileError: any) {
-            console.error(`Помилка при видаленні профілю користувача ${userId}:`, profileError);
-            // Продовжуємо видаляти інші дані, навіть якщо профіль не видалився
-         }
-
-         // 2. Видалення документа плану тренувань
-         try {
-            const workoutPlanRef = doc(db, "workoutPlans", userId);
-            await deleteDoc(workoutPlanRef);
-            console.log(`План тренувань користувача ${userId} видалено з Firestore`);
-         } catch (planError: any) {
-            console.error(`Помилка при видаленні плану тренувань користувача ${userId}:`, planError);
-            // Продовжуємо видаляти інші дані, навіть якщо план не видалився
-         }
-
-         // 3. Видалення логів тренувань (це колекція, потрібно видалити кожен документ)
-         try {
-            const workoutLogsCollectionRef = collection(db, "workoutLogs");
-            const q = query(workoutLogsCollectionRef, where("userId", "==", userId));
-            const querySnapshot = await getDocs(q);
-
-            const deletePromises = querySnapshot.docs.map(docSnapshot => deleteDoc(docSnapshot.ref));
-            await Promise.all(deletePromises);
-            console.log(`Логи тренувань користувача ${userId} видалено з Firestore`);
-         } catch (logsError: any) {
-            console.error(`Помилка при видаленні логів тренувань користувача ${userId}:`, logsError);
-            // Продовжуємо, навіть якщо логи не видалилися
-         }
-
-      }
-      // --- Кінець видалення даних користувача з Firestore ---
+      // Видаляємо всі логи тренувань користувача
+      const logsQuery = query(collection(db, 'workoutLogs'), where('userId', '==', user.uid));
+      const logsSnapshot = await getDocs(logsQuery);
+      const deletePromises = logsSnapshot.docs.map(doc => deleteDoc(doc.ref));
+      await Promise.all(deletePromises);
       
-      await deleteUser(auth.currentUser!);
-      alert('Акаунт успішно видалено.');
-      // Після видалення акаунта, стан додатка буде скинуто через логіку в useAuth
-    } catch (error: any) {
-      if (error.code === 'auth/requires-recent-login') {
-        alert('Для видалення акаунта потрібно повторно увійти. Вийдіть і увійдіть знову, потім спробуйте ще раз.');
-      } else {
-        alert('Помилка при видаленні акаунта: ' + error.message);
-      }
+      // Видаляємо користувача
+      await deleteUser(user);
+      
+      setUser(null);
+      setCurrentView('profile');
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      alert('Помилка при видаленні акаунту. Спробуйте ще раз.');
     }
   };
 
@@ -533,7 +323,6 @@ const App: React.FC = () => {
         return <Spinner message="Аналізуємо тренування..." />;
     }
 
-    // Якщо профіль не заповнений, показуємо форму профілю
     if (!firestoreProfile) {
       return <UserProfileForm 
                 existingProfile={userProfile} 
@@ -545,26 +334,23 @@ const App: React.FC = () => {
               />;
     }
 
-    // Якщо профіль заповнений, але немає плану тренувань
     if (firestoreProfile && !workoutPlan) {
         return <WorkoutDisplay 
-                  userProfile={firestoreProfile}
-                  workoutPlan={null}
-                  onGenerateNewPlan={handleGenerateNewPlan}
-                  isLoading={isLoading || (apiKeyMissing && !userProfile)}
-                  activeDay={activeWorkoutDay}
-                  sessionExercises={sessionExercises}
-                  onStartWorkout={handleStartWorkout}
-                  onEndWorkout={handleEndWorkout}
-                  onLogExercise={handleLogSingleExercise}
-                  workoutTimerDisplay={formatTime(workoutTimer)}
-                  isApiKeyMissing={apiKeyMissing}
-                  onSaveWorkoutPlan={handleSaveWorkoutPlan}
-                  onWorkoutComplete={handleWorkoutComplete}
-                />;
+                userProfile={firestoreProfile}
+                workoutPlan={null}
+                onGenerateNewPlan={handleGenerateNewPlan}
+                isLoading={isLoading || (apiKeyMissing && !userProfile)}
+                activeDay={activeWorkoutDay}
+                sessionExercises={sessionExercises}
+                onStartWorkout={handleStartWorkout}
+                onEndWorkout={handleEndWorkout}
+                onLogExercise={handleLogSingleExercise}
+                workoutTimerDisplay={formatTime(workoutTimer)}
+                isApiKeyMissing={apiKeyMissing}
+                onSaveWorkoutPlan={handleSaveWorkoutPlan}
+              />;
     }
     
-    // Якщо профіль заповнений і є план тренувань
     switch (currentView) {
       case 'profile':
         return <UserProfileForm 
@@ -576,6 +362,7 @@ const App: React.FC = () => {
                   onDeleteAccount={handleDeleteAccount}
                 />;
       case 'workout':
+        console.log('Rendering WorkoutDisplay. isLoading:', isLoading, 'userDataLoading:', userDataLoading, 'isAnalyzingWorkout:', isAnalyzingWorkout);
         return <WorkoutDisplay 
                   userProfile={userProfile}
                   workoutPlan={currentWorkoutPlan} 
@@ -589,29 +376,21 @@ const App: React.FC = () => {
                   workoutTimerDisplay={formatTime(workoutTimer)}
                   isApiKeyMissing={apiKeyMissing}
                   onSaveWorkoutPlan={handleSaveWorkoutPlan}
-                  onWorkoutComplete={handleWorkoutComplete}
                 />;
       case 'progress':
+        console.log('Rendering ProgressView. workoutLogs:', workoutLogs);
         return <ProgressView 
                   workoutLogs={workoutLogs}
                   userProfile={userProfile}
                 />;
       default:
-        // За замовчуванням показуємо вкладку тренування, якщо профіль заповнений
-        return <WorkoutDisplay 
-                  userProfile={userProfile}
-                  workoutPlan={currentWorkoutPlan} 
-                  onGenerateNewPlan={handleGenerateNewPlan}
-                  isLoading={isLoading || (apiKeyMissing && !userProfile) || isAnalyzingWorkout}
-                  activeDay={activeWorkoutDay}
-                  sessionExercises={sessionExercises}
-                  onStartWorkout={handleStartWorkout}
-                  onEndWorkout={handleEndWorkout}
-                  onLogExercise={handleLogSingleExercise}
-                  workoutTimerDisplay={formatTime(workoutTimer)}
-                  isApiKeyMissing={apiKeyMissing}
-                  onSaveWorkoutPlan={handleSaveWorkoutPlan}
-                  onWorkoutComplete={handleWorkoutComplete}
+        return <UserProfileForm 
+                  existingProfile={userProfile} 
+                  onSave={handleProfileSave} 
+                  apiKeyMissing={apiKeyMissing} 
+                  isLoading={isLoading}
+                  onLogout={logout}
+                  onDeleteAccount={handleDeleteAccount}
                 />;
     }
   };

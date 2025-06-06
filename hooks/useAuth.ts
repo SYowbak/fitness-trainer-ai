@@ -65,6 +65,7 @@ export const useAuth = () => {
     signIn,
     signUp,
     signInWithGoogle,
-    logout
+    logout,
+    setUser
   };
 }; 

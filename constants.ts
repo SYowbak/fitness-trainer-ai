@@ -127,7 +127,6 @@ export const UI_TEXT = {
   errorOccurred: "Сталася помилка:",
   tryAgain: "Спробувати ще раз",
   profileSaved: "Профіль збережено!",
-  localStorageNotSupported: "LocalStorage не підтримується у вашому браузері. Прогрес не буде збережено.",
   apiKeyMissing: "API ключ для Gemini не налаштовано. Функціонал генерації плану недоступний. Будь ласка, переконайтеся, що змінна середовища API_KEY встановлена.",
   exerciseInstructions: "Інструкції з виконання:",
   welcomeMessage: `Ласкаво просимо до ${APP_NAME}!`,

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { DailyWorkoutPlan, LoggedExercise } from '../types';
 
 interface WorkoutState {
@@ -8,27 +8,16 @@ interface WorkoutState {
   startTime: number;
 }
 
-const STORAGE_KEY = 'workout_state';
-
 export const useWorkoutState = () => {
-  const [state, setState] = useState<WorkoutState>(() => {
-    const savedState = localStorage.getItem(STORAGE_KEY);
-    return savedState ? JSON.parse(savedState) : {
-      currentDay: 1,
-      workoutPlan: null,
-      loggedExercises: [],
-      startTime: Date.now()
-    };
+  const [state, setState] = useState<WorkoutState>({
+    currentDay: 1,
+    workoutPlan: null,
+    loggedExercises: [],
+    startTime: Date.now()
   });
-
-  // Зберігаємо стан при кожній зміні
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [state]);
 
   // Очищаємо стан при завершенні тренування
   const clearWorkoutState = () => {
-    localStorage.removeItem(STORAGE_KEY);
     setState({
       currentDay: 1,
       workoutPlan: null,
