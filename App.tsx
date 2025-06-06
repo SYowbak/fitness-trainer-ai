@@ -50,18 +50,25 @@ const App: React.FC = () => {
     isWorkoutCompleted?: boolean;
   }) => {
     try {
-      // Зберігаємо тільки необхідні дані для відновлення сесії
+      // Зберігаємо всі необхідні дані для відновлення сесії
       const stateToSave = {
         activeDay: state.activeDay,
         startTime: state.startTime,
         timestamp: Date.now(),
         isWorkoutCompleted: state.isWorkoutCompleted || false,
-        // Зберігаємо тільки прогрес по вправах
+        // Зберігаємо повний прогрес по вправах
         exerciseProgress: state.exercises.map(ex => ({
           name: ex.name,
           isCompletedDuringSession: ex.isCompletedDuringSession,
           sessionLoggedSets: ex.sessionLoggedSets || [],
           sessionSuccess: ex.sessionSuccess,
+          currentSet: ex.sessionLoggedSets?.length || 0,
+          lastSetTime: ex.sessionLoggedSets?.[ex.sessionLoggedSets.length - 1]?.timestamp || null,
+          restTimeRemaining: ex.rest ? parseInt(ex.rest) * 1000 : null,
+          targetWeight: ex.targetWeight,
+          targetReps: ex.targetReps,
+          recommendation: ex.recommendation,
+          notes: ex.notes
         }))
       };
 
@@ -119,13 +126,26 @@ const App: React.FC = () => {
         
         // Відновлюємо прогрес по вправах
         const exercisesWithProgress = planForDay.exercises.map(ex => {
-          const savedProgress = savedState.exerciseProgress.find(p => p.name === ex.name);
-          return {
-            ...ex,
-            isCompletedDuringSession: savedProgress?.isCompletedDuringSession || false,
-            sessionLoggedSets: savedProgress?.sessionLoggedSets || [],
-            sessionSuccess: savedProgress?.sessionSuccess,
-          };
+          const savedProgress = savedState.exerciseProgress.find((p: { name: string }) => p.name === ex.name);
+          if (savedProgress) {
+            // Відновлюємо час відпочинку, якщо він був активний
+            const restTimeRemaining = savedProgress.lastSetTime ? 
+              Math.max(0, (parseInt(ex.rest) * 1000) - (Date.now() - savedProgress.lastSetTime)) : 
+              (ex.rest ? parseInt(ex.rest) * 1000 : null);
+
+            return {
+              ...ex,
+              isCompletedDuringSession: savedProgress.isCompletedDuringSession,
+              sessionLoggedSets: savedProgress.sessionLoggedSets || [],
+              sessionSuccess: savedProgress.sessionSuccess,
+              targetWeight: savedProgress.targetWeight,
+              targetReps: savedProgress.targetReps,
+              recommendation: savedProgress.recommendation,
+              notes: savedProgress.notes,
+              restTimeRemaining
+            };
+          }
+          return ex;
         });
         
         setSessionExercises(exercisesWithProgress);
@@ -139,7 +159,7 @@ const App: React.FC = () => {
     }
   }, [loadWorkoutState, currentWorkoutPlan]);
 
-  // Збереження стану при зміні
+  // Зберігаємо стан при кожній зміні
   useEffect(() => {
     if (activeWorkoutDay !== null && workoutStartTime !== null) {
       saveWorkoutState({

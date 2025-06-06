@@ -115,7 +115,11 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
 
   const handleSetDataChange = (setIndex: number, field: keyof LoggedSetWithAchieved, value: string) => {
     const newLoggedSetsData = [...loggedSetsData];
-    newLoggedSetsData[setIndex] = { ...newLoggedSetsData[setIndex], [field]: value ? parseFloat(value) : undefined };
+    newLoggedSetsData[setIndex] = { 
+      ...newLoggedSetsData[setIndex], 
+      [field]: value ? parseFloat(value) : undefined,
+      timestamp: Date.now()
+    };
     setLoggedSetsData(newLoggedSetsData);
   };
   

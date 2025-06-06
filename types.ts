@@ -100,6 +100,7 @@ export interface LoggedSetWithAchieved {
   repsAchieved?: number;
   weightUsed?: number;
   completed?: boolean;
+  timestamp?: number;
 }
 
 export interface LoggedExercise {
