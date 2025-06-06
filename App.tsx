@@ -81,40 +81,44 @@ const App: React.FC = () => {
         const savedObject = JSON.parse(savedState);
         const { activeDay, exercises, startTime, timestamp } = savedObject;
         
-        // Check if timestamp exists and is not expired
+        // Перевіряємо чи є всі необхідні поля
+        if (!activeDay || !exercises || !startTime || !timestamp) {
+          console.error("Missing required fields in saved workout state");
+          localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
+          return;
+        }
+
+        // Перевіряємо чи не закінчився термін дії
+        if (Date.now() - timestamp > ACTIVE_WORKOUT_EXPIRATION_TIME) {
+          console.log("Saved workout state has expired");
+          localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
+          return;
+        }
+
+        // Перевіряємо структуру даних
         if (
-          typeof timestamp === 'number' &&
-          (Date.now() - timestamp) < ACTIVE_WORKOUT_EXPIRATION_TIME
+          typeof activeDay === 'number' &&
+          Array.isArray(exercises) &&
+          exercises.every((ex: any) => typeof ex.name === 'string') &&
+          typeof startTime === 'number'
         ) {
-          // Basic validation of loaded data structure
-          if (
-            typeof activeDay === 'number' &&
-            Array.isArray(exercises) &&
-            exercises.every((ex: any) => typeof ex.name === 'string') && // Simple check for exercise structure
-            typeof startTime === 'number'
-          ) {
-            setActiveWorkoutDay(activeDay);
-            setSessionExercises(exercises);
-            setWorkoutStartTime(startTime);
-            // workoutTimer will be calculated by the timer effect
-          } else {
-             console.error("Loaded workout state has unexpected structure after timestamp check.", { activeDay, exercises, startTime });
-             localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY); // Clear potentially corrupted state
-          }
+          setActiveWorkoutDay(activeDay);
+          setSessionExercises(exercises);
+          setWorkoutStartTime(startTime);
+          console.log("Successfully loaded workout state from localStorage");
         } else {
-          console.log("Saved workout state is expired or has no timestamp. Clearing.");
+          console.error("Invalid data structure in saved workout state");
           localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
         }
-       } catch (e) {
-         console.error("Failed to parse or validate saved workout state from localStorage:", e);
-         localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY); // Clear corrupted state
+      } catch (e) {
+        console.error("Failed to parse saved workout state:", e);
+        localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
       }
     }
   }, []);
 
   // Save active workout state to localStorage whenever it changes
   useEffect(() => {
-    console.log("Checking if active workout state needs saving to localStorage...");
     if (activeWorkoutDay !== null && workoutStartTime !== null) {
       const stateToSave = {
         activeDay: activeWorkoutDay,
@@ -123,6 +127,7 @@ const App: React.FC = () => {
         timestamp: Date.now(),
       };
       localStorage.setItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY, JSON.stringify(stateToSave));
+      console.log("Saved workout state to localStorage:", stateToSave);
     }
   }, [activeWorkoutDay, workoutStartTime, sessionExercises]);
 
@@ -214,38 +219,37 @@ const App: React.FC = () => {
     const loggedExercisesForSession: LoggedExercise[] = sessionExercises
       .filter(ex => ex.isCompletedDuringSession)
       .map((ex) => ({
-        // Map fields from Exercise to LoggedExercise
-        exerciseName: ex.name, // Using name from Exercise as exerciseName
-        originalSets: ex.sets, // Using sets from Exercise as originalSets
-        originalReps: ex.reps, // Using reps from Exercise as originalReps
-        targetWeightAtLogging: ex.targetWeight || null, // Using targetWeight from Exercise
-        loggedSets: ex.sessionLoggedSets || [], // Using sessionLoggedSets
-        completedSuccessfully: ex.sessionSuccess ?? false, // Using sessionSuccess
-        notes: ex.notes, // Using notes from Exercise
+        exerciseName: ex.name,
+        originalSets: ex.sets,
+        originalReps: ex.reps,
+        targetWeightAtLogging: ex.targetWeight || null,
+        loggedSets: ex.sessionLoggedSets || [],
+        completedSuccessfully: ex.sessionSuccess ?? false,
+        notes: ex.notes,
       }));
 
     if (loggedExercisesForSession.length === 0) {
         setActiveWorkoutDay(null);
         setWorkoutStartTime(null);
         setSessionExercises([]);
+        localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY); // Очищаємо localStorage
         alert("Тренування завершено, але жодної вправи не було залоговано.");
         return;
     }
     
-    // Use the new field name loggedExercises
     const newLog: WorkoutLog = {
       id: new Date().toISOString(),
       userId: userProfile?.uid || 'anonymous',
-      date: new Date(), // Firebase SDK should handle conversion to Timestamp if needed on save
+      date: new Date(),
       duration: Math.floor((Date.now() - workoutStartTime) / 1000),
-      dayCompleted: activeWorkoutDay, // Add dayCompleted
-      workoutDuration: formatTime(Math.floor((Date.now() - workoutStartTime) / 1000)), // Add formatted duration
-      loggedExercises: loggedExercisesForSession, // Use the correctly structured array
+      dayCompleted: activeWorkoutDay,
+      workoutDuration: formatTime(Math.floor((Date.now() - workoutStartTime) / 1000)),
+      loggedExercises: loggedExercisesForSession,
     };
 
     const updatedLogs = [...workoutLogs, newLog];
     setWorkoutLogs(updatedLogs);
-    await saveWorkoutLog(newLog); // Зберігаємо новий лог у Firestore через useUserData
+    await saveWorkoutLog(newLog);
 
     let planWasUpdated = false;
     const updatedPlan = currentWorkoutPlan.map(dayPlan => {
@@ -284,6 +288,7 @@ const App: React.FC = () => {
     setActiveWorkoutDay(null);
     setWorkoutStartTime(null);
     setSessionExercises([]);
+    localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY); // Очищаємо localStorage після завершення
     setCurrentView('progress'); 
   }, [activeWorkoutDay, sessionExercises, currentWorkoutPlan, workoutLogs, workoutStartTime, userProfile, saveWorkoutPlan, saveWorkoutLog]);
 
