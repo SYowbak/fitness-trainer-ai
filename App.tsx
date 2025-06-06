@@ -78,29 +78,36 @@ const App: React.FC = () => {
 
   // Load active workout state from localStorage on initial load
   useEffect(() => {
+    console.log('Attempting to load active workout state from localStorage...');
     try {
       const savedState = localStorage.getItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
+      console.log('localStorage savedState:', savedState);
       if (!savedState) {
+        console.log('No saved state found in localStorage.');
         return;
       }
 
       const savedObject = JSON.parse(savedState);
+      console.log('Parsed saved state:', savedObject);
       const { activeDay, exercises, startTime, timestamp, isWorkoutCompleted } = savedObject;
       
       // Перевіряємо чи є всі необхідні поля
       if (!activeDay || !exercises || !startTime || !timestamp || isWorkoutCompleted === undefined) {
+        console.warn('Incomplete or invalid saved state in localStorage. Removing.', savedObject);
         localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
         return;
       }
 
       // Якщо тренування було завершене, видаляємо стан
       if (isWorkoutCompleted) {
+        console.log('Saved state indicates workout was completed. Removing from localStorage.');
         localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
         return;
       }
 
       // Перевіряємо чи не закінчився термін дії
       if (Date.now() - timestamp > ACTIVE_WORKOUT_EXPIRATION_TIME) {
+        console.log('Saved state expired. Removing from localStorage.');
         localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
         return;
       }
@@ -109,22 +116,27 @@ const App: React.FC = () => {
       if (
         typeof activeDay === 'number' &&
         Array.isArray(exercises) &&
-        exercises.every((ex: any) => typeof ex.name === 'string') &&
+        exercises.every((ex: any) => typeof ex.name === 'string') && // Проста перевірка структури вправи
         typeof startTime === 'number'
       ) {
+        console.log('Loading valid saved state.', { activeDay, exercises, startTime });
         setActiveWorkoutDay(activeDay);
         setSessionExercises(exercises);
         setWorkoutStartTime(startTime);
+        console.log('Active workout state loaded successfully.');
       } else {
+        console.warn('Invalid structure in saved state. Removing.', savedObject);
         localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
       }
     } catch (e) {
+      console.error('Error loading active workout state from localStorage:', e);
       localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
     }
   }, []);
 
   // Save active workout state to localStorage whenever it changes
   useEffect(() => {
+    console.log('Checking if active workout state needs saving...', { activeWorkoutDay, workoutStartTime, sessionExercisesLength: sessionExercises.length });
     if (activeWorkoutDay !== null && workoutStartTime !== null) {
       const stateToSave = {
         activeDay: activeWorkoutDay,
@@ -133,12 +145,17 @@ const App: React.FC = () => {
         timestamp: Date.now(),
         isWorkoutCompleted: false
       };
+      console.log('Saving active workout state to localStorage:', stateToSave);
       try {
         localStorage.setItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY, JSON.stringify(stateToSave));
+        console.log('Active workout state saved successfully.');
       } catch (e) {
+        console.error('Error saving active workout state to localStorage:', e);
       }
+    } else {
+        console.log('Active workout state is null, not saving.');
     }
-  }, [activeWorkoutDay, workoutStartTime, sessionExercises]);
+  }, [activeWorkoutDay, workoutStartTime, sessionExercises]); // Додано sessionExercises в залежності
 
   const handleProfileSave = useCallback(async (profile: UserProfile) => {
     if (apiKeyMissing) {
