@@ -47,22 +47,26 @@ const ExerciseLogRow: React.FC<ExerciseLogRowProps> = ({ loggedEx, exerciseProgr
       {exerciseProgress && (
         <div className="mt-2 pt-2 border-t border-gray-500">
           <h5 className="text-sm font-semibold text-blue-300 mb-1">Аналітика прогресу:</h5>
-          <p className="text-xs text-gray-300">
-            Попередній факт: ~{exerciseProgress.averageLoggedWeight.toFixed(1)} кг x ~{exerciseProgress.averageLoggedReps.toFixed(1)} повт.
-            ({exerciseProgress.averageLoggedSets.toFixed(1)} підх.)
-          </p>
-          {(exerciseProgress.recommendedWeight !== undefined && exerciseProgress.recommendedWeight !== 0) || 
-           (exerciseProgress.recommendedReps !== undefined && exerciseProgress.recommendedReps !== 0) || 
+          {(exerciseProgress.averageLoggedWeight !== undefined && exerciseProgress.averageLoggedReps !== undefined && exerciseProgress.averageLoggedSets !== undefined) ? (
+            <p className="text-xs text-gray-300">
+              Попередній факт: ~{exerciseProgress.averageLoggedWeight.toFixed(1)} кг x ~{exerciseProgress.averageLoggedReps.toFixed(1)} повт.
+              ({exerciseProgress.averageLoggedSets.toFixed(1)} підх.)
+            </p>
+          ) : (
+             <p className="text-xs text-gray-300">Попередній факт: Немає даних</p>
+          )}
+          {(exerciseProgress.recommendedWeight !== undefined && exerciseProgress.recommendedWeight !== 0) ||
+           (exerciseProgress.recommendedReps !== undefined && exerciseProgress.recommendedReps !== 0) ||
            (exerciseProgress.recommendedSets !== undefined && exerciseProgress.recommendedSets !== 0) ? (
             <p className="text-sm font-medium text-green-400 mt-1">
-              Рекомендована ціль: 
+              Рекомендована ціль:
               {exerciseProgress.recommendedWeight !== undefined && exerciseProgress.recommendedWeight !== 0 ? `${exerciseProgress.recommendedWeight.toFixed(1)} кг, ` : ''}
               {exerciseProgress.recommendedSets !== undefined && exerciseProgress.recommendedSets !== 0 ? `${exerciseProgress.recommendedSets} підх., ` : ''}
               {exerciseProgress.recommendedReps !== undefined && exerciseProgress.recommendedReps !== 0 ? `${exerciseProgress.recommendedReps} повт.` : ''}
             </p>
           ) : (
             <p className="text-sm font-medium text-yellow-400 mt-1">
-              Рекомендована ціль: Підберіть вагу для 
+              Рекомендована ціль: Підберіть вагу для
               {plannedSets ?? '-'} підходів по {plannedReps ?? '-'} повторень.
             </p>
           )}
