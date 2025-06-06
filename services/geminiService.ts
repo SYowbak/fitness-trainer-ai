@@ -36,7 +36,7 @@ const constructPrompt = (profile: UserProfile): string => {
   const experienceLevelText = getUkrainianExperienceLevel(experienceLevel);
   const targetMuscleGroupsText = targetMuscleGroups.length > 0 
     ? `з особливим акцентом на ${targetMuscleGroups.map(group => getUkrainianMuscleGroup(group)).join(', ')}`
-    : 'із загальним розвитком всіх груп м\'язів';
+    : 'із загальним розвитком всіх груп м'язів';
 
   return `Ти — висококваліфікований персональний фітнес-тренер, який створює індивідуальні програми тренувань. Твоя мета — розробити максимально ефективний, безпечний та логічний план тренувань у тренажерному залі ${userNamePart}.
 
@@ -69,7 +69,7 @@ const constructPrompt = (profile: UserProfile): string => {
         *   Правильне дихання.
         *   Типові помилки та як їх уникнути.
         *   Поради для максимальної ефективності.
-    *   **Кількість підходів:** Вкажи кількість робочих підходів (наприклад, "3-4" або число 4 , вказуєш скільки насправді потрібно зробити підходів залежно від цілі користувача). Не включай розминочні підходи сюди.
+    *   **Кількість підходів:** Вкажи кількість робочих підходів (наприклад, "3-4" або число 4 , вказуєш скільки насправді потрібно зробити підходів залежно від цілі користувача).
     *   **Кількість повторень:** Вкажи діапазон повторень, оптимальний для цілі (наприклад, "8-12" для гіпертрофії, "12-15" для витривалості).
     *   **Відпочинок:** Вкажи рекомендований час відпочинку між підходами в секундах (наприклад, "60-90 секунд").
     *   **videoSearchQuery:** Надай точний пошуковий запит для YouTube, який допоможе користувачеві знайти якісне відео з демонстрацією техніки вправи українською або російською мовою (наприклад, "як правильно робити станову тягу техніка" або "присідання зі штангою техніка виконання"). Якщо якісного запиту сформулювати не вдається, залиш null.
@@ -228,4 +228,43 @@ export const generateWorkoutAnalysis = async ({
     action: string;
   };
 }> => {
-  const prompt = `Ти - елітний фітнес-аналітик, який аналізує тренування та дає рекомендації щодо прогресу.\\n\\nПрофіль користувача:\\n${JSON.stringify(userProfile, null, 2)}\\n\\nПлан тренування на день:\\n${JSON.stringify(dayPlan, null, 2)}\\n\\nОстанній лог тренування:\\n${lastWorkoutLog ? JSON.stringify(lastWorkoutLog, null, 2) : \'Немає попередніх логів\'}\\n\\nПроаналізуй дані та надай рекомендації згідно з наступними принципами:\\n\\n1. Подвійна прогресія для вправ з вагою:\\n   - Спочатку збільшуй кількість повторень\\n   - Після досягнення верхньої межі повторень - збільшуй вагу\\n\\n2. Спеціальна лінія прогресу для вправ без ваги:\\n   - Для підтягувань: збільшення повторень\\n   - Для планки: збільшення тривалості в секундах\\n\\n3. Адаптація під ціль користувача:\\n   - MUSCLE_GAIN: фокус на гіпертрофії\\n   - STRENGTH: фокус на силі\\n   - ENDURANCE: фокус на витривалості\\n\\n4. Тон рекомендацій:\\n   - Професійний\\n   - Безособовий\\n   - Конкретний\\n   - Мотивуючий\\n\\nНадай відповідь у форматі JSON:\\n{\\n  \\\"updatedPlan\\\": {\\n    // Оновлений план тренування з новими цілями\\n  },\\n  \\\"recommendation\\\": {\\n    \\\"text\\\": \\\"Текст рекомендації\\\",\\n    \\\"action\\\": \\\"Конкретна дія для прогресу\\\"\\n  }\\n}\`;\n\n  console.log(\"Sending prompt to Gemini API for analysis:\", prompt); // Додаємо лог\n\n  const response = await fetch(\'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent\', {\n    method: \'POST\',\n    headers: {\n      \'Content-Type\': \'application/json\',\n      \'Authorization\': `Bearer ${import.meta.env.VITE_API_KEY}`\n    },\n    body: JSON.stringify({\n      contents: [{\n        parts: [{\n          text: prompt\n        }]\n      }]\n    })\n  });\n\n  if (!response.ok) {\n    const errorData = await response.json();\n    console.error(\"Gemini API error response:\", errorData); // Логуємо відповідь з помилкою\n    throw new Error(`Помилка при виклику Gemini API: ${errorData.error?.message || response.statusText}`);\n  }\n\n  const data = await response.json();\n  const analysisText = data.candidates[0].content.parts[0].text;\n  \n  try {\n    const analysis = JSON.parse(analysisText);\n    return {\n      updatedPlan: analysis.updatedPlan,\n      recommendation: analysis.recommendation\n    };\n  } catch (error) {\n    console.error(\'Помилка при парсингу відповіді:\', error);\n    throw new Error(\'Не вдалося обробити відповідь від AI\');\n  }\n};\n
+  const prompt = `Ти - елітний фітнес-аналітик, який аналізує тренування та дає рекомендації щодо прогресу.\n\nПрофіль користувача:\n${JSON.stringify(userProfile, null, 2)}\n\nПлан тренування на день:\n${JSON.stringify(dayPlan, null, 2)}\n\nОстанній лог тренування:\n${lastWorkoutLog ? JSON.stringify(lastWorkoutLog, null, 2) : 'Немає попередніх логів'}\n\nПроаналізуй дані та надай рекомендації згідно з наступними принципами:\n\n1. Подвійна прогресія для вправ з вагою:\n   - Спочатку збільшуй кількість повторень\n   - Після досягнення верхньої межі повторень - збільшуй вагу\n\n2. Спеціальна лінія прогресу для вправ без ваги:\n   - Для підтягувань: збільшення повторень\n   - Для планки: збільшення тривалості в секундах\n\n3. Адаптація під ціль користувача:\n   - MUSCLE_GAIN: фокус на гіпертрофії\n   - STRENGTH: фокус на силі\n   - ENDURANCE: фокус на витривалості\n\n4. Тон рекомендацій:\n   - Професійний\n   - Безособовий\n   - Конкретний\n   - Мотивуючий\n\nНадай відповідь у форматі JSON:\n{\n  \"updatedPlan\": {\n    // Оновлений план тренування з новими цілями\n  },\n  \"recommendation\": {\n    \"text\": \"Текст рекомендації\",\n    \"action\": \"Конкретна дія для прогресу\"\n  }
+}\`;
+
+  console.log("Sending prompt to Gemini API for analysis:", prompt); // Додаємо лог
+
+  const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${import.meta.env.VITE_API_KEY}`
+    },
+    body: JSON.stringify({
+      contents: [{
+        parts: [{
+          text: prompt
+        }]
+      }]
+    })
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    console.error("Gemini API error response:", errorData); // Логуємо відповідь з помилкою
+    throw new Error(`Помилка при виклику Gemini API: ${errorData.error?.message || response.statusText}`);
+  }
+
+  const data = await response.json();
+  const analysisText = data.candidates[0].content.parts[0].text;
+  
+  try {
+    const analysis = JSON.parse(analysisText);
+    return {
+      updatedPlan: analysis.updatedPlan,
+      recommendation: analysis.recommendation
+    };
+  } catch (error) {
+    console.error('Помилка при парсингу відповіді:', error);
+    throw new Error('Не вдалося обробити відповідь від AI');
+  }
+};
