@@ -146,7 +146,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
       setLoggedSetsData(prev => prev.slice(0, -1));
     }
   };
-
+  
   const cardBaseClasses = "p-3 sm:p-4 rounded-lg shadow-md transition-all duration-300";
   const cardBgClasses = isCompleted ? "bg-green-800/50 hover:bg-green-700/60" : "bg-gray-700/60 hover:bg-gray-700/80";
   const completedTextClasses = isCompleted ? "text-green-300" : "text-yellow-300";

@@ -32,76 +32,154 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>(localStorage.getItem('currentView') as View || 'profile');
   const [apiKeyMissing, setApiKeyMissing] = useState<boolean>(false);
 
-  // Active Workout Session State - Attempt to load synchronously from localStorage
-  const getInitialActiveWorkoutState = () => {
-    try {
-      const savedState = localStorage.getItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
-      console.log('localStorage savedState (sync):', savedState);
-      if (!savedState) {
-        console.log('No saved state found in localStorage (sync).');
-        return { activeDay: null, sessionExercises: [], workoutStartTime: null };
-      }
-
-      const savedObject = JSON.parse(savedState);
-      console.log('Parsed saved state (sync):', savedObject);
-      const { activeDay, exercises, startTime, timestamp, isWorkoutCompleted } = savedObject;
-
-      // Перевіряємо чи є всі необхідні поля
-      if (!activeDay || !exercises || !startTime || !timestamp || isWorkoutCompleted === undefined) {
-        console.warn('Incomplete or invalid saved state in localStorage (sync). Removing.', savedObject);
-        localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
-        return { activeDay: null, sessionExercises: [], workoutStartTime: null };
-      }
-
-      // Якщо тренування було завершене, видаляємо стан
-      if (isWorkoutCompleted) {
-        console.log('Saved state indicates workout was completed (sync). Removing from localStorage.');
-        localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
-        return { activeDay: null, sessionExercises: [], workoutStartTime: null };
-      }
-
-      // Перевіряємо чи не закінчився термін дії
-      if (Date.now() - timestamp > ACTIVE_WORKOUT_EXPIRATION_TIME) {
-        console.log('Saved state expired (sync). Removing from localStorage.');
-        localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
-        return { activeDay: null, sessionExercises: [], workoutStartTime: null };
-      }
-
-      // Перевіряємо структуру даних
-      if (
-        typeof activeDay === 'number' &&
-        Array.isArray(exercises) &&
-        exercises.every((ex: any) => typeof ex.name === 'string') && // Проста перевірка структури вправи
-        typeof startTime === 'number'
-      ) {
-        console.log('Loading valid saved state (sync).', { activeDay, exercises, startTime });
-        return {
-          activeDay: activeDay as number,
-          sessionExercises: exercises as Exercise[],
-          workoutStartTime: startTime as number,
-        };
-      } else {
-        console.warn('Invalid structure in saved state (sync). Removing.', savedObject);
-        localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
-        return { activeDay: null, sessionExercises: [], workoutStartTime: null };
-      }
-    } catch (e) {
-      console.error('Error loading active workout state from localStorage (sync):', e);
-      localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
-      return { activeDay: null, sessionExercises: [], workoutStartTime: null };
-    }
-  };
-
-  const initialActiveWorkoutState = getInitialActiveWorkoutState();
-
-  const [activeWorkoutDay, setActiveWorkoutDay] = useState<number | null>(initialActiveWorkoutState.activeDay); // Day number
-  const [sessionExercises, setSessionExercises] = useState<Exercise[]>(initialActiveWorkoutState.sessionExercises);
-  const [workoutStartTime, setWorkoutStartTime] = useState<number | null>(initialActiveWorkoutState.workoutStartTime);
+  // Active Workout Session State
+  const [activeWorkoutDay, setActiveWorkoutDay] = useState<number | null>(null);
+  const [sessionExercises, setSessionExercises] = useState<Exercise[]>([]);
+  const [workoutStartTime, setWorkoutStartTime] = useState<number | null>(null);
   const [workoutTimer, setWorkoutTimer] = useState<number>(0);
   const [isAnalyzingWorkout, setIsAnalyzingWorkout] = useState<boolean>(false);
 
   const ACTIVE_WORKOUT_LOCAL_STORAGE_KEY = 'active_workout_local_state';
-  const ACTIVE_WORKOUT_EXPIRATION_TIME = 24 * 60 * 60 * 1000; // 24 години у мілісекундах.
+  const ACTIVE_WORKOUT_EXPIRATION_TIME = 24 * 60 * 60 * 1000; // 24 години
+
+  // Функція для збереження стану тренування
+  const saveWorkoutState = useCallback((state: {
+    activeDay: number | null;
+    exercises: Exercise[];
+    startTime: number | null;
+    isWorkoutCompleted?: boolean;
+  }) => {
+    try {
+      // Зберігаємо тільки необхідні дані для відновлення сесії
+      const stateToSave = {
+        activeDay: state.activeDay,
+        startTime: state.startTime,
+        timestamp: Date.now(),
+        isWorkoutCompleted: state.isWorkoutCompleted || false,
+        // Зберігаємо тільки прогрес по вправах
+        exerciseProgress: state.exercises.map(ex => ({
+          name: ex.name,
+          isCompletedDuringSession: ex.isCompletedDuringSession,
+          sessionLoggedSets: ex.sessionLoggedSets || [],
+          sessionSuccess: ex.sessionSuccess,
+        }))
+      };
+
+      localStorage.setItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY, JSON.stringify(stateToSave));
+      console.log('Workout session state saved:', stateToSave);
+    } catch (e) {
+      console.error('Error saving workout session state:', e);
+    }
+  }, []);
+
+  // Функція для завантаження стану тренування
+  const loadWorkoutState = useCallback(() => {
+    try {
+      const savedState = localStorage.getItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
+      if (!savedState) {
+        console.log('No saved workout session state found');
+        return null;
+      }
+
+      const state = JSON.parse(savedState);
+      console.log('Loaded workout session state:', state);
+
+      // Перевіряємо чи не закінчився термін дії
+      if (Date.now() - state.timestamp > ACTIVE_WORKOUT_EXPIRATION_TIME) {
+        console.log('Workout session state expired');
+        localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
+        return null;
+      }
+
+      // Перевіряємо чи не завершено тренування
+      if (state.isWorkoutCompleted) {
+        console.log('Workout session was completed');
+        localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
+        return null;
+      }
+
+      return state;
+    } catch (e) {
+      console.error('Error loading workout session state:', e);
+      localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
+      return null;
+    }
+  }, []);
+
+  // Завантаження стану при ініціалізації
+  useEffect(() => {
+    const savedState = loadWorkoutState();
+    if (savedState && currentWorkoutPlan) {
+      // Знаходимо план для збереженого дня
+      const planForDay = currentWorkoutPlan.find((p: DailyWorkoutPlan) => p.day === savedState.activeDay);
+      if (planForDay) {
+        // Відновлюємо базовий стан
+        setActiveWorkoutDay(savedState.activeDay);
+        setWorkoutStartTime(savedState.startTime);
+        
+        // Відновлюємо прогрес по вправах
+        const exercisesWithProgress = planForDay.exercises.map(ex => {
+          const savedProgress = savedState.exerciseProgress.find(p => p.name === ex.name);
+          return {
+            ...ex,
+            isCompletedDuringSession: savedProgress?.isCompletedDuringSession || false,
+            sessionLoggedSets: savedProgress?.sessionLoggedSets || [],
+            sessionSuccess: savedProgress?.sessionSuccess,
+          };
+        });
+        
+        setSessionExercises(exercisesWithProgress);
+        
+        // Відновлюємо таймер
+        if (savedState.startTime) {
+          const elapsedTime = Math.floor((Date.now() - savedState.startTime) / 1000);
+          setWorkoutTimer(elapsedTime);
+        }
+      }
+    }
+  }, [loadWorkoutState, currentWorkoutPlan]);
+
+  // Збереження стану при зміні
+  useEffect(() => {
+    if (activeWorkoutDay !== null && workoutStartTime !== null) {
+      saveWorkoutState({
+        activeDay: activeWorkoutDay,
+        exercises: sessionExercises,
+        startTime: workoutStartTime
+      });
+    }
+  }, [activeWorkoutDay, sessionExercises, workoutStartTime, saveWorkoutState]);
+
+  // Оновлення таймера
+  useEffect(() => {
+    let timerInterval: NodeJS.Timeout;
+    if (workoutStartTime && !isAnalyzingWorkout) {
+      timerInterval = setInterval(() => {
+        const elapsedTime = Math.floor((Date.now() - workoutStartTime) / 1000);
+        setWorkoutTimer(elapsedTime);
+      }, 1000);
+    }
+    return () => {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+      }
+    };
+  }, [workoutStartTime, isAnalyzingWorkout]);
+
+  // Функція для завершення тренування
+  const handleWorkoutComplete = useCallback(() => {
+    saveWorkoutState({
+      activeDay: activeWorkoutDay,
+      exercises: sessionExercises,
+      startTime: workoutStartTime,
+      isWorkoutCompleted: true
+    });
+    localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
+    setActiveWorkoutDay(null);
+    setSessionExercises([]);
+    setWorkoutStartTime(null);
+    setWorkoutTimer(0);
+  }, [activeWorkoutDay, sessionExercises, workoutStartTime, saveWorkoutState]);
 
   useEffect(() => {
     if (typeof import.meta.env === 'undefined' || !import.meta.env.VITE_API_KEY) {
@@ -124,43 +202,6 @@ const App: React.FC = () => {
     // Важливо: Цей хук не повинен скидати стан активного тренування (activeWorkoutDay, sessionExercises, workoutStartTime)
     // Стан активного тренування завантажується окремо з localStorage.
   }, [firestoreProfile, firestoreWorkoutLogs]);
-
-  useEffect(() => {
-    let timerInterval: number | null = null;
-    if (workoutStartTime && activeWorkoutDay !== null) {
-      timerInterval = window.setInterval(() => {
-        setWorkoutTimer(Math.floor((Date.now() - workoutStartTime) / 1000));
-      }, 1000);
-    } else {
-      setWorkoutTimer(0); // Reset timer if workout not active
-    }
-    return () => {
-      if (timerInterval) clearInterval(timerInterval);
-    };
-  }, [workoutStartTime, activeWorkoutDay]);
-
-  // Save active workout state to localStorage whenever it changes
-  useEffect(() => {
-    console.log('Checking if active workout state needs saving...', { activeWorkoutDay, workoutStartTime, sessionExercisesLength: sessionExercises.length });
-    if (activeWorkoutDay !== null && workoutStartTime !== null) {
-      const stateToSave = {
-        activeDay: activeWorkoutDay,
-        exercises: sessionExercises,
-        startTime: workoutStartTime,
-        timestamp: Date.now(),
-        isWorkoutCompleted: false
-      };
-      console.log('Saving active workout state to localStorage:', stateToSave);
-      try {
-        localStorage.setItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY, JSON.stringify(stateToSave));
-        console.log('Active workout state saved successfully.');
-      } catch (e) {
-        console.error('Error saving active workout state to localStorage:', e);
-      }
-    } else {
-        console.log('Active workout state is null, not saving.');
-    }
-  }, [activeWorkoutDay, workoutStartTime, sessionExercises]); // Додано sessionExercises в залежності
 
   const handleProfileSave = useCallback(async (profile: UserProfile) => {
     if (apiKeyMissing) {
@@ -476,19 +517,20 @@ const App: React.FC = () => {
 
     if (firestoreProfile && !workoutPlan) {
         return <WorkoutDisplay 
-                userProfile={firestoreProfile}
-                workoutPlan={null}
-                onGenerateNewPlan={handleGenerateNewPlan}
-                isLoading={isLoading || (apiKeyMissing && !userProfile)}
-                activeDay={activeWorkoutDay}
-                sessionExercises={sessionExercises}
-                onStartWorkout={handleStartWorkout}
-                onEndWorkout={handleEndWorkout}
-                onLogExercise={handleLogSingleExercise}
-                workoutTimerDisplay={formatTime(workoutTimer)}
-                isApiKeyMissing={apiKeyMissing}
-                onSaveWorkoutPlan={handleSaveWorkoutPlan}
-              />;
+                  userProfile={firestoreProfile}
+                  workoutPlan={null}
+                  onGenerateNewPlan={handleGenerateNewPlan}
+                  isLoading={isLoading || (apiKeyMissing && !userProfile)}
+                  activeDay={activeWorkoutDay}
+                  sessionExercises={sessionExercises}
+                  onStartWorkout={handleStartWorkout}
+                  onEndWorkout={handleEndWorkout}
+                  onLogExercise={handleLogSingleExercise}
+                  workoutTimerDisplay={formatTime(workoutTimer)}
+                  isApiKeyMissing={apiKeyMissing}
+                  onSaveWorkoutPlan={handleSaveWorkoutPlan}
+                  onWorkoutComplete={handleWorkoutComplete}
+                />;
     }
     
     switch (currentView) {
@@ -516,6 +558,7 @@ const App: React.FC = () => {
                   workoutTimerDisplay={formatTime(workoutTimer)}
                   isApiKeyMissing={apiKeyMissing}
                   onSaveWorkoutPlan={handleSaveWorkoutPlan}
+                  onWorkoutComplete={handleWorkoutComplete}
                 />;
       case 'progress':
         console.log('Rendering ProgressView. workoutLogs:', workoutLogs);

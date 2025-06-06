@@ -76,7 +76,7 @@ export interface Exercise {
     text: string;
     action: string;
   };
-  isCompletedDuringSession?: boolean;
+  isCompletedDuringSession?: boolean; 
   sessionLoggedSets?: LoggedSetWithAchieved[];
   sessionSuccess?: boolean;
   notes?: string;

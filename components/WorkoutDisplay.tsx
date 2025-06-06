@@ -18,6 +18,7 @@ interface WorkoutDisplayProps {
   workoutTimerDisplay: string;
   isApiKeyMissing: boolean;
   onSaveWorkoutPlan: (plan: DailyWorkoutPlan[]) => void;
+  onWorkoutComplete: () => void;
 }
 
 const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
@@ -33,6 +34,7 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
   workoutTimerDisplay,
   isApiKeyMissing,
   onSaveWorkoutPlan,
+  onWorkoutComplete,
 }) => {
   const [selectedDayForView, setSelectedDayForView] = useState<number | null>(
     workoutPlan && workoutPlan.length > 0 ? workoutPlan[0].day : null
@@ -136,18 +138,18 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
                 {UI_TEXT.editWorkoutPlan}
               </button>
             )}
-            <button
+              <button
               onClick={() => selectedDayForView !== null && onStartWorkout(selectedDayForView)}
               disabled={selectedDayForView === null}
               className={`w-full md:w-auto px-4 py-2 rounded transition-colors ${
                 selectedDayForView === null
                   ? 'bg-gray-500 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700 text-white'
               }`}
-            >
+              >
               {UI_TEXT.startWorkout}
-            </button>
+              </button>
           </div>
-        </div>
+            </div>
       ) : (
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl sm:text-2xl font-bold text-purple-300">
@@ -160,20 +162,23 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
               {workoutTimerDisplay}
             </span>
             <button
-              onClick={onEndWorkout}
+              onClick={() => {
+                onEndWorkout();
+                onWorkoutComplete();
+              }}
               className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
             >
               {UI_TEXT.endWorkout}
             </button>
-          </div>
-        </div>
-      )}
-
+            </div>
+            </div>
+          )}
+          
       <div className="space-y-4">
         {exercisesToDisplay.map((exercise, index) => (
-          <ExerciseCard
+                <ExerciseCard
             key={index}
-            exercise={exercise}
+                  exercise={exercise}
             isActive={activeDay !== null}
             onLogExercise={(loggedSets, success) => {
               const updatedExercises = [...exercisesToDisplay];
@@ -185,9 +190,9 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
               };
               onLogExercise(index, loggedSets, success);
             }}
-          />
-        ))}
-      </div>
+                />
+              ))}
+            </div>
     </div>
   );
 };
