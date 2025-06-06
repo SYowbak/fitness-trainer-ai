@@ -142,19 +142,21 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
     <div className="space-y-6">
       {activeDay === null ? (
         <div className="mb-6 flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0 md:space-x-4 w-full max-w-full overflow-hidden">
-          <div className="flex-none md:flex-grow">
-            <label className="block text-gray-300 mb-2">{UI_TEXT.selectDay}:</label>
-            <select
-              value={selectedDayForView || ''}
-              onChange={(e) => setSelectedDayForView(Number(e.target.value))}
-              className="w-full p-2 bg-gray-700 text-white rounded border border-gray-600"
-            >
-              {workoutPlan.map(day => (
-                <option key={day.day} value={day.day}>
-                  {UI_TEXT.day} {day.day}
-                </option>
-              ))}
-            </select>
+          <div className="flex-none md:flex-grow flex flex-wrap gap-2 justify-center md:justify-start">
+            {workoutPlan.map(day => (
+              <button
+                key={day.day}
+                onClick={() => setSelectedDayForView(day.day)}
+                className={
+                  `px-4 py-2 rounded transition-colors text-sm sm:text-base ` +
+                  (selectedDayForView === day.day
+                    ? 'bg-purple-600 text-white shadow-lg'
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600')
+                }
+              >
+                {UI_TEXT.day} {day.day}
+              </button>
+            ))}
           </div>
           <div className="flex flex-col space-y-2 mt-auto w-full md:flex-row md:space-y-0 md:space-x-2 md:w-auto md:justify-start flex-shrink-0 min-w-0">
             {!isApiKeyMissing && (
@@ -202,7 +204,7 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
       {isAnalyzing ? (
         <Spinner message="Аналіз тренування..." />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="space-y-4">
           {exercisesToDisplay.map((exercise, index) => (
             <ExerciseCard
               key={index}
