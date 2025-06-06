@@ -145,19 +145,14 @@ export const useUserData = () => {
   useEffect(() => {
     const loadWorkoutPlan = async () => {
       if (!user) {
-        console.log('No user, skipping workout plan load');
         setWorkoutPlan(null);
         return;
       }
       try {
-        console.log('Loading workout plan for user:', user.uid);
         const docRef = doc(db, 'workoutPlans', user.uid);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
-          console.log('Workout plan loaded from Firestore:', docSnap.data().plan);
           setWorkoutPlan(docSnap.data().plan as DailyWorkoutPlan[]);
-        } else {
-          console.log('No workout plan found in Firestore for user', user.uid);
         }
       } catch (error) {
         console.error('Error loading workout plan:', error);
@@ -188,17 +183,10 @@ export const useUserData = () => {
         ...log,
         userId: user.uid
       };
-
-      // Use removeUndefined to clean the log object before saving
       const cleanedLog = removeUndefined(logWithUserId);
-
-      console.log('Attempting to save workout log data:', cleanedLog); // Log cleaned data
-
       const logsRef = collection(db, 'workoutLogs');
-      // Pass the cleaned object to setDoc
       await setDoc(doc(logsRef), cleanedLog);
-
-      setWorkoutLogs(prev => [cleanedLog as WorkoutLog, ...prev]); // Update state with cleaned log
+      setWorkoutLogs(prev => [cleanedLog as WorkoutLog, ...prev]);
     } catch (error) {
       console.error('Error saving workout log:', error);
       throw error;
@@ -209,11 +197,9 @@ export const useUserData = () => {
   const saveWorkoutPlan = async (plan: DailyWorkoutPlan[]) => {
     if (!user) throw new Error('User not authenticated');
     try {
-      console.log('Saving workout plan for user:', user.uid);
       const cleanedPlan = cleanWorkoutPlanForFirestore(plan);
       const docRef = doc(db, 'workoutPlans', user.uid);
       await setDoc(docRef, { plan: cleanedPlan });
-      console.log('Successfully saved workout plan to Firestore');
       setWorkoutPlan(cleanedPlan);
     } catch (error) {
       console.error('Error saving workout plan:', error);

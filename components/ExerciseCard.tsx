@@ -16,26 +16,9 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   const [isExpanded, setIsExpanded] = useState(false);
   const [showLogForm, setShowLogForm] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
-  
-  // Додаємо логування для дебагу
-  useEffect(() => {
-    console.log('Exercise data:', {
-      name: exercise.name,
-      description: exercise.description,
-      videoSearchQuery: exercise.videoSearchQuery,
-      sets: exercise.sets,
-      reps: exercise.reps,
-      rest: exercise.rest,
-      recommendation: exercise.recommendation,
-      targetReps: exercise.targetReps,
-      targetWeight: exercise.targetWeight
-    });
-  }, [exercise]);
-
   const [loggedSetsData, setLoggedSetsData] = useState<LoggedSetWithAchieved[]>([]);
-  const [numSets, setNumSets] = useState(parseInt(exercise.sets.toString()) || 3); // Initialize with exercise.sets
+  const [numSets, setNumSets] = useState(parseInt(exercise.sets.toString()) || 3);
   const [allSetsSuccessful, setAllSetsSuccessful] = useState<boolean>(true);
-
   const [restTimer, setRestTimer] = useState<number>(0);
   const [isResting, setIsResting] = useState<boolean>(false);
   const [restStartTime, setRestStartTime] = useState<number | null>(null);

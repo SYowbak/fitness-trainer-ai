@@ -104,8 +104,6 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
     ? sessionExercises 
     : currentDayPlan?.exercises || [];
 
-  console.log('WorkoutDisplay rendering. exercisesToDisplay:', exercisesToDisplay);
-
   return (
     <div className="space-y-6">
       {activeDay === null ? (

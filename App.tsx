@@ -15,12 +15,14 @@ import { deleteUser } from 'firebase/auth';
 import { db } from './config/firebase';
 import { doc, deleteDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { analyzeWorkout } from './services/workoutAnalysisService';
+import { useWorkoutSync } from './hooks/useWorkoutSync';
 
 type View = 'profile' | 'workout' | 'progress';
 
 const App: React.FC = () => {
   const { user, loading, logout, setUser } = useAuth();
   const { workoutPlan, saveWorkoutPlan, loading: userDataLoading, profile: firestoreProfile, workoutLogs: firestoreWorkoutLogs, saveProfile, saveWorkoutLog } = useUserData();
+  const { session, startWorkout, updateExercise, endWorkout, updateTimer } = useWorkoutSync(user?.uid || '');
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [currentWorkoutPlan, setCurrentWorkoutPlan] = useState<DailyWorkoutPlan[] | null>(null);
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
@@ -128,49 +130,26 @@ const App: React.FC = () => {
     if (!currentWorkoutPlan || !Array.isArray(currentWorkoutPlan)) return;
     const planForDay = currentWorkoutPlan.find(d => d.day === dayNumber);
     if (planForDay && planForDay.exercises && Array.isArray(planForDay.exercises)) {
-      setSessionExercises(planForDay.exercises.map(ex => ({
-        ...ex,
-        isCompletedDuringSession: false,
-        sessionLoggedSets: [],
-        sessionSuccess: undefined,
-        recommendation: ex.recommendation,
-        targetReps: ex.targetReps,
-        targetWeight: ex.targetWeight,
-      })));
-      setActiveWorkoutDay(dayNumber);
-      setWorkoutStartTime(Date.now());
-      setWorkoutTimer(0);
-      setCurrentView('workout'); 
+      startWorkout(dayNumber, planForDay.exercises);
+      setCurrentView('workout');
     }
-  }, [currentWorkoutPlan]);
+  }, [currentWorkoutPlan, startWorkout]);
 
   const handleLogSingleExercise = useCallback((exerciseIndex: number, loggedSets: LoggedSet[], success: boolean) => {
-    console.log('handleLogSingleExercise called:', { exerciseIndex, loggedSets, success });
-    setSessionExercises(prev =>
-      prev.map((ex, idx) =>
-        idx === exerciseIndex
-          ? { ...ex, sessionLoggedSets: loggedSets, sessionSuccess: success, isCompletedDuringSession: true }
-          : ex
-      )
-    );
-    console.log('sessionExercises state after update attempt:', sessionExercises);
-  }, []);
+    updateExercise(exerciseIndex, loggedSets, success);
+  }, [updateExercise]);
   
   const handleEndWorkout = useCallback(async () => {
-    if (activeWorkoutDay === null || !currentWorkoutPlan || !Array.isArray(currentWorkoutPlan) || !workoutStartTime || !userProfile) return;
+    if (session.activeDay === null || !currentWorkoutPlan || !Array.isArray(currentWorkoutPlan) || !session.startTime || !userProfile) return;
 
-    console.log('handleEndWorkout called. sessionExercises:', sessionExercises);
-
-    // Find the current day's plan before clearing active workout state
-    const currentDayPlan = currentWorkoutPlan.find(p => p.day === activeWorkoutDay);
+    const currentDayPlan = currentWorkoutPlan.find(p => p.day === session.activeDay);
     if (!currentDayPlan) {
-        console.error("Could not find current day's plan.");
-        alert("Помилка: Не вдалося знайти план тренування для аналізу.");
-        return;
+      console.error("Could not find current day's plan.");
+      alert("Помилка: Не вдалося знайти план тренування для аналізу.");
+      return;
     }
 
-    // Map sessionExercises to the new LoggedExercise structure
-    const loggedExercisesForSession: LoggedExercise[] = sessionExercises
+    const loggedExercisesForSession: LoggedExercise[] = session.sessionExercises
       .filter(ex => ex.isCompletedDuringSession)
       .map((ex) => ({
         exerciseName: ex.name,
@@ -183,10 +162,7 @@ const App: React.FC = () => {
       }));
 
     if (loggedExercisesForSession.length === 0) {
-      // Clear active workout state and local storage first
-      setActiveWorkoutDay(null);
-      setWorkoutStartTime(null);
-      setSessionExercises([]);
+      endWorkout();
       alert("Тренування завершено, але жодної вправи не було залоговано.");
       return;
     }
@@ -195,86 +171,69 @@ const App: React.FC = () => {
       id: new Date().toISOString(),
       userId: userProfile?.uid || 'anonymous',
       date: new Date(),
-      duration: Math.floor((Date.now() - workoutStartTime) / 1000),
-      dayCompleted: activeWorkoutDay,
-      workoutDuration: formatTime(Math.floor((Date.now() - workoutStartTime) / 1000)),
+      duration: Math.floor((Date.now() - session.startTime) / 1000),
+      dayCompleted: session.activeDay,
+      workoutDuration: formatTime(Math.floor((Date.now() - session.startTime) / 1000)),
       loggedExercises: loggedExercisesForSession,
     };
 
-    // Declare updatedLogs here to be accessible after the try block
-    let updatedLogs: WorkoutLog[];
-
-    // Save the new log first
     try {
-        await saveWorkoutLog(newLog);
-        updatedLogs = [...workoutLogs, newLog]; // Assign to the declared variable
-        setWorkoutLogs(updatedLogs);
-        alert(UI_TEXT.workoutLogged);
-        console.log('Workout log saved successfully. New logs state:', updatedLogs);
+      await saveWorkoutLog(newLog);
+      setWorkoutLogs(prev => [...prev, newLog]);
+      alert(UI_TEXT.workoutLogged);
     } catch (e: any) {
-        console.error("Error saving workout log:", e);
-        setError(e.message || "Помилка при збереженні логу тренування.");
-        // Decide if you want to proceed with analysis if saving log failed
-        return; // Exit if log saving failed
+      console.error("Error saving workout log:", e);
+      setError(e.message || "Помилка при збереженні логу тренування.");
+      return;
     }
 
-    // Clear active workout state and local storage AFTER saving log
-    setActiveWorkoutDay(null);
-    setWorkoutStartTime(null);
-    setSessionExercises([]);
+    endWorkout();
     
     // --- Start Workout Analysis ---
-    console.log('Starting workout analysis...');
-    setIsAnalyzingWorkout(true); // Set analysis loading state
+    setIsAnalyzingWorkout(true);
     try {
-        // Find the latest log again from the potentially updated logs state
-        const latestLog = updatedLogs.find((log: WorkoutLog) => log.id === newLog.id) || null; // Explicitly type log
-
-        // We pass all workoutLogs for broader context for the AI, including the new one
-        const analysisResult = await analyzeWorkout(
-          userProfile, // Ensure userProfile is passed
-          currentDayPlan, // Pass the plan for the day that was just completed
-          latestLog, // Pass the newly created log as the latest
-          updatedLogs.filter((log: WorkoutLog) => log.id !== newLog.id) // Pass all other logs, Explicitly type log
-        );
-        console.log('Analysis completed. Result:', analysisResult);
-        // Додаємо детальне логування вмісту updatedPlan.exercises
-        if (analysisResult?.updatedPlan?.exercises) {
-            console.log('Analyzed plan exercises with recommendations:', analysisResult.updatedPlan.exercises);
+      const analysisResult = await analyzeWorkout(
+        userProfile,
+        currentDayPlan,
+        newLog,
+        workoutLogs
+      );
+      if (analysisResult?.updatedPlan) {
+        const planIndex = currentWorkoutPlan.findIndex(p => p.day === analysisResult.updatedPlan.day);
+        if (planIndex !== -1) {
+          const newWorkoutPlan = [...currentWorkoutPlan];
+          newWorkoutPlan[planIndex] = analysisResult.updatedPlan;
+          setCurrentWorkoutPlan(newWorkoutPlan);
+          await saveWorkoutPlan(newWorkoutPlan);
+        } else {
+          console.error("Analyzed plan day not found in current workout plan.", analysisResult.updatedPlan);
         }
-        
-        // Update the main workout plan state with the analyzed plan
-        if (analysisResult?.updatedPlan) {
-            const planIndex = currentWorkoutPlan.findIndex(p => p.day === analysisResult.updatedPlan.day);
-            if (planIndex !== -1) {
-                const newWorkoutPlan = [...currentWorkoutPlan];
-                newWorkoutPlan[planIndex] = analysisResult.updatedPlan;
-                setCurrentWorkoutPlan(newWorkoutPlan);
-                // Save the updated plan to Firestore
-                await saveWorkoutPlan(newWorkoutPlan);
-                console.log('Workout plan updated and saved:', newWorkoutPlan);
-            } else {
-                console.error("Analyzed plan day not found in current workout plan.", analysisResult.updatedPlan);
-            }
-        }
-
-        // No need to store the overall recommendation text here, as we focus on per-exercise ones.
-        // The navigation happens after analysis
-        console.log('Attempting to navigate to progress view.');
-        setCurrentView('progress'); // Navigate to progress view
-
+      }
+      setCurrentView('progress');
     } catch (e: any) {
-        console.error("Error during workout analysis:", e);
-        setError(e.message || "Помилка при аналізі тренування.");
-        // Still navigate to progress even if analysis failed, maybe show an error there
-        console.log('Error during analysis, navigating to progress view anyway.');
-        setCurrentView('progress');
+      console.error("Error analyzing workout:", e);
+      setError(e.message || "Помилка при аналізі тренування.");
+      setCurrentView('progress');
     } finally {
-        setIsAnalyzingWorkout(false); // Reset analysis loading state
-        console.log('Workout analysis finished (finally block). isAnalyzingWorkout set to false.');
+      setIsAnalyzingWorkout(false);
     }
+  }, [session, currentWorkoutPlan, userProfile, endWorkout, saveWorkoutLog, saveWorkoutPlan, workoutLogs]);
 
-  }, [activeWorkoutDay, sessionExercises, currentWorkoutPlan, workoutStartTime, userProfile, workoutLogs, saveWorkoutLog, saveWorkoutPlan]);
+  // Оновлюємо таймер
+  useEffect(() => {
+    let timerInterval: number | null = null;
+    if (session.startTime && session.activeDay !== null) {
+      const startTime = session.startTime; // Зберігаємо значення в константу
+      timerInterval = window.setInterval(() => {
+        const currentTime = Date.now();
+        const elapsedTime = Math.floor((currentTime - startTime) / 1000);
+        updateTimer(elapsedTime);
+      }, 1000);
+    }
+    return () => {
+      if (timerInterval) clearInterval(timerInterval);
+    };
+  }, [session.startTime, session.activeDay, updateTimer]);
 
   const handleDeleteAccount = async () => {
     if (!user) return;
@@ -313,16 +272,12 @@ const App: React.FC = () => {
 
   const renderView = () => {
     if (isLoading && currentView !== 'profile' && activeWorkoutDay === null) return <Spinner message={UI_TEXT.generatingWorkout} />;
-    
     if (userDataLoading && activeWorkoutDay === null) {
         return <Spinner message={UI_TEXT.loadingUserData} />;
     }
-
-    // Add spinner for workout analysis
     if (isAnalyzingWorkout) {
         return <Spinner message="Аналізуємо тренування..." />;
     }
-
     if (!firestoreProfile) {
       return <UserProfileForm 
                 existingProfile={userProfile} 
@@ -333,7 +288,6 @@ const App: React.FC = () => {
                 onDeleteAccount={handleDeleteAccount}
               />;
     }
-
     if (firestoreProfile && !workoutPlan) {
         return <WorkoutDisplay 
                 userProfile={firestoreProfile}
@@ -350,7 +304,6 @@ const App: React.FC = () => {
                 onSaveWorkoutPlan={handleSaveWorkoutPlan}
               />;
     }
-    
     switch (currentView) {
       case 'profile':
         return <UserProfileForm 
@@ -362,7 +315,6 @@ const App: React.FC = () => {
                   onDeleteAccount={handleDeleteAccount}
                 />;
       case 'workout':
-        console.log('Rendering WorkoutDisplay. isLoading:', isLoading, 'userDataLoading:', userDataLoading, 'isAnalyzingWorkout:', isAnalyzingWorkout);
         return <WorkoutDisplay 
                   userProfile={userProfile}
                   workoutPlan={currentWorkoutPlan} 
@@ -378,7 +330,6 @@ const App: React.FC = () => {
                   onSaveWorkoutPlan={handleSaveWorkoutPlan}
                 />;
       case 'progress':
-        console.log('Rendering ProgressView. workoutLogs:', workoutLogs);
         return <ProgressView 
                   workoutLogs={workoutLogs}
                   userProfile={userProfile}
