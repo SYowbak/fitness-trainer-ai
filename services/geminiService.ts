@@ -230,11 +230,10 @@ export const generateWorkoutAnalysis = async ({
 }> => {
   const prompt = `Ти - елітний фітнес-аналітик, який аналізує тренування та дає рекомендації щодо прогресу.\n\nПрофіль користувача:\n${JSON.stringify(userProfile, null, 2)}\n\nПлан тренування на день:\n${JSON.stringify(dayPlan, null, 2)}\n\nОстанній лог тренування:\n${lastWorkoutLog ? JSON.stringify(lastWorkoutLog, null, 2) : 'Немає попередніх логів'}\n\nПроаналізуй дані та надай рекомендації згідно з наступними принципами:\n\n1. Подвійна прогресія для вправ з вагою:\n   - Спочатку збільшуй кількість повторень\n   - Після досягнення верхньої межі повторень - збільшуй вагу\n\n2. Спеціальна лінія прогресу для вправ без ваги:\n   - Для підтягувань: збільшення повторень\n   - Для планки: збільшення тривалості в секундах\n\n3. Адаптація під ціль користувача:\n   - MUSCLE_GAIN: фокус на гіпертрофії\n   - STRENGTH: фокус на силі\n   - ENDURANCE: фокус на витривалості\n\n4. Тон рекомендацій:\n   - Професійний\n   - Безособовий\n   - Конкретний\n   - Мотивуючий\n\nНадай відповідь у форматі JSON:\n{\n  \"updatedPlan\": {\n    // Оновлений план тренування з новими цілями\n  },\n  \"recommendation\": {\n    \"text\": \"Текст рекомендації\",\n    \"action\": \"Конкретна дія для прогресу\"\n  }\n}`;
 
-  const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent', {
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent?key=${import.meta.env.VITE_API_KEY}`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${import.meta.env.VITE_API_KEY}`
+      'Content-Type': 'application/json'
     },
     body: JSON.stringify({
       contents: [{
