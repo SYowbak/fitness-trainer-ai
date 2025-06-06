@@ -274,23 +274,33 @@ const App: React.FC = () => {
     // Declare updatedLogs here to be accessible after the try block
     let updatedLogs: WorkoutLog[];
 
-    // --- Start Workout Analysis --- moved up --- 
-    setIsAnalyzingWorkout(true); // Set analysis loading state
-    // --- End Start Workout Analysis ---
-
     // Save the new log first
     try {
         await saveWorkoutLog(newLog);
         updatedLogs = [...workoutLogs, newLog]; // Assign to the declared variable
         setWorkoutLogs(updatedLogs);
         alert(UI_TEXT.workoutLogged);
+        console.log('Workout log saved successfully. New logs state:', updatedLogs);
     } catch (e: any) {
         console.error("Error saving workout log:", e);
         setError(e.message || "Помилка при збереженні логу тренування.");
+        // Decide if you want to proceed with analysis if saving log failed
         return; // Exit if log saving failed
     }
 
-    // --- Continue Workout Analysis ---
+    // Clear active workout state and local storage AFTER saving log
+    setActiveWorkoutDay(null);
+    setWorkoutStartTime(null);
+    setSessionExercises([]);
+    try {
+      localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
+    } catch (e) {
+        console.error("Error removing workout state from local storage after saving log", e);
+    }
+    
+    // --- Start Workout Analysis ---
+    console.log('Starting workout analysis...');
+    setIsAnalyzingWorkout(true); // Set analysis loading state
     try {
         // Find the latest log again from the potentially updated logs state
         const latestLog = updatedLogs.find((log: WorkoutLog) => log.id === newLog.id) || null; // Explicitly type log
@@ -302,6 +312,7 @@ const App: React.FC = () => {
           latestLog, // Pass the newly created log as the latest
           updatedLogs.filter((log: WorkoutLog) => log.id !== newLog.id) // Pass all other logs, Explicitly type log
         );
+        console.log('Analysis completed. Result:', analysisResult);
         
         // Update the main workout plan state with the analyzed plan
         if (analysisResult?.updatedPlan) {
@@ -312,6 +323,7 @@ const App: React.FC = () => {
                 setCurrentWorkoutPlan(newWorkoutPlan);
                 // Save the updated plan to Firestore
                 await saveWorkoutPlan(newWorkoutPlan);
+                console.log('Workout plan updated and saved:', newWorkoutPlan);
             } else {
                 console.error("Analyzed plan day not found in current workout plan.", analysisResult.updatedPlan);
             }
@@ -319,25 +331,18 @@ const App: React.FC = () => {
 
         // No need to store the overall recommendation text here, as we focus on per-exercise ones.
         // The navigation happens after analysis
+        console.log('Attempting to navigate to progress view.');
         setCurrentView('progress'); // Navigate to progress view
 
     } catch (e: any) {
         console.error("Error during workout analysis:", e);
         setError(e.message || "Помилка при аналізі тренування.");
         // Still navigate to progress even if analysis failed, maybe show an error there
+        console.log('Error during analysis, navigating to progress view anyway.');
         setCurrentView('progress');
     } finally {
         setIsAnalyzingWorkout(false); // Reset analysis loading state
-        // --- Clear active workout state and local storage AFTER analysis is complete ---
-        setActiveWorkoutDay(null);
-        setWorkoutStartTime(null);
-        setSessionExercises([]);
-        try {
-          localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
-        } catch (e) {
-            console.error("Error removing workout state from local storage after analysis", e);
-        }
-        // --- End clear state ---
+        console.log('Workout analysis finished (finally block). isAnalyzingWorkout set to false.');
     }
 
   }, [activeWorkoutDay, sessionExercises, currentWorkoutPlan, workoutStartTime, userProfile, workoutLogs, saveWorkoutLog, saveWorkoutPlan]);
@@ -434,6 +439,7 @@ const App: React.FC = () => {
                   onDeleteAccount={handleDeleteAccount}
                 />;
       case 'workout':
+        console.log('Rendering WorkoutDisplay. isLoading:', isLoading, 'userDataLoading:', userDataLoading, 'isAnalyzingWorkout:', isAnalyzingWorkout);
         return <WorkoutDisplay 
                   userProfile={userProfile}
                   workoutPlan={currentWorkoutPlan} 
@@ -449,6 +455,7 @@ const App: React.FC = () => {
                   onSaveWorkoutPlan={handleSaveWorkoutPlan}
                 />;
       case 'progress':
+        console.log('Rendering ProgressView. workoutLogs:', workoutLogs);
         return <ProgressView 
                   workoutLogs={workoutLogs}
                   userProfile={userProfile}
