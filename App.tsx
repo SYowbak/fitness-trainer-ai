@@ -13,6 +13,7 @@ import { AuthForm } from './components/AuthForm';
 import { useUserData } from './hooks/useUserData';
 import { deleteUser } from 'firebase/auth';
 import { auth } from './config/firebase';
+import { analyzeWorkout } from './services/workoutAnalysisService';
 
 type View = 'profile' | 'workout' | 'progress';
 
@@ -24,7 +25,7 @@ const App: React.FC = () => {
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [currentView, setCurrentView] = useState<View>('profile');
+  const [currentView, setCurrentView] = useState<View>(localStorage.getItem('currentView') as View || 'profile');
   const [apiKeyMissing, setApiKeyMissing] = useState<boolean>(false);
 
   // Active Workout Session State
@@ -32,6 +33,7 @@ const App: React.FC = () => {
   const [sessionExercises, setSessionExercises] = useState<Exercise[]>([]);
   const [workoutStartTime, setWorkoutStartTime] = useState<number | null>(null);
   const [workoutTimer, setWorkoutTimer] = useState<number>(0);
+  const [isAnalyzingWorkout, setIsAnalyzingWorkout] = useState<boolean>(false);
 
   const ACTIVE_WORKOUT_LOCAL_STORAGE_KEY = 'active_workout_local_state';
   const ACTIVE_WORKOUT_EXPIRATION_TIME = 24 * 60 * 60 * 1000; // 24 години у мілісекундах.
@@ -218,7 +220,15 @@ const App: React.FC = () => {
   }, []);
   
   const handleEndWorkout = useCallback(async () => {
-    if (activeWorkoutDay === null || !currentWorkoutPlan || !Array.isArray(currentWorkoutPlan) || !workoutStartTime) return;
+    if (activeWorkoutDay === null || !currentWorkoutPlan || !Array.isArray(currentWorkoutPlan) || !workoutStartTime || !userProfile) return;
+
+    // Find the current day's plan before clearing active workout state
+    const currentDayPlan = currentWorkoutPlan.find(p => p.day === activeWorkoutDay);
+    if (!currentDayPlan) {
+        console.error("Could not find current day's plan.");
+        alert("Помилка: Не вдалося знайти план тренування для аналізу.");
+        return;
+    }
 
     // Map sessionExercises to the new LoggedExercise structure
     const loggedExercisesForSession: LoggedExercise[] = sessionExercises
@@ -234,12 +244,14 @@ const App: React.FC = () => {
       }));
 
     if (loggedExercisesForSession.length === 0) {
+      // Clear active workout state and local storage first
       setActiveWorkoutDay(null);
       setWorkoutStartTime(null);
       setSessionExercises([]);
       try {
         localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
       } catch (e) {
+        console.error("Error removing workout state from local storage", e);
       }
       alert("Тренування завершено, але жодної вправи не було залоговано.");
       return;
@@ -255,20 +267,74 @@ const App: React.FC = () => {
       loggedExercises: loggedExercisesForSession,
     };
 
-    const updatedLogs = [...workoutLogs, newLog];
-    setWorkoutLogs(updatedLogs);
-    await saveWorkoutLog(newLog);
-    
-    alert(UI_TEXT.workoutLogged);
+    // Declare updatedLogs here to be accessible after the try block
+    let updatedLogs: WorkoutLog[];
+
+    // Save the new log first
+    try {
+        await saveWorkoutLog(newLog);
+        updatedLogs = [...workoutLogs, newLog]; // Assign to the declared variable
+        setWorkoutLogs(updatedLogs);
+        alert(UI_TEXT.workoutLogged);
+    } catch (e: any) {
+        console.error("Error saving workout log:", e);
+        setError(e.message || "Помилка при збереженні логу тренування.");
+        // Decide if you want to proceed with analysis if saving log failed
+        return; // Exit if log saving failed
+    }
+
+    // Clear active workout state and local storage AFTER saving log
     setActiveWorkoutDay(null);
     setWorkoutStartTime(null);
     setSessionExercises([]);
     try {
       localStorage.removeItem(ACTIVE_WORKOUT_LOCAL_STORAGE_KEY);
     } catch (e) {
+        console.error("Error removing workout state from local storage after saving log", e);
     }
-    setCurrentView('progress'); 
-  }, [activeWorkoutDay, sessionExercises, currentWorkoutPlan, workoutLogs, workoutStartTime, userProfile, saveWorkoutLog]);
+    
+    // --- Start Workout Analysis ---
+    setIsAnalyzingWorkout(true); // Set analysis loading state
+    try {
+        // Find the latest log again from the potentially updated logs state
+        const latestLog = updatedLogs.find((log: WorkoutLog) => log.id === newLog.id) || null; // Explicitly type log
+
+        // We pass all workoutLogs for broader context for the AI, including the new one
+        const analysisResult = await analyzeWorkout(
+          userProfile, // Ensure userProfile is passed
+          currentDayPlan, // Pass the plan for the day that was just completed
+          latestLog, // Pass the newly created log as the latest
+          updatedLogs.filter((log: WorkoutLog) => log.id !== newLog.id) // Pass all other logs, Explicitly type log
+        );
+        
+        // Update the main workout plan state with the analyzed plan
+        if (analysisResult?.updatedPlan) {
+            const planIndex = currentWorkoutPlan.findIndex(p => p.day === analysisResult.updatedPlan.day);
+            if (planIndex !== -1) {
+                const newWorkoutPlan = [...currentWorkoutPlan];
+                newWorkoutPlan[planIndex] = analysisResult.updatedPlan;
+                setCurrentWorkoutPlan(newWorkoutPlan);
+                // Save the updated plan to Firestore
+                await saveWorkoutPlan(newWorkoutPlan);
+            } else {
+                console.error("Analyzed plan day not found in current workout plan.", analysisResult.updatedPlan);
+            }
+        }
+
+        // No need to store the overall recommendation text here, as we focus on per-exercise ones.
+        // The navigation happens after analysis
+        setCurrentView('progress'); // Navigate to progress view
+
+    } catch (e: any) {
+        console.error("Error during workout analysis:", e);
+        setError(e.message || "Помилка при аналізі тренування.");
+        // Still navigate to progress even if analysis failed, maybe show an error there
+        setCurrentView('progress');
+    } finally {
+        setIsAnalyzingWorkout(false); // Reset analysis loading state
+    }
+
+  }, [activeWorkoutDay, sessionExercises, currentWorkoutPlan, workoutStartTime, userProfile, workoutLogs, saveWorkoutLog, saveWorkoutPlan]);
 
   const handleDeleteAccount = async () => {
     if (!user) return;
@@ -348,7 +414,6 @@ const App: React.FC = () => {
                 workoutTimerDisplay={formatTime(workoutTimer)}
                 isApiKeyMissing={apiKeyMissing}
                 onSaveWorkoutPlan={handleSaveWorkoutPlan}
-                workoutLogs={workoutLogs}
               />;
     }
     
@@ -367,7 +432,7 @@ const App: React.FC = () => {
                   userProfile={userProfile}
                   workoutPlan={currentWorkoutPlan} 
                   onGenerateNewPlan={handleGenerateNewPlan}
-                  isLoading={isLoading || (apiKeyMissing && !userProfile)}
+                  isLoading={isLoading || (apiKeyMissing && !userProfile) || isAnalyzingWorkout}
                   activeDay={activeWorkoutDay}
                   sessionExercises={sessionExercises}
                   onStartWorkout={handleStartWorkout}
@@ -376,7 +441,6 @@ const App: React.FC = () => {
                   workoutTimerDisplay={formatTime(workoutTimer)}
                   isApiKeyMissing={apiKeyMissing}
                   onSaveWorkoutPlan={handleSaveWorkoutPlan}
-                  workoutLogs={workoutLogs}
                 />;
       case 'progress':
         return <ProgressView 

@@ -272,6 +272,12 @@ ${lastWorkoutLog ? JSON.stringify([lastWorkoutLog, ...previousWorkoutLogs], null
    - Забезпечуй правильне чергування важких та легких тренувань
    - Рекомендуй зміну навантаження на основі загальної тенденції
 
+**Вимоги до індивідуальних рекомендацій для вправ:**
+- Для кожної вправи в updatedPlan додай поле "recommendationText" з короткою рекомендацією або коментарем на основі логів (наприклад, "Добре попрацював, спробуй додати вагу наступного разу" або "Зменш вагу, зосередься на техніці"). Якщо немає специфічної рекомендації, залиш порожній рядок.
+- Якщо на основі аналізу логів та цілей користувача рекомендовано змінити цільову вагу, додай або онови поле "targetWeight" (число в кг). Якщо не рекомендовано, залиш null.
+- Якщо рекомендовано змінити цільову кількість повторень, додай або онови поле "targetReps" (число). Якщо не рекомендовано, залиш null.
+- Поля "sets", "reps", "rest", "videoSearchQuery" у updatedPlan мають відображати загальний план на наступне тренування, тоді як "targetWeight" та "targetReps" є більш конкретними цілями, розрахованими ШІ на основі логів.
+
 Структура JSON відповіді:
 {
   "updatedPlan": {
@@ -286,7 +292,8 @@ ${lastWorkoutLog ? JSON.stringify([lastWorkoutLog, ...previousWorkoutLogs], null
         "rest": string,
         "videoSearchQuery": string | null,
         "targetWeight": number | null,
-        "targetReps": number | null
+        "targetReps": number | null,
+        "recommendationText": string
       }
     ]
   },
@@ -300,8 +307,9 @@ ${lastWorkoutLog ? JSON.stringify([lastWorkoutLog, ...previousWorkoutLogs], null
 - sets: "3-4" або "4"
 - reps: "8-12" або "12-15"
 - rest: "60-90 секунд"
-- targetWeight: 50 (в кг)
-- targetReps: 12
+- targetWeight: 50 (в кг) або null
+- targetReps: 12 або null
+- recommendationText: "Спробуй додати 2.5 кг наступного разу." або "Зберігай техніку, не поспішай."
 
 ВАЖЛИВО: 
 1. Не додавай жодних пояснень поза JSON структурою

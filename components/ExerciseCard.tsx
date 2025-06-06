@@ -189,6 +189,12 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                     <span className="text-gray-100 font-semibold">{exercise.targetWeight} kg</span>
                  </div>
             )}
+            {exercise.recommendation?.text && (
+                 <div className="bg-blue-800/30 p-2 rounded shadow col-span-full text-blue-200">
+                    <strong className="block text-blue-100 mb-0.5"><i className="fas fa-comment-dots mr-1"></i>Рекомендація ШІ:</strong>
+                    <p className="text-xs sm:text-sm">{exercise.recommendation.text}</p>
+                 </div>
+            )}
           </div>
 
           {isActive && !isCompleted && (

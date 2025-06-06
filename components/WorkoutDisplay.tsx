@@ -1,18 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { DailyWorkoutPlan, UserProfile, Exercise as ExerciseType, LoggedSet, WorkoutLog } from '../types';
+import { DailyWorkoutPlan, UserProfile, Exercise as ExerciseType, LoggedSet } from '../types';
 import { UI_TEXT } from '../constants';
 import ExerciseCard from './ExerciseCard';
 import Spinner from './Spinner';
 import WorkoutEditMode from './WorkoutEditMode';
-import { analyzeWorkout } from '../services/workoutAnalysisService';
-
-// Функція для конвертації дати з Firestore в JavaScript Date
-const convertFirestoreDate = (date: Date | { seconds: number; nanoseconds: number }): Date => {
-  if (date instanceof Date) {
-    return date;
-  }
-  return new Date(date.seconds * 1000);
-};
 
 interface WorkoutDisplayProps {
   userProfile: UserProfile | null;
@@ -27,7 +18,6 @@ interface WorkoutDisplayProps {
   workoutTimerDisplay: string;
   isApiKeyMissing: boolean;
   onSaveWorkoutPlan: (plan: DailyWorkoutPlan[]) => void;
-  workoutLogs: WorkoutLog[];
 }
 
 const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
@@ -43,45 +33,18 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
   workoutTimerDisplay,
   isApiKeyMissing,
   onSaveWorkoutPlan,
-  workoutLogs
 }) => {
   const [selectedDayForView, setSelectedDayForView] = useState<number | null>(
     workoutPlan && workoutPlan.length > 0 ? workoutPlan[0].day : null
   );
   const [isEditMode, setIsEditMode] = useState<boolean>(false);
-  const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
-  const [analyzedPlan, setAnalyzedPlan] = useState<DailyWorkoutPlan | null>(null);
-  const [analysisRecommendation, setAnalysisRecommendation] = useState<string | null>(null);
 
   const isWorkoutPlanValid = workoutPlan && Array.isArray(workoutPlan);
 
   useEffect(() => {
-    const analyzeCurrentDay = async () => {
-      if (!userProfile || !selectedDayForView || !workoutPlan) return;
-
-      const currentDayPlan = workoutPlan.find(p => p.day === selectedDayForView);
-      if (!currentDayPlan) return;
-
-      // Знаходимо останній лог для цього дня
-      const lastWorkoutLog = workoutLogs
-        .filter(log => log.dayCompleted === selectedDayForView)
-        .sort((a, b) => convertFirestoreDate(b.date).getTime() - convertFirestoreDate(a.date).getTime())[0] || null;
-
-      setIsAnalyzing(true);
-      try {
-        const analysis = await analyzeWorkout(userProfile, currentDayPlan, lastWorkoutLog);
-        setAnalyzedPlan(analysis.updatedPlan);
-        setAnalysisRecommendation(analysis.recommendation.text);
-      } catch (error) {
-        console.error('Помилка при аналізі тренування:', error);
-        setAnalysisRecommendation(null);
-      } finally {
-        setIsAnalyzing(false);
-      }
-    };
-
-    analyzeCurrentDay();
-  }, [userProfile, selectedDayForView, workoutPlan, workoutLogs]);
+    // The analysis logic has been moved to the workout completion flow (e.g., in the parent component)
+    // This useEffect is no longer needed for triggering analysis on day selection.
+  }, []); // Empty dependency array, runs only once on mount, but the analysis logic is removed.
 
   if (isLoading && (!isWorkoutPlanValid || workoutPlan.length === 0) && activeDay === null) {
     return <Spinner message={UI_TEXT.generatingWorkout} />;
@@ -139,7 +102,7 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
 
   const exercisesToDisplay = activeDay !== null 
     ? sessionExercises 
-    : (analyzedPlan || currentDayPlan)?.exercises || [];
+    : currentDayPlan?.exercises || [];
 
   return (
     <div className="space-y-6">
@@ -204,37 +167,25 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
         </div>
       )}
 
-      {isAnalyzing ? (
-        <Spinner message="Аналіз тренування..." />
-      ) : (
-        <>
-          {analysisRecommendation && (
-            <div className="p-4 bg-blue-800/30 text-blue-200 rounded-lg shadow-md mb-6">
-              <h3 className="font-semibold text-lg mb-2 text-blue-100">Рекомендація від AI:</h3>
-              <p>{analysisRecommendation}</p>
-            </div>
-          )}
-          <div className="space-y-4">
-            {exercisesToDisplay.map((exercise, index) => (
-              <ExerciseCard
-                key={index}
-                exercise={exercise}
-                isActive={activeDay !== null}
-                onLogExercise={(loggedSets, success) => {
-                  const updatedExercises = [...exercisesToDisplay];
-                  updatedExercises[index] = {
-                    ...exercise,
-                    isCompletedDuringSession: true,
-                    sessionLoggedSets: loggedSets,
-                    sessionSuccess: success
-                  };
-                  onLogExercise(index, loggedSets, success);
-                }}
-              />
-            ))}
-          </div>
-        </>
-      )}
+      <div className="space-y-4">
+        {exercisesToDisplay.map((exercise, index) => (
+          <ExerciseCard
+            key={index}
+            exercise={exercise}
+            isActive={activeDay !== null}
+            onLogExercise={(loggedSets, success) => {
+              const updatedExercises = [...exercisesToDisplay];
+              updatedExercises[index] = {
+                ...exercise,
+                isCompletedDuringSession: true,
+                sessionLoggedSets: loggedSets,
+                sessionSuccess: success
+              };
+              onLogExercise(index, loggedSets, success);
+            }}
+          />
+        ))}
+      </div>
     </div>
   );
 };

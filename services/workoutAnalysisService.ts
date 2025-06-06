@@ -12,13 +12,15 @@ export interface WorkoutAnalysisResult {
 export const analyzeWorkout = async (
   userProfile: UserProfile,
   dayPlan: DailyWorkoutPlan,
-  lastWorkoutLog: WorkoutLog | null
+  lastWorkoutLog: WorkoutLog | null,
+  previousWorkoutLogs: WorkoutLog[] = []
 ): Promise<WorkoutAnalysisResult> => {
   try {
     const analysis = await generateWorkoutAnalysis({
       userProfile,
       dayPlan,
-      lastWorkoutLog
+      lastWorkoutLog,
+      previousWorkoutLogs
     });
 
     return {
