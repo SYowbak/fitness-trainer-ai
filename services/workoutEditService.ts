@@ -163,7 +163,7 @@ export const generateNewExercise = async (
         targetReps: null,
         isCompletedDuringSession: false,
         sessionLoggedSets: [],
-        sessionSuccess: undefined
+        sessionSuccess: null
       };
     } catch (e) {
       console.error("Error parsing JSON from AI response:", e);
@@ -219,7 +219,7 @@ export const regenerateExercise = async (
         targetReps: null,
         isCompletedDuringSession: false,
         sessionLoggedSets: [],
-        sessionSuccess: undefined
+        sessionSuccess: null
       };
     } catch (e) {
       console.error("Error parsing JSON from AI response:", e);
@@ -276,7 +276,7 @@ export const completeExerciseDetails = async (
         targetReps: exercise.targetReps ?? null, // Зберігаємо наявні цільові повторення
         isCompletedDuringSession: exercise.isCompletedDuringSession ?? false,
         sessionLoggedSets: exercise.sessionLoggedSets ?? [],
-        sessionSuccess: exercise.sessionSuccess ?? undefined
+        sessionSuccess: exercise.sessionSuccess ?? null
       };
     } catch (e) {
       console.error("Error parsing JSON from AI response during completion:", e);

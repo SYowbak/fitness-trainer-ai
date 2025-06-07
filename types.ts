@@ -78,7 +78,7 @@ export interface Exercise {
   };
   isCompletedDuringSession?: boolean; 
   sessionLoggedSets?: LoggedSetWithAchieved[];
-  sessionSuccess?: boolean;
+  sessionSuccess?: boolean | null;
   notes?: string;
 }
 
