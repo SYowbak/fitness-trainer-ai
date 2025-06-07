@@ -127,16 +127,24 @@ const App: React.FC = () => {
   }, [userProfile, apiKeyMissing, activeWorkoutDay, saveWorkoutPlan]);
 
   const handleStartWorkout = useCallback(async (dayNumber: number) => {
-    if (!currentWorkoutPlan || !Array.isArray(currentWorkoutPlan)) return;
+    console.log("handleStartWorkout викликано для дня:", dayNumber);
+    if (!currentWorkoutPlan || !Array.isArray(currentWorkoutPlan)) {
+      console.log("currentWorkoutPlan відсутній або не є масивом.");
+      return;
+    }
     const planForDay = currentWorkoutPlan.find(d => d.day === dayNumber);
     if (planForDay && planForDay.exercises && Array.isArray(planForDay.exercises)) {
+      console.log("Знайдено план для дня:", dayNumber, "з вправами:", planForDay.exercises);
       try {
         await startWorkout(dayNumber, planForDay.exercises);
+        console.log("startWorkout успішно викликано.");
         setCurrentView('workout');
       } catch (e: any) {
-        console.error("Error starting workout:", e);
+        console.error("Помилка при початку тренування (handleStartWorkout):", e);
         setError(e.message || "Помилка при початку тренування.");
       }
+    } else {
+      console.log("План для дня не знайдено або вправи відсутні/не є масивом.", planForDay);
     }
   }, [currentWorkoutPlan, startWorkout]);
 

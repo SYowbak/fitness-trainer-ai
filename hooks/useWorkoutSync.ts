@@ -51,6 +51,7 @@ export const useWorkoutSync = (userId: string) => {
   }, [userId]);
 
   const startWorkout = async (dayNumber: number, exercises: Exercise[]) => {
+    console.log("startWorkout викликано. День:", dayNumber, "Вправи:", exercises);
     const newSession: WorkoutSession = {
       activeDay: dayNumber,
       sessionExercises: exercises.map(ex => ({
@@ -73,7 +74,14 @@ export const useWorkoutSync = (userId: string) => {
     };
 
     const cleanedSession = removeUndefined(newSession);
-    await set(ref(database, `workoutSessions/${userId}`), cleanedSession);
+    console.log("Очищений об'єкт сесії для Firebase:", cleanedSession);
+    try {
+      await set(ref(database, `workoutSessions/${userId}`), cleanedSession);
+      console.log("Дані сесії успішно збережено у Firebase.");
+    } catch (error) {
+      console.error("Помилка при збереженні сесії у Firebase:", error);
+      throw error; // Перевикидаємо помилку, щоб вона була оброблена вище
+    }
   };
 
   const updateExercise = async (exerciseIndex: number, loggedSets: LoggedSetWithAchieved[], success: boolean) => {

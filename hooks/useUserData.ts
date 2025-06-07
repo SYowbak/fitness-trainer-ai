@@ -33,49 +33,22 @@ function cleanWorkoutPlanForFirestore(plan: DailyWorkoutPlan[]): DailyWorkoutPla
     ...removeUndefined({
       ...day,
       exercises: day.exercises.map(ex => {
-        // Зберігаємо всі поля вправи
-        const { 
-          name, 
-          sets, 
-          reps, 
-          weight, 
-          muscleGroup, 
-          notes, 
-          rest, 
-          description, 
-          videoSearchQuery,
-          imageSuggestion,
-          targetWeight,
-          targetReps,
-          recommendation
-        } = ex;
-
-        // Конвертуємо rest в секунди, якщо він заданий у форматі "X секунд"
-        let restValue: string | number | undefined = rest;
-        if (typeof rest === 'string' && rest.includes('секунд')) {
-          const parsed = parseInt(rest.split(' ')[0]);
-          if (!isNaN(parsed)) {
-             restValue = parsed;
-          }
-        }
-        // Переконайтеся, що rest завжди зберігається як рядок
-        const restForFirestore = restValue !== undefined && restValue !== null ? String(restValue) + ' секунд' : undefined;
-
-        return removeUndefined({ 
-          name, 
-          sets, 
-          reps, 
-          weight, 
-          muscleGroup, 
-          notes, 
-          rest: restForFirestore,
-          description,
-          videoSearchQuery,
-          imageSuggestion,
-          targetWeight,
-          targetReps,
-          recommendation
-        });
+        const cleanedExercise = {
+          name: ex.name,
+          description: ex.description,
+          sets: ex.sets,
+          reps: ex.reps,
+          rest: ex.rest, // ex.rest повинен бути рядком відповідно до інтерфейсу Exercise
+          videoSearchQuery: ex.videoSearchQuery ?? null,
+          targetWeight: ex.targetWeight ?? null,
+          targetReps: ex.targetReps ?? null,
+          recommendation: ex.recommendation ?? null,
+          isCompletedDuringSession: ex.isCompletedDuringSession ?? false, // Переконаємось, що це boolean
+          sessionLoggedSets: ex.sessionLoggedSets ?? [], // Переконаємось, що це масив
+          sessionSuccess: ex.sessionSuccess ?? false, // Переконаємось, що це boolean або null
+          notes: ex.notes ?? null,
+        };
+        return removeUndefined(cleanedExercise);
       })
     })
   }));
