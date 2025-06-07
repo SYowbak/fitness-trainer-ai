@@ -12,7 +12,7 @@ const firebaseConfig = {
   messagingSenderId: "124719960704",
   appId: "1:124719960704:web:4877d17b2a28e884b54c65",
   measurementId: "G-FVCHEL63PV",
-  databaseURL: "https://fitness-trainer-ai-gemini-default-rtdb.firebaseio.com/"
+  databaseURL: "https://fitness-trainer-ai-gemini-default-rtdb.europe-west1.firebasedatabase.app"
 };
 
 const app = initializeApp(firebaseConfig);
