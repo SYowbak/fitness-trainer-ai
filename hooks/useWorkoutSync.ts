@@ -10,11 +10,14 @@ function removeUndefined(obj: any): any {
   } else if (Array.isArray(obj)) {
     return obj.map(removeUndefined);
   } else if (obj && typeof obj === 'object') {
-    return Object.fromEntries(
-      Object.entries(obj)
-        .map(([k, v]) => [k, removeUndefined(v)])
-        .filter(([_, v]) => v !== undefined) // Додаткова перевірка, якщо після рекурсії з'явився undefined
-    );
+    const newObj: { [key: string]: any } = {};
+    for (const key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        const value = obj[key];
+        newObj[key] = removeUndefined(value);
+      }
+    }
+    return newObj;
   }
   return obj;
 }
@@ -27,6 +30,7 @@ interface WorkoutSession {
 }
 
 export const useWorkoutSync = (userId: string) => {
+  console.log("useWorkoutSync ініціалізовано з userId:", userId); // Лог для userId
   const [session, setSession] = useState<WorkoutSession>({
     activeDay: null,
     sessionExercises: [],
@@ -36,6 +40,10 @@ export const useWorkoutSync = (userId: string) => {
 
   // Підписуємось на зміни в базі даних
   useEffect(() => {
+    if (!userId) {
+      console.log("useWorkoutSync: userId відсутній, не підписуємось на Firebase Realtime Database.");
+      return;
+    }
     const sessionRef = ref(database, `workoutSessions/${userId}`);
     
     const unsubscribe = onValue(sessionRef, (snapshot) => {
@@ -44,7 +52,12 @@ export const useWorkoutSync = (userId: string) => {
       if (data) {
         const cleanedData = removeUndefined(data);
         console.log("Очищені дані з Firebase (onValue):", cleanedData);
-        setSession(cleanedData);
+        setSession(prevSession => ({
+          activeDay: cleanedData.activeDay ?? null,
+          sessionExercises: cleanedData.sessionExercises ?? [],
+          startTime: cleanedData.startTime ?? null,
+          workoutTimer: cleanedData.workoutTimer ?? 0,
+        }));
       } else {
         console.log("Дані з Firebase Realtime Database порожні.");
         setSession({
@@ -57,11 +70,14 @@ export const useWorkoutSync = (userId: string) => {
     });
 
     return () => {
-      unsubscribe();
+      if (userId) {
+        unsubscribe();
+      }
     };
   }, [userId]);
 
   const startWorkout = async (dayNumber: number, exercises: Exercise[]) => {
+    if (!userId) { console.error("startWorkout: userId відсутній."); return; }
     console.log("startWorkout викликано. День:", dayNumber, "Вправи:", exercises);
     const newSession: WorkoutSession = {
       activeDay: dayNumber,
@@ -86,8 +102,10 @@ export const useWorkoutSync = (userId: string) => {
 
     const cleanedSession = removeUndefined(newSession);
     console.log("Очищений об'єкт сесії для Firebase:", cleanedSession);
+    const sessionPath = `workoutSessions/${userId}`; // Лог для шляху
+    console.log("startWorkout: Спроба зберегти сесію за шляхом:", sessionPath, "з userId:", userId);
     try {
-      await set(ref(database, `workoutSessions/${userId}`), cleanedSession);
+      await set(ref(database, sessionPath), cleanedSession);
       console.log("Дані сесії успішно збережено у Firebase.");
     } catch (error) {
       console.error("Помилка при збереженні сесії у Firebase:", error);
@@ -96,6 +114,7 @@ export const useWorkoutSync = (userId: string) => {
   };
 
   const updateExercise = async (exerciseIndex: number, loggedSets: LoggedSetWithAchieved[], success: boolean) => {
+    if (!userId) { console.error("updateExercise: userId відсутній."); return; }
     const sanitizedLoggedSets = loggedSets.map(set => ({
       repsAchieved: set.repsAchieved ?? null,
       weightUsed: set.weightUsed ?? null,
@@ -123,16 +142,39 @@ export const useWorkoutSync = (userId: string) => {
     );
 
     const cleanedExercises = removeUndefined(updatedExercises);
-    await set(ref(database, `workoutSessions/${userId}/sessionExercises`), cleanedExercises);
+    const sessionPath = `workoutSessions/${userId}/sessionExercises`; // Лог для шляху
+    console.log("updateExercise: Спроба оновити вправу за шляхом:", sessionPath, "з userId:", userId);
+    try {
+      await set(ref(database, sessionPath), cleanedExercises);
+    } catch (error) {
+      console.error("Помилка при оновленні вправи у Firebase:", error);
+      throw error;
+    }
   };
 
   const endWorkout = async () => {
-    await remove(ref(database, `workoutSessions/${userId}`));
+    if (!userId) { console.error("endWorkout: userId відсутній."); return; }
+    const sessionPath = `workoutSessions/${userId}`; // Лог для шляху
+    console.log("endWorkout: Спроба завершити тренування за шляхом:", sessionPath, "з userId:", userId);
+    try {
+      await remove(ref(database, sessionPath));
+    } catch (error) {
+      console.error("Помилка при завершенні тренування у Firebase:", error);
+      throw error;
+    }
   };
 
   const updateTimer = async (time: number) => {
+    if (!userId) { console.error("updateTimer: userId відсутній."); return; }
     const cleanedTime = removeUndefined(time);
-    await set(ref(database, `workoutSessions/${userId}/workoutTimer`), cleanedTime);
+    const sessionPath = `workoutSessions/${userId}/workoutTimer`; // Лог для шляху
+    console.log("updateTimer: Спроба оновити таймер за шляхом:", sessionPath, "з userId:", userId);
+    try {
+      await set(ref(database, sessionPath), cleanedTime);
+    } catch (error) {
+      console.error("Помилка при оновленні таймера у Firebase:", error);
+      throw error;
+    }
   };
 
   return {
