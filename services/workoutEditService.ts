@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { UserProfile, DailyWorkoutPlan, Exercise } from '../types';
+import { v4 as uuidv4 } from 'uuid';
 import { getApiKey } from './geminiService';
 import { getUkrainianGender, getUkrainianBodyType, getUkrainianGoal, getUkrainianExperienceLevel, getUkrainianMuscleGroup } from '../constants';
 
@@ -153,6 +154,7 @@ export const generateNewExercise = async (
       }
 
       return {
+        id: uuidv4(),
         ...exercise,
         targetWeight: null,
         targetReps: null,
@@ -205,6 +207,7 @@ export const regenerateExercise = async (
       }
 
       return {
+        id: uuidv4(),
         ...exercise,
         targetWeight: null,
         targetReps: null,
@@ -249,20 +252,22 @@ export const completeExerciseDetails = async (
     }
 
     try {
-      const completedExercise: Exercise = JSON.parse(jsonStr);
+      const exercise: Exercise = JSON.parse(jsonStr);
       
       // Перевіряємо обов'язкові поля
-      if (!completedExercise.name || !completedExercise.description || !completedExercise.sets || !completedExercise.reps || !completedExercise.rest) {
+      if (!exercise.name || !exercise.description || !exercise.sets || !exercise.reps || !exercise.rest) {
         throw new Error("Відсутні обов'язкові поля у згенерованій вправі");
       }
 
       return {
-        ...completedExercise,
-        targetWeight: completedExercise.targetWeight || null,
-        targetReps: completedExercise.targetReps || null,
-        isCompletedDuringSession: false,
-        sessionLoggedSets: [],
-        sessionSuccess: false
+        id: uuidv4(),
+        ...exercise,
+        targetWeight: exercise.targetWeight !== undefined ? exercise.targetWeight : null,
+        targetReps: exercise.targetReps !== undefined ? exercise.targetReps : null,
+        isCompletedDuringSession: exercise.isCompletedDuringSession ?? false,
+        sessionLoggedSets: exercise.sessionLoggedSets ?? [],
+        sessionSuccess: exercise.sessionSuccess ?? false,
+        recommendation: exercise.recommendation || null,
       };
     } catch (e) {
       console.error("Error parsing JSON from AI response:", e);

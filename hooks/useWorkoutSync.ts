@@ -52,12 +52,65 @@ export const useWorkoutSync = (userId: string) => {
       if (data) {
         const cleanedData = removeUndefined(data);
         console.log("Очищені дані з Firebase (onValue):", cleanedData);
-        setSession(prevSession => ({
-          activeDay: cleanedData.activeDay ?? null,
-          sessionExercises: cleanedData.sessionExercises ?? [],
-          startTime: cleanedData.startTime ?? null,
-          workoutTimer: cleanedData.workoutTimer ?? 0,
-        }));
+
+        setSession(prevSession => {
+          const newSessionExercises = cleanedData.sessionExercises ?? [];
+          const oldSessionExercises = prevSession.sessionExercises ?? [];
+
+          // Функція для глибокого порівняння LoggedSetWithAchieved масивів
+          const areLoggedSetsEqual = (sets1: LoggedSetWithAchieved[] | null | undefined, sets2: LoggedSetWithAchieved[] | null | undefined): boolean => {
+            if (!sets1 && !sets2) return true; // Обидва null/undefined
+            if (!sets1 || !sets2) return false; // Один null/undefined, інший ні
+            if (sets1.length !== sets2.length) return false;
+
+            for (let i = 0; i < sets1.length; i++) {
+              const s1 = sets1[i];
+              const s2 = sets2[i];
+              if (s1.repsAchieved !== s2.repsAchieved ||
+                  s1.weightUsed !== s2.weightUsed ||
+                  (s1.completed ?? false) !== (s2.completed ?? false)) {
+                return false;
+              }
+            }
+            return true;
+          };
+
+          // Функція для глибокого порівняння масивів вправ
+          const areExercisesEqual = (arr1: Exercise[], arr2: Exercise[]) => {
+            if (arr1.length !== arr2.length) return false;
+            for (let i = 0; i < arr1.length; i++) {
+              const ex1 = arr1[i];
+              const ex2 = arr2[i];
+              // Порівнюємо всі відповідні властивості, які можуть спричинити рендеринг
+              if (ex1.id !== ex2.id ||
+                  ex1.name !== ex2.name ||
+                  ex1.description !== ex2.description ||
+                  ex1.sets !== ex2.sets ||
+                  ex1.reps !== ex2.reps ||
+                  ex1.rest !== ex2.rest ||
+                  ex1.videoSearchQuery !== ex2.videoSearchQuery ||
+                  ex1.targetWeight !== ex2.targetWeight ||
+                  ex1.targetReps !== ex2.targetReps ||
+                  (ex1.recommendation?.text !== ex2.recommendation?.text) ||
+                  (ex1.recommendation?.action !== ex2.recommendation?.action) ||
+                  ex1.isCompletedDuringSession !== ex2.isCompletedDuringSession ||
+                  ex1.sessionSuccess !== ex2.sessionSuccess ||
+                  !areLoggedSetsEqual(ex1.sessionLoggedSets, ex2.sessionLoggedSets)) {
+                return false;
+              }
+            }
+            return true;
+          };
+
+          return {
+            activeDay: cleanedData.activeDay ?? null,
+            sessionExercises: areExercisesEqual(newSessionExercises, oldSessionExercises)
+              ? oldSessionExercises // Використовуємо старе посилання, якщо дані не змінилися
+              : newSessionExercises, // Інакше - нове посилання
+            startTime: cleanedData.startTime ?? null,
+            workoutTimer: cleanedData.workoutTimer ?? 0,
+          };
+        });
       } else {
         console.log("Дані з Firebase Realtime Database порожні.");
         setSession({
@@ -82,6 +135,7 @@ export const useWorkoutSync = (userId: string) => {
     const newSession: WorkoutSession = {
       activeDay: dayNumber,
       sessionExercises: exercises.map(ex => ({
+        id: ex.id,
         name: ex.name,
         description: ex.description,
         sets: ex.sets,
@@ -124,6 +178,7 @@ export const useWorkoutSync = (userId: string) => {
     const updatedExercises = session.sessionExercises.map((ex, idx) =>
       idx === exerciseIndex
         ? {
+            id: ex.id,
             name: ex.name,
             description: ex.description,
             sets: ex.sets,

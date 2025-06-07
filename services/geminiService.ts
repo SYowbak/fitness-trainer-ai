@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { UserProfile, DailyWorkoutPlan, WorkoutLog, Exercise } from '../types';
+import { v4 as uuidv4 } from 'uuid';
 import { 
   getUkrainianGoal, 
   getUkrainianBodyType, 
@@ -170,6 +171,7 @@ export const generateWorkoutPlan = async (profile: UserProfile, modelName: strin
             }
 
             return {
+              id: uuidv4(),
               name: ex.name || "Невідома вправа",
               description: ex.description || "Опис відсутній.",
               sets: ex.sets || "3",
@@ -270,11 +272,13 @@ export const generateWorkoutAnalysis = async ({
            day: updatedPlan.day,
            notes: updatedPlan.notes || '',
            exercises: updatedPlan.exercises.map((ex: any): Exercise => ({
+               id: uuidv4(),
                name: ex.name || "Невідома вправа",
                description: ex.description || "Опис відсутній.",
                sets: ex.sets || "3",
                reps: ex.reps || "10-12",
                rest: ex.rest || "60 секунд",
+               imageSuggestion: null,
                videoSearchQuery: ex.videoSearchQuery || null,
                targetWeight: ex.targetWeight !== undefined && ex.targetWeight !== null ? ex.targetWeight : null,
                targetReps: ex.targetReps !== undefined && ex.targetReps !== null ? ex.targetReps : null,

@@ -64,6 +64,7 @@ export interface UserProfile {
 }
 
 export interface Exercise {
+  id: string;
   name: string;
   description: string;
   sets: string | number;

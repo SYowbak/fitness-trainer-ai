@@ -170,7 +170,7 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
       <div className="space-y-4">
         {exercisesToDisplay.map((exercise, index) => (
                 <ExerciseCard
-            key={index}
+            key={exercise.id}
                   exercise={exercise}
             isActive={activeDay !== null}
             onLogExercise={(loggedSets, success) => {
