@@ -11,7 +11,8 @@ const firebaseConfig = {
   storageBucket: "fitness-trainer-ai-gemini.firebasestorage.app",
   messagingSenderId: "124719960704",
   appId: "1:124719960704:web:4877d17b2a28e884b54c65",
-  measurementId: "G-FVCHEL63PV"
+  measurementId: "G-FVCHEL63PV",
+  databaseURL: "https://fitness-trainer-ai-gemini-default-rtdb.firebaseio.com/"
 };
 
 const app = initializeApp(firebaseConfig);
