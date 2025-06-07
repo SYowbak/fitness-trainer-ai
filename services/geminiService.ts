@@ -1,4 +1,4 @@
-import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { UserProfile, DailyWorkoutPlan, WorkoutLog, Exercise } from '../types';
 import { 
   getUkrainianGoal, 
@@ -14,13 +14,13 @@ export const getApiKey = (): string | null => {
   return import.meta.env.VITE_API_KEY || null;
 };
 
-let ai: GoogleGenAI | null = null;
+let ai: GoogleGenerativeAI | null = null;
 const apiKey = getApiKey();
 if (apiKey) {
   try {
-      ai = new GoogleGenAI({ apiKey: apiKey });
+      ai = new GoogleGenerativeAI(apiKey);
   } catch (e) {
-      console.error("Failed to initialize GoogleGenAI instance:", e);
+      console.error("Failed to initialize GoogleGenerativeAI instance:", e);
       ai = null; 
   }
 }
@@ -134,15 +134,10 @@ export const generateWorkoutPlan = async (profile: UserProfile, modelName: strin
   const prompt = constructPlanPrompt(profile);
   
   try {
-    const response: GenerateContentResponse = await ai.models.generateContent({
-        model: modelName,
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        config: {
-            responseMimeType: "application/json",
-        },
-    });
-
-    let jsonStr = (response.text ?? '').trim();
+    const model = ai.getGenerativeModel({ model: modelName });
+    const response = await model.generateContent(prompt);
+    const result = await response.response;
+    let jsonStr = result.text().trim();
     
     // Видаляємо можливі markdown-розмітки
     const fenceRegex = /^```(?:json)?\s*\n?(.*?)\n?\s*```$/s;
@@ -195,7 +190,7 @@ export const generateWorkoutPlan = async (profile: UserProfile, modelName: strin
     } catch (e) {
       console.error("Error parsing JSON from AI response:", e);
       console.error("Received string (after processing):", jsonStr);
-      console.error("Original AI response text:", response.text);
+      console.error("Original AI response text:", result.text());
       throw new Error("Не вдалося розібрати план тренувань від AI. Можливо, формат відповіді змінився, або сталася помилка на стороні AI.");
     }
 
@@ -240,15 +235,10 @@ export const generateWorkoutAnalysis = async ({
 `;
 
   try {
-    const response: GenerateContentResponse = await ai.models.generateContent({
-        model: GEMINI_MODEL_TEXT, // Use the correct model name constant
-        contents: [{ role: "user", parts: [{ text: analysisPrompt }] }],
-        config: {
-            responseMimeType: "application/json",
-        },
-    });
-
-    let jsonStr = (response.text ?? '').trim();
+    const model = ai.getGenerativeModel({ model: GEMINI_MODEL_TEXT });
+    const response = await model.generateContent(analysisPrompt);
+    const result = await response.response;
+    let jsonStr = result.text().trim();
     
     // Видаляємо можливі markdown-розмітки
     const fenceRegex = /^```(?:json)?\s*\n?(.*?)\n?\s*```$/s;
@@ -302,7 +292,7 @@ export const generateWorkoutAnalysis = async ({
     } catch (e) {
       console.error("Error parsing JSON from AI analysis response:", e);
       console.error("Received string (after processing):", jsonStr);
-      console.error("Original AI response text:", response.text);
+      console.error("Original AI response text:", result.text());
       throw new Error("Не вдалося розібрати результат аналізу від AI. Можливо, формат відповіді змінився, або сталася помилка на стороні AI.");
     }
 
