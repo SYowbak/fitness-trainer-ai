@@ -31,11 +31,6 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>('profile');
   const [apiKeyMissing, setApiKeyMissing] = useState<boolean>(false);
 
-  // Active Workout Session State
-  const [activeWorkoutDay, setActiveWorkoutDay] = useState<number | null>(null); // Day number
-  const [sessionExercises, setSessionExercises] = useState<Exercise[]>([]);
-  const [workoutStartTime, setWorkoutStartTime] = useState<number | null>(null);
-  const [workoutTimer, setWorkoutTimer] = useState<number>(0);
   const [isAnalyzingWorkout, setIsAnalyzingWorkout] = useState<boolean>(false);
 
   useEffect(() => {
@@ -58,19 +53,23 @@ const App: React.FC = () => {
     setWorkoutLogs(firestoreWorkoutLogs);
   }, [firestoreProfile, firestoreWorkoutLogs]);
 
+  // Оновлюємо таймер на основі сесії з useWorkoutSync
   useEffect(() => {
     let timerInterval: number | null = null;
-    if (workoutStartTime && activeWorkoutDay !== null) {
+    if (session.startTime && session.activeDay !== null) {
+      const startTime = session.startTime;
       timerInterval = window.setInterval(() => {
-        setWorkoutTimer(Math.floor((Date.now() - workoutStartTime) / 1000));
+        const currentTime = Date.now();
+        const elapsedTime = Math.floor((currentTime - startTime) / 1000);
+        updateTimer(elapsedTime);
       }, 1000);
     } else {
-      setWorkoutTimer(0); // Reset timer if workout not active
+      updateTimer(0); // Скидаємо таймер, якщо тренування не активне
     }
     return () => {
       if (timerInterval) clearInterval(timerInterval);
     };
-  }, [workoutStartTime, activeWorkoutDay]);
+  }, [session.startTime, session.activeDay, updateTimer]);
 
   const handleProfileSave = useCallback(async (profile: UserProfile) => {
     if (apiKeyMissing) {
@@ -87,7 +86,7 @@ const App: React.FC = () => {
       await saveProfile(profileToSave); // Зберігаємо в Firestore через useUserData
       const plan = await apiGenerateWorkoutPlan(profileToSave, GEMINI_MODEL_TEXT);
       await saveWorkoutPlan(plan);
-      setActiveWorkoutDay(null); 
+      // setActiveWorkoutDay(null); // Це вже не потрібно, оскільки useWorkoutSync керує activeDay
       setCurrentView('workout');
     } catch (e: any) {
       console.error("Error generating workout plan:", e);
@@ -103,10 +102,9 @@ const App: React.FC = () => {
       return;
     }
     if (userProfile) {
-      if (activeWorkoutDay !== null) {
+      if (session.activeDay !== null) { // Використовуємо session.activeDay
          if(!confirm("У вас є активне тренування. Створення нового плану завершить його без збереження. Продовжити?")) return;
-         setActiveWorkoutDay(null); 
-         setWorkoutStartTime(null);
+         endWorkout(); // Завершуємо активну сесію Firebase
       }
       setIsLoading(true);
       setError(null);
@@ -124,7 +122,7 @@ const App: React.FC = () => {
       setCurrentView('profile');
       setError("Будь ласка, спочатку заповніть та збережіть профіль.");
     }
-  }, [userProfile, apiKeyMissing, activeWorkoutDay, saveWorkoutPlan]);
+  }, [userProfile, apiKeyMissing, session.activeDay, endWorkout, saveWorkoutPlan]);
 
   const handleStartWorkout = useCallback(async (dayNumber: number) => {
     console.log("handleStartWorkout викликано для дня:", dayNumber);
@@ -138,7 +136,7 @@ const App: React.FC = () => {
       try {
         await startWorkout(dayNumber, planForDay.exercises);
         console.log("startWorkout успішно викликано.");
-        setCurrentView('workout');
+        setCurrentView('workout'); // Це має спрацювати, оскільки session.activeDay тепер керує відображенням
       } catch (e: any) {
         console.error("Помилка при початку тренування (handleStartWorkout):", e);
         setError(e.message || "Помилка при початку тренування.");
@@ -232,22 +230,6 @@ const App: React.FC = () => {
     }
   }, [session, currentWorkoutPlan, userProfile, endWorkout, saveWorkoutLog, saveWorkoutPlan, workoutLogs]);
 
-  // Оновлюємо таймер
-  useEffect(() => {
-    let timerInterval: number | null = null;
-    if (session.startTime && session.activeDay !== null) {
-      const startTime = session.startTime; // Зберігаємо значення в константу
-      timerInterval = window.setInterval(() => {
-        const currentTime = Date.now();
-        const elapsedTime = Math.floor((currentTime - startTime) / 1000);
-        updateTimer(elapsedTime);
-      }, 1000);
-    }
-    return () => {
-      if (timerInterval) clearInterval(timerInterval);
-    };
-  }, [session.startTime, session.activeDay, updateTimer]);
-
   const handleDeleteAccount = async () => {
     if (!user) return;
     
@@ -284,13 +266,32 @@ const App: React.FC = () => {
   }, [saveWorkoutPlan]);
 
   const renderView = () => {
-    if (isLoading && currentView !== 'profile' && activeWorkoutDay === null) return <Spinner message={UI_TEXT.generatingWorkout} />;
-    if (userDataLoading && activeWorkoutDay === null) {
+    // Враховуємо активну сесію з useWorkoutSync для відображення Spinner або WorkoutDisplay
+    if (isLoading && currentView !== 'profile' && session.activeDay === null) return <Spinner message={UI_TEXT.generatingWorkout} />;
+    if (userDataLoading && session.activeDay === null) {
         return <Spinner message={UI_TEXT.loadingUserData} />;
     }
     if (isAnalyzingWorkout) {
         return <Spinner message="Аналізуємо тренування..." />;
     }
+    // Якщо є активна сесія тренування, одразу відображаємо WorkoutDisplay
+    if (session.activeDay !== null) {
+      return <WorkoutDisplay 
+                userProfile={userProfile}
+                workoutPlan={currentWorkoutPlan}
+                onGenerateNewPlan={handleGenerateNewPlan}
+                isLoading={isLoading || (apiKeyMissing && !userProfile) || isAnalyzingWorkout}
+                activeDay={session.activeDay}
+                sessionExercises={session.sessionExercises}
+                onStartWorkout={handleStartWorkout}
+                onEndWorkout={handleEndWorkout}
+                onLogExercise={handleLogSingleExercise}
+                workoutTimerDisplay={formatTime(session.workoutTimer)}
+                isApiKeyMissing={apiKeyMissing}
+                onSaveWorkoutPlan={handleSaveWorkoutPlan}
+              />;
+    }
+
     if (!firestoreProfile) {
       return <UserProfileForm 
                 existingProfile={userProfile} 
@@ -307,12 +308,12 @@ const App: React.FC = () => {
                 workoutPlan={null}
                 onGenerateNewPlan={handleGenerateNewPlan}
                 isLoading={isLoading || (apiKeyMissing && !userProfile)}
-                activeDay={activeWorkoutDay}
-                sessionExercises={sessionExercises}
+                activeDay={session.activeDay} // Використовуємо session.activeDay
+                sessionExercises={session.sessionExercises} // Використовуємо session.sessionExercises
                 onStartWorkout={handleStartWorkout}
                 onEndWorkout={handleEndWorkout}
                 onLogExercise={handleLogSingleExercise}
-                workoutTimerDisplay={formatTime(workoutTimer)}
+                workoutTimerDisplay={formatTime(session.workoutTimer)} // Використовуємо session.workoutTimer
                 isApiKeyMissing={apiKeyMissing}
                 onSaveWorkoutPlan={handleSaveWorkoutPlan}
               />;
@@ -333,12 +334,12 @@ const App: React.FC = () => {
                   workoutPlan={currentWorkoutPlan} 
                   onGenerateNewPlan={handleGenerateNewPlan}
                   isLoading={isLoading || (apiKeyMissing && !userProfile) || isAnalyzingWorkout}
-                  activeDay={activeWorkoutDay}
-                  sessionExercises={sessionExercises}
+                  activeDay={session.activeDay} // Використовуємо session.activeDay
+                  sessionExercises={session.sessionExercises} // Використовуємо session.sessionExercises
                   onStartWorkout={handleStartWorkout}
                   onEndWorkout={handleEndWorkout}
                   onLogExercise={handleLogSingleExercise}
-                  workoutTimerDisplay={formatTime(workoutTimer)}
+                  workoutTimerDisplay={formatTime(session.workoutTimer)} // Використовуємо session.workoutTimer
                   isApiKeyMissing={apiKeyMissing}
                   onSaveWorkoutPlan={handleSaveWorkoutPlan}
                 />;
@@ -374,13 +375,11 @@ const App: React.FC = () => {
           <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500 mb-2 sm:mb-0">
             <i className="fas fa-dumbbell mr-2"></i>{UI_TEXT.appName}
           </h1>
-          {(userProfile || currentView !== 'profile' || isLoading || activeWorkoutDay !== null) && 
+          {(userProfile || currentView !== 'profile' || isLoading || session.activeDay !== null) &&  // Використовуємо session.activeDay
             <Navbar currentView={currentView} onViewChange={(v) => {
-              if (activeWorkoutDay !== null && v !== 'workout') {
+              if (session.activeDay !== null && v !== 'workout') { // Використовуємо session.activeDay
                 if(!confirm(UI_TEXT.confirmEndWorkout + " Перехід на іншу вкладку завершить його без збереження логів.")) return;
-                setActiveWorkoutDay(null);
-                setWorkoutStartTime(null);
-                setSessionExercises([]);
+                endWorkout(); // Завершуємо активну сесію Firebase
               }
               setCurrentView(v);
             }} />
