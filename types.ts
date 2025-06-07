@@ -75,11 +75,11 @@ export interface Exercise {
   recommendation?: {
     text: string;
     action: string;
-  };
-  isCompletedDuringSession?: boolean; 
-  sessionLoggedSets?: LoggedSetWithAchieved[];
-  sessionSuccess?: boolean | null;
-  notes?: string;
+  } | null;
+  isCompletedDuringSession: boolean; 
+  sessionLoggedSets: LoggedSetWithAchieved[];
+  sessionSuccess: boolean | null;
+  notes?: string | null;
 }
 
 export interface DailyWorkoutPlan {
@@ -111,7 +111,7 @@ export interface LoggedExercise {
   loggedSets: LoggedSetWithAchieved[]; // Масив виконаних підходів
   
   completedSuccessfully?: boolean; // Чи була вправа успішно виконана
-  notes?: string; // Додаткові нотатки до логу
+  notes?: string | null; // Додаткові нотатки до логу
 }
 
 export interface WorkoutLog {

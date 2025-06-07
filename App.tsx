@@ -158,7 +158,7 @@ const App: React.FC = () => {
         targetWeightAtLogging: ex.targetWeight || null,
         loggedSets: ex.sessionLoggedSets || [],
         completedSuccessfully: ex.sessionSuccess ?? false,
-        notes: ex.notes,
+        notes: ex.notes ?? null,
       }));
 
     if (loggedExercisesForSession.length === 0) {
@@ -172,8 +172,8 @@ const App: React.FC = () => {
       userId: userProfile?.uid || 'anonymous',
       date: new Date(),
       duration: Math.floor((Date.now() - session.startTime) / 1000),
-      dayCompleted: session.activeDay,
-      workoutDuration: formatTime(Math.floor((Date.now() - session.startTime) / 1000)),
+      dayCompleted: session.activeDay ?? null,
+      workoutDuration: formatTime(Math.floor((Date.now() - session.startTime) / 1000)) ?? null,
       loggedExercises: loggedExercisesForSession,
     };
 
