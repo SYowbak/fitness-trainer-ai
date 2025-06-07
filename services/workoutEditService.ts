@@ -1,15 +1,15 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { UserProfile, DailyWorkoutPlan, Exercise } from '../types';
 import { getApiKey } from './geminiService';
 import { getUkrainianGender, getUkrainianBodyType, getUkrainianGoal, getUkrainianExperienceLevel, getUkrainianMuscleGroup } from '../constants';
 
-let ai: GoogleGenAI | null = null;
+let ai: GoogleGenerativeAI | null = null;
 const apiKey = getApiKey();
 if (apiKey) {
   try {
-    ai = new GoogleGenAI({ apiKey: apiKey });
+    ai = new GoogleGenerativeAI(apiKey);
   } catch (e) {
-    console.error("Failed to initialize GoogleGenAI instance:", e);
+    console.error("Failed to initialize GoogleGenerativeAI instance:", e);
     ai = null;
   }
 }
@@ -132,15 +132,10 @@ export const generateNewExercise = async (
   const prompt = constructExercisePrompt(profile, currentPlan, targetDay);
   
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-preview-04-17',
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      config: {
-        responseMimeType: "application/json",
-      },
-    });
-
-    let jsonStr = (response.text ?? '').trim();
+    const model = ai.getGenerativeModel({ model: 'gemini-2.5-flash-preview-04-17' });
+    const response = await model.generateContent(prompt);
+    const result = await response.response;
+    let jsonStr = result.text().trim();
     
     // Видаляємо можливі markdown-розмітки
     const fenceRegex = /^```(?:json)?\s*\n?(.*?)\n?\s*```$/s;
@@ -163,10 +158,11 @@ export const generateNewExercise = async (
         targetReps: null,
         isCompletedDuringSession: false,
         sessionLoggedSets: [],
-        sessionSuccess: null
+        sessionSuccess: false
       };
     } catch (e) {
       console.error("Error parsing JSON from AI response:", e);
+      console.error("Original AI response text:", result.text());
       throw new Error("Не вдалося розібрати відповідь від AI");
     }
   } catch (error: any) {
@@ -188,15 +184,10 @@ export const regenerateExercise = async (
   const prompt = constructExercisePrompt(profile, currentPlan, targetDay, exerciseIndex);
   
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-preview-04-17',
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      config: {
-        responseMimeType: "application/json",
-      },
-    });
-
-    let jsonStr = (response.text ?? '').trim();
+    const model = ai.getGenerativeModel({ model: 'gemini-2.5-flash-preview-04-17' });
+    const response = await model.generateContent(prompt);
+    const result = await response.response;
+    let jsonStr = result.text().trim();
     
     // Видаляємо можливі markdown-розмітки
     const fenceRegex = /^```(?:json)?\s*\n?(.*?)\n?\s*```$/s;
@@ -219,10 +210,11 @@ export const regenerateExercise = async (
         targetReps: null,
         isCompletedDuringSession: false,
         sessionLoggedSets: [],
-        sessionSuccess: null
+        sessionSuccess: false
       };
     } catch (e) {
       console.error("Error parsing JSON from AI response:", e);
+      console.error("Original AI response text:", result.text());
       throw new Error("Не вдалося розібрати відповідь від AI");
     }
   } catch (error: any) {
@@ -244,16 +236,11 @@ export const completeExerciseDetails = async (
   const prompt = constructExercisePrompt(profile, currentPlan, targetDay, undefined, exercise);
 
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-preview-04-17',
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      config: {
-        responseMimeType: "application/json",
-      },
-    });
-
-    let jsonStr = (response.text ?? '').trim();
-
+    const model = ai.getGenerativeModel({ model: 'gemini-2.5-flash-preview-04-17' });
+    const response = await model.generateContent(prompt);
+    const result = await response.response;
+    let jsonStr = result.text().trim();
+    
     // Видаляємо можливі markdown-розмітки
     const fenceRegex = /^```(?:json)?\s*\n?(.*?)\n?\s*```$/s;
     const match = jsonStr.match(fenceRegex);
@@ -263,27 +250,27 @@ export const completeExerciseDetails = async (
 
     try {
       const completedExercise: Exercise = JSON.parse(jsonStr);
-
-      // Перевіряємо обов'язкові поля (назва має бути присутня з вхідних даних)
-      if (!completedExercise.description || !completedExercise.sets || !completedExercise.reps || !completedExercise.rest) {
-        throw new Error("Відсутні обов'язкові поля у згенерованих деталях вправи");
+      
+      // Перевіряємо обов'язкові поля
+      if (!completedExercise.name || !completedExercise.description || !completedExercise.sets || !completedExercise.reps || !completedExercise.rest) {
+        throw new Error("Відсутні обов'язкові поля у згенерованій вправі");
       }
 
       return {
-        ...exercise, // Зберігаємо оригінальну назву та інші поля, якщо потрібно
         ...completedExercise,
-        targetWeight: exercise.targetWeight ?? null, // Зберігаємо наявну цільову вагу
-        targetReps: exercise.targetReps ?? null, // Зберігаємо наявні цільові повторення
-        isCompletedDuringSession: exercise.isCompletedDuringSession ?? false,
-        sessionLoggedSets: exercise.sessionLoggedSets ?? [],
-        sessionSuccess: exercise.sessionSuccess ?? null
+        targetWeight: completedExercise.targetWeight || null,
+        targetReps: completedExercise.targetReps || null,
+        isCompletedDuringSession: false,
+        sessionLoggedSets: [],
+        sessionSuccess: false
       };
     } catch (e) {
-      console.error("Error parsing JSON from AI response during completion:", e);
-      throw new Error("Не вдалося розібрати відповідь від AI при доповненні деталей");
+      console.error("Error parsing JSON from AI response:", e);
+      console.error("Original AI response text:", result.text());
+      throw new Error("Не вдалося розібрати відповідь від AI");
     }
   } catch (error: any) {
-    console.error("Error during exercise detail completion:", error);
+    console.error("Error during exercise details completion:", error);
     throw new Error(`Помилка доповнення деталей вправи: ${error.message || 'Невідома помилка'}`);
   }
 }; 

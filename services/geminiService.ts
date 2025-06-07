@@ -182,7 +182,7 @@ export const generateWorkoutPlan = async (profile: UserProfile, modelName: strin
               recommendation: ex.recommendation || { text: '', action: '' },
               isCompletedDuringSession: false,
               sessionLoggedSets: [],
-              sessionSuccess: undefined
+              sessionSuccess: false
             };
           })
         };
@@ -281,7 +281,7 @@ export const generateWorkoutAnalysis = async ({
                recommendation: ex.recommendation || { text: '', action: '' },
                isCompletedDuringSession: false,
                sessionLoggedSets: [],
-               sessionSuccess: undefined
+               sessionSuccess: false
            }))
        };
 
