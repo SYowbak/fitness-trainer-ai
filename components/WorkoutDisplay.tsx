@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { DailyWorkoutPlan, UserProfile, Exercise as ExerciseType, LoggedSet } from '../types';
+import { DailyWorkoutPlan, UserProfile, Exercise as ExerciseType, LoggedSetWithAchieved } from '../types';
 import { UI_TEXT } from '../constants';
 import ExerciseCard from './ExerciseCard';
 import Spinner from './Spinner';
@@ -14,7 +14,7 @@ interface WorkoutDisplayProps {
   sessionExercises: ExerciseType[];
   onStartWorkout: (dayNumber: number) => void;
   onEndWorkout: () => void;
-  onLogExercise: (exerciseIndex: number, loggedSets: LoggedSet[], success: boolean) => void;
+  onLogExercise: (exerciseIndex: number, loggedSets: LoggedSetWithAchieved[], success: boolean) => void;
   workoutTimerDisplay: string;
   isApiKeyMissing: boolean;
   onSaveWorkoutPlan: (plan: DailyWorkoutPlan[]) => void;

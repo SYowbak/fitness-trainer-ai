@@ -91,14 +91,14 @@ export interface DailyWorkoutPlan {
 }
 
 export interface LoggedSet {
-  weight?: number;    // Вага
-  reps?: number;      // Повторення
-  completed?: boolean; // Чи завершено
+  repsAchieved: number | null;
+  weightUsed: number | null;
+  completed?: boolean;
 }
 
 export interface LoggedSetWithAchieved {
-  repsAchieved?: number;
-  weightUsed?: number;
+  repsAchieved: number | null;
+  weightUsed: number | null;
   completed?: boolean;
 }
 

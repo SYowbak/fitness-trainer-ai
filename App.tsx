@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { UserProfile, DailyWorkoutPlan, WorkoutLog, Exercise, LoggedExercise, LoggedSet } from './types';
+import { UserProfile, DailyWorkoutPlan, WorkoutLog, Exercise, LoggedExercise, LoggedSetWithAchieved } from './types';
 import { UI_TEXT, GEMINI_MODEL_TEXT, formatTime } from './constants';
 import Navbar from './components/Navbar';
 import UserProfileForm from './components/UserProfileForm';
@@ -145,7 +145,7 @@ const App: React.FC = () => {
     }
   }, [currentWorkoutPlan, startWorkout]);
 
-  const handleLogSingleExercise = useCallback((exerciseIndex: number, loggedSets: LoggedSet[], success: boolean) => {
+  const handleLogSingleExercise = useCallback((exerciseIndex: number, loggedSets: LoggedSetWithAchieved[], success: boolean) => {
     updateExercise(exerciseIndex, loggedSets, success);
   }, [updateExercise]);
   
