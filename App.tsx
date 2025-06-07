@@ -136,7 +136,6 @@ const App: React.FC = () => {
       try {
         await startWorkout(dayNumber, planForDay.exercises);
         console.log("startWorkout успішно викликано.");
-        setCurrentView('workout'); // Це має спрацювати, оскільки session.activeDay тепер керує відображенням
       } catch (e: any) {
         console.error("Помилка при початку тренування (handleStartWorkout):", e);
         setError(e.message || "Помилка при початку тренування.");
@@ -276,6 +275,11 @@ const App: React.FC = () => {
     }
     // Якщо є активна сесія тренування, одразу відображаємо WorkoutDisplay
     if (session.activeDay !== null) {
+      console.log("Рендеринг WorkoutDisplay з пропсами:", {
+        userProfile: userProfile, // Перевіряємо userProfile
+        workoutPlan: currentWorkoutPlan, // Перевіряємо currentWorkoutPlan
+        session: session // Перевіряємо весь об'єкт сесії
+      });
       return <WorkoutDisplay 
                 userProfile={userProfile}
                 workoutPlan={currentWorkoutPlan}
