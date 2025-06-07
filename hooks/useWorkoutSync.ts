@@ -40,8 +40,19 @@ export const useWorkoutSync = (userId: string) => {
     
     const unsubscribe = onValue(sessionRef, (snapshot) => {
       const data = snapshot.val();
+      console.log("Дані з Firebase Realtime Database (onValue):", data);
       if (data) {
-        setSession(removeUndefined(data));
+        const cleanedData = removeUndefined(data);
+        console.log("Очищені дані з Firebase (onValue):", cleanedData);
+        setSession(cleanedData);
+      } else {
+        console.log("Дані з Firebase Realtime Database порожні.");
+        setSession({
+          activeDay: null,
+          sessionExercises: [],
+          startTime: null,
+          workoutTimer: 0
+        });
       }
     });
 
