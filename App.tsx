@@ -126,12 +126,17 @@ const App: React.FC = () => {
     }
   }, [userProfile, apiKeyMissing, activeWorkoutDay, saveWorkoutPlan]);
 
-  const handleStartWorkout = useCallback((dayNumber: number) => {
+  const handleStartWorkout = useCallback(async (dayNumber: number) => {
     if (!currentWorkoutPlan || !Array.isArray(currentWorkoutPlan)) return;
     const planForDay = currentWorkoutPlan.find(d => d.day === dayNumber);
     if (planForDay && planForDay.exercises && Array.isArray(planForDay.exercises)) {
-      startWorkout(dayNumber, planForDay.exercises);
-      setCurrentView('workout');
+      try {
+        await startWorkout(dayNumber, planForDay.exercises);
+        setCurrentView('workout');
+      } catch (e: any) {
+        console.error("Error starting workout:", e);
+        setError(e.message || "Помилка при початку тренування.");
+      }
     }
   }, [currentWorkoutPlan, startWorkout]);
 
