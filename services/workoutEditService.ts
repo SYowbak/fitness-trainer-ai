@@ -154,8 +154,8 @@ export const generateNewExercise = async (
       }
 
       return {
-        id: uuidv4(),
         ...exercise,
+        id: uuidv4(),
         targetWeight: null,
         targetReps: null,
         isCompletedDuringSession: false,
@@ -207,8 +207,8 @@ export const regenerateExercise = async (
       }
 
       return {
-        id: uuidv4(),
         ...exercise,
+        id: uuidv4(),
         targetWeight: null,
         targetReps: null,
         isCompletedDuringSession: false,
@@ -260,8 +260,8 @@ export const completeExerciseDetails = async (
       }
 
       return {
-        id: uuidv4(),
         ...exercise,
+        id: exercise.id || uuidv4(),
         targetWeight: exercise.targetWeight !== undefined ? exercise.targetWeight : null,
         targetReps: exercise.targetReps !== undefined ? exercise.targetReps : null,
         isCompletedDuringSession: exercise.isCompletedDuringSession ?? false,
