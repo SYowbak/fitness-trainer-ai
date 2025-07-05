@@ -43,6 +43,7 @@ const App: React.FC = () => {
   const [wellnessRecommendations, setWellnessRecommendations] = useState<WellnessRecommendation[]>([]);
   const [adaptiveWorkoutPlan, setAdaptiveWorkoutPlan] = useState<AdaptiveWorkoutPlan | null>(null);
   const [pendingWorkoutDay, setPendingWorkoutDay] = useState<number | null>(null);
+  const [isTrainerChatOpen, setIsTrainerChatOpen] = useState(false);
 
   useEffect(() => {
     if (typeof import.meta.env === 'undefined' || !import.meta.env.VITE_API_KEY) {
@@ -593,6 +594,35 @@ const App: React.FC = () => {
       <main className="flex-grow container mx-auto p-3 sm:p-4 md:p-6">
         {error && !isLoading && <ErrorMessage message={error} onClear={() => setError(null)} />}
          {renderView()}
+        {/* Плаваюча кнопка чату (видима лише на вкладках тренування і прогрес) */}
+        {(currentView === 'workout' || currentView === 'progress') && (
+          <button
+            className="fixed bottom-6 right-6 z-50 bg-purple-600 hover:bg-purple-700 text-white rounded-full shadow-lg p-4 flex items-center justify-center text-2xl transition-colors"
+            style={{ boxShadow: '0 4px 24px rgba(80,0,120,0.25)' }}
+            onClick={() => setIsTrainerChatOpen(true)}
+            aria-label="Відкрити чат з тренером"
+          >
+            <i className="fas fa-comments"></i>
+          </button>
+        )}
+        {/* Overlay чат з тренером */}
+        {isTrainerChatOpen && (
+          <div className="fixed bottom-6 right-6 z-50 w-[90vw] max-w-md sm:max-w-lg bg-gray-900 border border-purple-700 rounded-xl shadow-2xl flex flex-col" style={{ minHeight: '60vh', maxHeight: '80vh' }}>
+            <div className="flex justify-between items-center p-3 border-b border-purple-700 bg-purple-900/80 rounded-t-xl">
+              <span className="text-lg font-semibold text-purple-200"><i className="fas fa-robot mr-2"></i>Чат з тренером</span>
+              <button onClick={() => setIsTrainerChatOpen(false)} className="text-gray-400 hover:text-white text-xl" aria-label="Закрити чат">
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+            <div className="flex-1 min-h-0">
+              <TrainerChat
+                userProfile={userProfile!}
+                lastWorkoutLog={workoutLogs[0] || null}
+                previousWorkoutLogs={workoutLogs.slice(1)}
+              />
+            </div>
+          </div>
+        )}
       </main>
 
       <footer className="bg-gray-800/50 text-center p-3 sm:p-4 text-xs sm:text-sm text-gray-400 mt-auto">
