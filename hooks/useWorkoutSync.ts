@@ -124,7 +124,7 @@ export const useWorkoutSync = (userId: string) => {
 
     return () => {
       if (userId) {
-        unsubscribe();
+      unsubscribe();
       }
     };
   }, [userId]);

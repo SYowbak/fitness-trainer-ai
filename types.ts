@@ -124,3 +124,92 @@ export interface WorkoutLog {
   workoutDuration?: string; // Тривалість тренування у форматі HH:MM:SS
   loggedExercises: LoggedExercise[]; // Виконані вправи
 }
+
+export interface ExerciseRecommendation {
+  exerciseName: string;
+  recommendation: string;
+  suggestedWeight?: number;
+  suggestedReps?: number;
+  suggestedSets?: number;
+  reason: string;
+  action: 'increase_weight' | 'decrease_weight' | 'increase_reps' | 'decrease_reps' | 'change_exercise' | 'maintain' | 'variation';
+}
+
+export interface WorkoutAnalysisResult {
+  updatedPlan: DailyWorkoutPlan;
+  recommendation: {
+    text: string;
+    action: string;
+  };
+  dailyRecommendations: ExerciseRecommendation[];
+}
+
+export interface ExerciseVariation {
+  name: string;
+  description: string;
+  sets: string;
+  reps: string;
+  rest: string;
+  videoSearchQuery?: string;
+  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  variationType: 'progression' | 'regression' | 'alternative';
+  reason: string;
+}
+
+export enum EnergyLevel {
+  VERY_LOW = 'very_low',
+  LOW = 'low',
+  NORMAL = 'normal',
+  HIGH = 'high',
+  VERY_HIGH = 'very_high'
+}
+
+export enum SleepQuality {
+  POOR = 'poor',
+  FAIR = 'fair',
+  GOOD = 'good',
+  EXCELLENT = 'excellent'
+}
+
+export enum StressLevel {
+  HIGH = 'high',
+  MODERATE = 'moderate',
+  LOW = 'low'
+}
+
+export interface WellnessCheck {
+  energyLevel: EnergyLevel;
+  sleepQuality: SleepQuality;
+  stressLevel: StressLevel;
+  motivation: number; // 1-10
+  fatigue: number; // 1-10
+  notes?: string;
+  timestamp: Date;
+}
+
+export interface AdaptiveWorkoutPlan extends DailyWorkoutPlan {
+  originalPlan: DailyWorkoutPlan;
+  adaptations: {
+    exerciseName: string;
+    originalSets: string;
+    originalReps: string;
+    adaptedSets: string;
+    adaptedReps: string;
+    adaptationReason: string;
+    energyLevel: EnergyLevel;
+  }[];
+  overallAdaptation: {
+    intensity: 'reduced' | 'maintained' | 'increased';
+    duration: 'shorter' | 'normal' | 'longer';
+    focus: 'recovery' | 'maintenance' | 'performance';
+    reason: string;
+  };
+}
+
+export interface WellnessRecommendation {
+  type: 'energy' | 'recovery' | 'motivation' | 'stress';
+  title: string;
+  description: string;
+  actions: string[];
+  priority: 'high' | 'medium' | 'low';
+}

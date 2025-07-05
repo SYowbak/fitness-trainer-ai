@@ -2,6 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { UserProfile, WorkoutLog } from '../types';
 import { generateTrainerResponse } from '../services/trainerChatService';
 import { UI_TEXT } from '../constants';
+import { database } from '../config/firebase';
+import { ref, set, get, remove } from 'firebase/database';
+import { useAuth } from '../contexts/AuthContext';
 
 interface TrainerChatProps {
   userProfile: UserProfile;
@@ -14,11 +17,55 @@ const TrainerChat: React.FC<TrainerChatProps> = ({
   lastWorkoutLog,
   previousWorkoutLogs = []
 }) => {
+  const { user } = useAuth();
   const [messages, setMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout>();
+
+  useEffect(() => {
+    const loadChatHistory = async () => {
+      if (!user) return;
+      
+      try {
+        const chatRef = ref(database, `users/${user.uid}/chatHistory`);
+        const snapshot = await get(chatRef);
+        
+        if (snapshot.exists()) {
+          setMessages(snapshot.val());
+        } else {
+          setMessages([{
+            role: 'assistant',
+            content: `Вітаю, ${userProfile.gender === 'male' ? 'друже' : 'подруго'}! Я твій персональний AI-тренер. Як я можу тобі допомогти сьогодні?`
+          }]);
+        }
+      } catch (error) {
+        console.error('Error loading chat history:', error);
+        setError('Помилка завантаження історії чату');
+      }
+    };
+
+    loadChatHistory();
+  }, [user, userProfile.gender]);
+
+  useEffect(() => {
+    const saveChatHistory = async () => {
+      if (!user || messages.length === 0) return;
+      
+      try {
+        const chatRef = ref(database, `users/${user.uid}/chatHistory`);
+        await set(chatRef, messages);
+      } catch (error) {
+        console.error('Error saving chat history:', error);
+        setError('Помилка збереження історії чату');
+      }
+    };
+
+    saveChatHistory();
+  }, [messages, user]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -27,6 +74,19 @@ const TrainerChat: React.FC<TrainerChatProps> = ({
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInputMessage(e.target.value);
+    setIsTyping(true);
+    
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    
+    typingTimeoutRef.current = setTimeout(() => {
+      setIsTyping(false);
+    }, 1000);
+  };
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,10 +116,32 @@ const TrainerChat: React.FC<TrainerChatProps> = ({
     }
   };
 
+  const clearChat = async () => {
+    if (!user) return;
+    
+    try {
+      const chatRef = ref(database, `users/${user.uid}/chatHistory`);
+      await remove(chatRef);
+      setMessages([{
+        role: 'assistant',
+        content: `Вітаю, ${userProfile.gender === 'male' ? 'друже' : 'подруго'}! Я твій персональний AI-тренер. Як я можу тобі допомогти сьогодні?`
+      }]);
+    } catch (error) {
+      console.error('Error clearing chat:', error);
+      setError('Помилка очищення чату');
+    }
+  };
+
   return (
     <div className="flex flex-col h-[600px] bg-white rounded-lg shadow-lg">
-      <div className="p-4 border-b">
+      <div className="p-4 border-b flex justify-between items-center">
         <h2 className="text-xl font-semibold">Чат з тренером</h2>
+        <button
+          onClick={clearChat}
+          className="text-sm text-gray-500 hover:text-gray-700"
+        >
+          Очистити чат
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -99,7 +181,7 @@ const TrainerChat: React.FC<TrainerChatProps> = ({
           <input
             type="text"
             value={inputMessage}
-            onChange={(e) => setInputMessage(e.target.value)}
+            onChange={handleInputChange}
             placeholder="Напишіть повідомлення..."
             className="flex-1 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             disabled={isLoading}
@@ -112,6 +194,11 @@ const TrainerChat: React.FC<TrainerChatProps> = ({
             Надіслати
           </button>
         </div>
+        {isTyping && (
+          <div className="text-sm text-gray-500 mt-1">
+            Набираєте повідомлення...
+          </div>
+        )}
       </form>
     </div>
   );

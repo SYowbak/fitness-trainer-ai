@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { DailyWorkoutPlan, UserProfile, Exercise as ExerciseType, LoggedSetWithAchieved } from '../types';
+import { DailyWorkoutPlan, UserProfile, Exercise as ExerciseType, LoggedSetWithAchieved, WellnessCheck, AdaptiveWorkoutPlan } from '../types';
 import { UI_TEXT } from '../constants';
 import ExerciseCard from './ExerciseCard';
 import Spinner from './Spinner';
@@ -18,6 +18,12 @@ interface WorkoutDisplayProps {
   workoutTimerDisplay: string;
   isApiKeyMissing: boolean;
   onSaveWorkoutPlan: (plan: DailyWorkoutPlan[]) => void;
+  exerciseRecommendations?: any[];
+  exerciseVariations?: Map<string, any[]>;
+  onSelectVariation?: (exerciseName: string, variation: any) => void;
+  progressTrends?: any;
+  wellnessCheck?: WellnessCheck | null;
+  adaptiveWorkoutPlan?: AdaptiveWorkoutPlan | null;
 }
 
 const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
@@ -33,6 +39,12 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
   workoutTimerDisplay,
   isApiKeyMissing,
   onSaveWorkoutPlan,
+  exerciseRecommendations = [],
+  exerciseVariations = new Map(),
+  onSelectVariation,
+  progressTrends,
+  wellnessCheck,
+  adaptiveWorkoutPlan
 }) => {
   const [selectedDayForView, setSelectedDayForView] = useState<number | null>(
     workoutPlan && workoutPlan.length > 0 ? workoutPlan[0].day : null
@@ -104,8 +116,212 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
     ? sessionExercises 
     : currentDayPlan?.exercises || [];
 
+  // Відображення трендів прогресу
+  const renderProgressTrends = () => {
+    if (!progressTrends) return null;
+
+    const getTrendIcon = (progress: string) => {
+      switch (progress) {
+        case 'improving': return 'fas fa-arrow-up text-green-400';
+        case 'plateau': return 'fas fa-minus text-yellow-400';
+        case 'declining': return 'fas fa-arrow-down text-red-400';
+        default: return 'fas fa-minus text-gray-400';
+      }
+    };
+
+    const getTrendText = (progress: string) => {
+      switch (progress) {
+        case 'improving': return 'Прогрес';
+        case 'plateau': return 'Плато';
+        case 'declining': return 'Регрес';
+        default: return 'Невідомо';
+      }
+    };
+
+    return (
+      <div className="mb-6 p-4 bg-gray-800/50 border border-gray-600 rounded-lg">
+        <h3 className="text-lg font-semibold text-purple-300 mb-3">
+          <i className="fas fa-chart-line mr-2"></i>
+          Аналіз прогресу
+        </h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="text-center">
+            <div className="text-2xl mb-1">
+              <i className={getTrendIcon(progressTrends.overallProgress)}></i>
+            </div>
+            <p className="text-sm text-gray-300">Загальний тренд</p>
+            <p className="text-xs text-gray-400">{getTrendText(progressTrends.overallProgress)}</p>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl text-blue-400 mb-1">
+              <i className="fas fa-dumbbell"></i>
+            </div>
+            <p className="text-sm text-gray-300">Середня вага</p>
+            <p className="text-xs text-gray-400">{Math.round(progressTrends.strengthProgress)} кг</p>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl text-green-400 mb-1">
+              <i className="fas fa-running"></i>
+            </div>
+            <p className="text-sm text-gray-300">Середні повторення</p>
+            <p className="text-xs text-gray-400">{Math.round(progressTrends.enduranceProgress)}</p>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl text-purple-400 mb-1">
+              <i className="fas fa-calendar-check"></i>
+            </div>
+            <p className="text-sm text-gray-300">Консистентність</p>
+            <p className="text-xs text-gray-400">{Math.round(progressTrends.consistencyScore)}%</p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Відображення інформації про адаптивне тренування
+  const renderAdaptiveWorkoutInfo = () => {
+    if (!adaptiveWorkoutPlan || !wellnessCheck) return null;
+
+    const getIntensityText = (intensity: string) => {
+      switch (intensity) {
+        case 'reduced': return UI_TEXT.intensityReduced;
+        case 'maintained': return UI_TEXT.intensityMaintained;
+        case 'increased': return UI_TEXT.intensityIncreased;
+        default: return 'Інтенсивність адаптована';
+      }
+    };
+
+    const getFocusText = (focus: string) => {
+      switch (focus) {
+        case 'recovery': return UI_TEXT.focusRecovery;
+        case 'maintenance': return UI_TEXT.focusMaintenance;
+        case 'performance': return UI_TEXT.focusPerformance;
+        default: return 'Фокус адаптований';
+      }
+    };
+
+    return (
+      <div className="mb-6 p-4 bg-green-900/30 border border-green-500/30 rounded-lg">
+        <div className="flex items-start space-x-3">
+          <i className="fas fa-heart text-green-400 mt-1"></i>
+          <div className="flex-1">
+            <h3 className="text-green-300 font-semibold mb-2">
+              <i className="fas fa-magic mr-2"></i>
+              {UI_TEXT.adaptiveWorkout}
+            </h3>
+            <p className="text-green-200 text-sm mb-3">
+              {UI_TEXT.workoutAdapted}
+            </p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+              <div>
+                <p className="text-green-300 font-medium">Інтенсивність:</p>
+                <p className="text-green-200">{getIntensityText(adaptiveWorkoutPlan.overallAdaptation.intensity)}</p>
+              </div>
+              <div>
+                <p className="text-green-300 font-medium">Фокус:</p>
+                <p className="text-green-200">{getFocusText(adaptiveWorkoutPlan.overallAdaptation.focus)}</p>
+              </div>
+              <div>
+                <p className="text-green-300 font-medium">Причина:</p>
+                <p className="text-green-200 text-xs">{adaptiveWorkoutPlan.overallAdaptation.reason}</p>
+              </div>
+            </div>
+
+            {/* Адаптації вправ */}
+            {adaptiveWorkoutPlan.adaptations.length > 0 && (
+              <div className="mt-4">
+                <h4 className="text-green-300 font-medium mb-2">Адаптації вправ:</h4>
+                <div className="space-y-2">
+                  {adaptiveWorkoutPlan.adaptations.slice(0, 3).map((adaptation, index) => (
+                    <div key={index} className="text-xs text-green-200 bg-green-900/20 p-2 rounded">
+                      <p><strong>{adaptation.exerciseName}:</strong> {adaptation.adaptationReason}</p>
+                      <p className="text-green-300">
+                        {adaptation.originalSets}×{adaptation.originalReps} → {adaptation.adaptedSets}×{adaptation.adaptedReps}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Відображення інформації про самопочуття
+  const renderWellnessInfo = () => {
+    if (!wellnessCheck) return null;
+
+    const getEnergyIcon = (level: string) => {
+      switch (level) {
+        case 'very_low': return 'fas fa-battery-empty text-red-400';
+        case 'low': return 'fas fa-battery-quarter text-orange-400';
+        case 'normal': return 'fas fa-battery-half text-yellow-400';
+        case 'high': return 'fas fa-battery-three-quarters text-green-400';
+        case 'very_high': return 'fas fa-battery-full text-green-500';
+        default: return 'fas fa-battery-half text-gray-400';
+      }
+    };
+
+    return (
+      <div className="mb-6 p-4 bg-blue-900/30 border border-blue-500/30 rounded-lg">
+        <div className="flex items-start space-x-3">
+          <i className="fas fa-user-check text-blue-400 mt-1"></i>
+          <div className="flex-1">
+            <h3 className="text-blue-300 font-semibold mb-2">
+              <i className="fas fa-heart mr-2"></i>
+              Ваше самопочуття
+            </h3>
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div className="text-center">
+                <i className={`${getEnergyIcon(wellnessCheck.energyLevel)} text-2xl mb-1`}></i>
+                <p className="text-blue-300 font-medium">Енергія</p>
+                <p className="text-blue-200 text-xs">{wellnessCheck.energyLevel}</p>
+              </div>
+              <div className="text-center">
+                <i className="fas fa-bed text-blue-400 text-2xl mb-1"></i>
+                <p className="text-blue-300 font-medium">Сон</p>
+                <p className="text-blue-200 text-xs">{wellnessCheck.sleepQuality}</p>
+              </div>
+              <div className="text-center">
+                <i className="fas fa-fire text-orange-400 text-2xl mb-1"></i>
+                <p className="text-blue-300 font-medium">Мотивація</p>
+                <p className="text-blue-200 text-xs">{wellnessCheck.motivation}/10</p>
+              </div>
+              <div className="text-center">
+                <i className="fas fa-tired text-red-400 text-2xl mb-1"></i>
+                <p className="text-blue-300 font-medium">Втома</p>
+                <p className="text-blue-200 text-xs">{wellnessCheck.fatigue}/10</p>
+              </div>
+            </div>
+
+            {wellnessCheck.notes && (
+              <div className="mt-3 p-2 bg-blue-900/20 rounded">
+                <p className="text-blue-200 text-xs">
+                  <strong>Нотатки:</strong> {wellnessCheck.notes}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
+      {/* Відображення трендів прогресу */}
+      {progressTrends && renderProgressTrends()}
+
+      {/* Відображення інформації про самопочуття */}
+      {renderWellnessInfo()}
+
+      {/* Відображення інформації про адаптивне тренування */}
+      {renderAdaptiveWorkoutInfo()}
+
       {activeDay === null ? (
         <div className="mb-6 flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0 md:space-x-4 w-full max-w-full overflow-hidden">
           <div className="flex-none md:flex-grow flex flex-wrap gap-2 justify-center md:justify-start">
@@ -168,24 +384,31 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
           )}
           
       <div className="space-y-4">
-        {exercisesToDisplay.map((exercise, index) => (
-                <ExerciseCard
-            key={exercise.id}
-                  exercise={exercise}
-            isActive={activeDay !== null}
-            onLogExercise={(loggedSets, success) => {
-              const updatedExercises = [...exercisesToDisplay];
-              updatedExercises[index] = {
-                ...exercise,
-                isCompletedDuringSession: true,
-                sessionLoggedSets: loggedSets,
-                sessionSuccess: success
-              };
-              onLogExercise(index, loggedSets, success);
-            }}
-                />
-              ))}
-            </div>
+        {exercisesToDisplay.map((exercise, index) => {
+          const variations = exerciseVariations.get(exercise.name) || [];
+          
+          return (
+            <ExerciseCard
+              key={exercise.id}
+              exercise={exercise}
+              isActive={activeDay !== null}
+              onLogExercise={(loggedSets, success) => {
+                const updatedExercises = [...exercisesToDisplay];
+                updatedExercises[index] = {
+                  ...exercise,
+                  isCompletedDuringSession: true,
+                  sessionLoggedSets: loggedSets,
+                  sessionSuccess: success
+                };
+                onLogExercise(index, loggedSets, success);
+              }}
+              recommendations={exerciseRecommendations}
+              variations={variations}
+              onSelectVariation={(variation) => onSelectVariation?.(exercise.name, variation)}
+            />
+          );
+        })}
+      </div>
     </div>
   );
 };

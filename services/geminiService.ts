@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { UserProfile, DailyWorkoutPlan, WorkoutLog, Exercise } from '../types';
+import { UserProfile, DailyWorkoutPlan, WorkoutLog, Exercise, WellnessCheck, AdaptiveWorkoutPlan, WellnessRecommendation } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import { 
   getUkrainianGoal, 
@@ -226,10 +226,47 @@ export const generateWorkoutAnalysis = async ({
     text: string;
     action: string;
   };
+  dailyRecommendations: {
+    exerciseName: string;
+    recommendation: string;
+    suggestedWeight?: number;
+    suggestedReps?: number;
+    suggestedSets?: number;
+    reason: string;
+  }[];
 }> => {
   if (!ai) {
     throw new Error(UI_TEXT.apiKeyMissing);
   }
+
+  // Аналізуємо історію тренувань для виявлення патернів
+  const workoutHistory = lastWorkoutLog ? [lastWorkoutLog, ...previousWorkoutLogs] : previousWorkoutLogs;
+  const recentWorkouts = workoutHistory.slice(0, 5); // Останні 5 тренувань
+  
+  // Аналізуємо прогрес по кожній вправі
+  const exerciseProgress = new Map<string, {
+    weights: number[];
+    reps: number[];
+    success: boolean[];
+    frequency: number;
+  }>();
+
+  recentWorkouts.forEach(workout => {
+    workout.loggedExercises.forEach(exercise => {
+      const key = exercise.exerciseName;
+      if (!exerciseProgress.has(key)) {
+        exerciseProgress.set(key, { weights: [], reps: [], success: [], frequency: 0 });
+      }
+      const progress = exerciseProgress.get(key)!;
+      progress.frequency++;
+      
+      exercise.loggedSets.forEach(set => {
+        if (set.weightUsed) progress.weights.push(set.weightUsed);
+        if (set.repsAchieved) progress.reps.push(set.repsAchieved);
+        if (set.completed !== undefined) progress.success.push(set.completed);
+      });
+    });
+  });
 
   const analysisPrompt = `Ти - елітний фітнес-аналітик з 15-річним досвідом роботи з професійними спортсменами та любителями. Твоя задача - надати детальний аналіз тренування та персоналізовані рекомендації для прогресу.
 
@@ -243,6 +280,9 @@ ${JSON.stringify(dayPlan, null, 2)}
 
 Останні тренування (від найновішого до старішого):
 ${lastWorkoutLog ? JSON.stringify([lastWorkoutLog, ...previousWorkoutLogs], null, 2) : 'Немає попередніх логів'}
+
+Аналіз прогресу по вправах:
+${JSON.stringify(Object.fromEntries(exerciseProgress), null, 2)}
 
 Проаналізуй дані та надай персоналізовані рекомендації, враховуючи:
 
@@ -275,6 +315,7 @@ ${lastWorkoutLog ? JSON.stringify([lastWorkoutLog, ...previousWorkoutLogs], null
 5. Структура JSON відповіді:
    - "updatedPlan": Оновлений план на день з модифікованими параметрами вправ
    - "recommendation": Загальна рекомендація після аналізу
+   - "dailyRecommendations": Масив рекомендацій для кожної вправи
 
    Приклад JSON:
    {
@@ -301,7 +342,17 @@ ${lastWorkoutLog ? JSON.stringify([lastWorkoutLog, ...previousWorkoutLogs], null
      "recommendation": {
        "text": "Загальна рекомендація по тренуванню дня...",
        "action": "general_feedback"
-     }
+     },
+     "dailyRecommendations": [
+       {
+         "exerciseName": "Назва вправи",
+         "recommendation": "Конкретна рекомендація для цієї вправи",
+         "suggestedWeight": 85,
+         "suggestedReps": 10,
+         "suggestedSets": 4,
+         "reason": "Пояснення причини рекомендації"
+       }
+     ]
    }
 
 Додаткові вказівки:
@@ -312,8 +363,11 @@ ${lastWorkoutLog ? JSON.stringify([lastWorkoutLog, ...previousWorkoutLogs], null
 5. Враховуй загальну втому та час відновлення
 6. Надавай мотивуючі коментарі при позитивному прогресі
 7. Рекомендуй зміни в програмі, якщо вона не відповідає цілям користувача
+8. Аналізуй патерни прогресу та регресу для кожної вправи
+9. Враховуй частоту виконання вправ у попередніх тренуваннях
+10. Надавай рекомендації щодо варіативності вправ для уникнення плато
 
-Проаналізуй надані дані та згенеруй JSON відповідь з оновленим планом на день та загальною рекомендацією.`;
+Проаналізуй надані дані та згенеруй JSON відповідь з оновленим планом на день, загальною рекомендацією та детальними рекомендаціями для кожної вправи.`;
 
   try {
     const model = ai.getGenerativeModel({ model: GEMINI_MODEL_TEXT });
@@ -339,6 +393,7 @@ ${lastWorkoutLog ? JSON.stringify([lastWorkoutLog, ...previousWorkoutLogs], null
 
       const updatedPlan = parsedResult.updatedPlan;
       const generalRecommendation = parsedResult.recommendation;
+      const dailyRecommendations = parsedResult.dailyRecommendations || [];
 
       // Перевіряємо структуру оновленого плану (аналогічно generateWorkoutPlan)
       if (typeof updatedPlan.day !== 'number' || !Array.isArray(updatedPlan.exercises)) {
@@ -369,7 +424,8 @@ ${lastWorkoutLog ? JSON.stringify([lastWorkoutLog, ...previousWorkoutLogs], null
 
       return {
         updatedPlan: mappedUpdatedPlan,
-        recommendation: generalRecommendation // Return the general recommendation
+        recommendation: generalRecommendation,
+        dailyRecommendations: dailyRecommendations
       };
     } catch (e) {
       console.error("Error parsing JSON from AI analysis response:", e);
@@ -390,5 +446,361 @@ ${lastWorkoutLog ? JSON.stringify([lastWorkoutLog, ...previousWorkoutLogs], null
         throw new Error("Помилка мережі при зверненні до AI сервісу аналізу. Перевірте ваше інтернет-з'єднання та спробуйте пізніше.");
     }
     throw new Error(`Помилка аналізу тренування: ${error.message || 'Невідома помилка сервісу AI'}`);
+  }
+};
+
+export const generateExerciseVariations = async (
+  userProfile: UserProfile,
+  originalExercise: Exercise,
+  workoutHistory: WorkoutLog[],
+  targetMuscleGroup: string
+): Promise<Exercise[]> => {
+  if (!ai) {
+    throw new Error(UI_TEXT.apiKeyMissing);
+  }
+
+  // Аналізуємо частоту виконання вправи
+  const exerciseFrequency = workoutHistory.filter(workout => 
+    workout.loggedExercises.some(ex => ex.exerciseName === originalExercise.name)
+  ).length;
+
+  const variationPrompt = `Ти - експерт з фітнесу, який створює варіації вправ для уникнення плато та підтримки прогресу. 
+
+Профіль користувача:
+${JSON.stringify(userProfile, null, 2)}
+
+Оригінальна вправа:
+${JSON.stringify(originalExercise, null, 2)}
+
+Цільова група м'язів: ${targetMuscleGroup}
+Частота виконання цієї вправи: ${exerciseFrequency} разів за останні тренування
+
+Створи 3-4 варіації цієї вправи, які:
+1. Проробують ту саму групу м'язів
+2. Мають різний рівень складності
+3. Враховують рівень досвіду користувача
+4. Відповідають фітнес-цілі користувача
+5. Забезпечують варіативність для уникнення звикання
+
+ВАЖЛИВО: Відповідь має бути ВИКЛЮЧНО у форматі JSON-масиву без жодних пояснень.
+
+Формат JSON:
+[
+  {
+    "name": "Назва варіації вправи",
+    "description": "Детальний опис техніки виконання",
+    "sets": "3-4",
+    "reps": "8-12",
+    "rest": "60-90 секунд",
+    "videoSearchQuery": "пошуковий запит для YouTube",
+    "difficulty": "beginner|intermediate|advanced",
+    "variationType": "progression|regression|alternative",
+    "reason": "Пояснення чому ця варіація корисна"
+  }
+]`;
+
+  try {
+    const model = ai.getGenerativeModel({ model: GEMINI_MODEL_TEXT });
+    const response = await model.generateContent(variationPrompt);
+    const result = await response.response;
+    let jsonStr = result.text().trim();
+    
+    // Видаляємо можливі markdown-розмітки
+    const fenceRegex = /^```(?:json)?\s*\n?(.*?)\n?\s*```$/s;
+    const match = jsonStr.match(fenceRegex);
+    if (match && match[1]) {
+      jsonStr = match[1].trim();
+    }
+
+    try {
+      const variations: any[] = JSON.parse(jsonStr);
+      
+      return variations.map((variation): Exercise => ({
+        id: uuidv4(),
+        name: variation.name || "Варіація вправи",
+        description: variation.description || "Опис відсутній",
+        sets: variation.sets || "3",
+        reps: variation.reps || "10-12",
+        rest: variation.rest || "60 секунд",
+        videoSearchQuery: variation.videoSearchQuery || null,
+        targetWeight: null,
+        targetReps: null,
+        recommendation: {
+          text: variation.reason || "Варіація для уникнення плато",
+          action: "variation"
+        },
+        isCompletedDuringSession: false,
+        sessionLoggedSets: [],
+        sessionSuccess: false,
+        notes: `Варіація: ${variation.variationType || 'alternative'} | Складність: ${variation.difficulty || 'intermediate'}`
+      }));
+    } catch (e) {
+      console.error("Error parsing exercise variations:", e);
+      throw new Error("Не вдалося розібрати варіації вправ від AI");
+    }
+  } catch (error: any) {
+    console.error("Error generating exercise variations:", error);
+    throw new Error(`Помилка генерації варіацій вправ: ${error.message || 'Невідома помилка'}`);
+  }
+};
+
+export const shouldVaryExercise = (
+  exerciseName: string,
+  workoutHistory: WorkoutLog[],
+  variationThreshold: number = 3
+): boolean => {
+  const recentWorkouts = workoutHistory.slice(0, 10); // Останні 10 тренувань
+  const frequency = recentWorkouts.filter(workout => 
+    workout.loggedExercises.some(ex => ex.exerciseName === exerciseName)
+  ).length;
+  
+  return frequency >= variationThreshold;
+};
+
+export const generateAdaptiveWorkout = async (
+  userProfile: UserProfile,
+  originalPlan: DailyWorkoutPlan,
+  wellnessCheck: WellnessCheck,
+  workoutHistory: WorkoutLog[]
+): Promise<AdaptiveWorkoutPlan> => {
+  if (!ai) {
+    throw new Error(UI_TEXT.apiKeyMissing);
+  }
+
+  const adaptivePrompt = `Ти - досвідчений персональний тренер, який адаптує тренування під поточний стан та самопочуття клієнта. Твоя задача - створити адаптивний план тренування, враховуючи самопочуття та історію тренувань.
+
+ВАЖЛИВО: Відповідь має бути ВИКЛЮЧНО у форматі JSON без жодних пояснень.
+
+Профіль користувача:
+${JSON.stringify(userProfile, null, 2)}
+
+Оригінальний план тренування:
+${JSON.stringify(originalPlan, null, 2)}
+
+Поточне самопочуття:
+${JSON.stringify(wellnessCheck, null, 2)}
+
+Історія тренувань (останні 5):
+${JSON.stringify(workoutHistory.slice(0, 5), null, 2)}
+
+Створи адаптивний план тренування, враховуючи:
+
+1. Рівень енергії:
+   - VERY_LOW: Зменшити інтенсивність на 50-70%, фокус на відновленні
+   - LOW: Зменшити інтенсивність на 30-50%, фокус на підтримці
+   - NORMAL: Зберегти оригінальний план
+   - HIGH: Можна збільшити інтенсивність на 10-20%
+   - VERY_HIGH: Можна збільшити інтенсивність на 20-30%
+
+2. Якість сну:
+   - POOR: Значно зменшити навантаження, додати більше відпочинку
+   - FAIR: Помірно зменшити навантаження
+   - GOOD: Мінімальні зміни
+   - EXCELLENT: Можна збільшити навантаження
+
+3. Рівень стресу:
+   - HIGH: Фокус на розслабляючих вправах, зменшити інтенсивність
+   - MODERATE: Помірні зміни
+   - LOW: Нормальне тренування
+
+4. Мотивація та втома:
+   - Мотивація 1-3: Значно зменшити навантаження, додати мотиваційні елементи
+   - Мотивація 4-6: Помірно зменшити навантаження
+   - Мотивація 7-10: Нормальне або збільшене навантаження
+   - Втома 8-10: Значно зменшити навантаження, фокус на відновленні
+
+5. Типи адаптацій:
+   - Зменшення кількості підходів
+   - Зменшення кількості повторень
+   - Збільшення відпочинку між підходами
+   - Заміна на легші варіації вправ
+   - Додавання розминкових вправ
+   - Зміна фокусу тренування
+
+Формат JSON відповіді:
+{
+  "day": 1,
+  "exercises": [
+    {
+      "name": "Назва вправи",
+      "description": "Опис техніки",
+      "sets": "3",
+      "reps": "8-10",
+      "rest": "90 секунд",
+      "videoSearchQuery": "...",
+      "targetWeight": null,
+      "targetReps": null,
+      "recommendation": {
+        "text": "Адаптовано під низький рівень енергії",
+        "action": "reduced_intensity"
+      },
+      "isCompletedDuringSession": false,
+      "sessionLoggedSets": [],
+      "sessionSuccess": false
+    }
+  ],
+  "notes": "Адаптовано під ваше самопочуття",
+  "originalPlan": { /* оригінальний план */ },
+  "adaptations": [
+    {
+      "exerciseName": "Назва вправи",
+      "originalSets": "4",
+      "originalReps": "12-15",
+      "adaptedSets": "3",
+      "adaptedReps": "8-10",
+      "adaptationReason": "Зменшено через низький рівень енергії",
+      "energyLevel": "low"
+    }
+  ],
+  "overallAdaptation": {
+    "intensity": "reduced",
+    "duration": "shorter",
+    "focus": "recovery",
+    "reason": "Адаптовано під низький рівень енергії та поганий сон"
+  }
+}`;
+
+  try {
+    const model = ai.getGenerativeModel({ model: GEMINI_MODEL_TEXT });
+    const response = await model.generateContent(adaptivePrompt);
+    const result = await response.response;
+    let jsonStr = result.text().trim();
+    
+    // Видаляємо можливі markdown-розмітки
+    const fenceRegex = /^```(?:json)?\s*\n?(.*?)\n?\s*```$/s;
+    const match = jsonStr.match(fenceRegex);
+    if (match && match[1]) {
+      jsonStr = match[1].trim();
+    }
+
+    try {
+      const parsedResult: any = JSON.parse(jsonStr);
+      
+      // Перевіряємо структуру
+      if (!parsedResult || !parsedResult.exercises || !Array.isArray(parsedResult.exercises)) {
+        throw new Error("Неправильна структура адаптивного плану");
+      }
+
+      const adaptivePlan: AdaptiveWorkoutPlan = {
+        day: parsedResult.day || originalPlan.day,
+        exercises: parsedResult.exercises.map((ex: any): Exercise => ({
+          id: uuidv4(),
+          name: ex.name || "Невідома вправа",
+          description: ex.description || "Опис відсутній",
+          sets: ex.sets || "3",
+          reps: ex.reps || "10-12",
+          rest: ex.rest || "60 секунд",
+          videoSearchQuery: ex.videoSearchQuery || null,
+          targetWeight: ex.targetWeight !== undefined ? ex.targetWeight : null,
+          targetReps: ex.targetReps !== undefined ? ex.targetReps : null,
+          recommendation: ex.recommendation || { text: '', action: '' },
+          isCompletedDuringSession: false,
+          sessionLoggedSets: [],
+          sessionSuccess: false
+        })),
+        notes: parsedResult.notes || originalPlan.notes || '',
+        originalPlan: originalPlan,
+        adaptations: parsedResult.adaptations || [],
+        overallAdaptation: parsedResult.overallAdaptation || {
+          intensity: 'maintained',
+          duration: 'normal',
+          focus: 'maintenance',
+          reason: 'План адаптовано'
+        }
+      };
+
+      return adaptivePlan;
+    } catch (e) {
+      console.error("Error parsing adaptive workout:", e);
+      throw new Error("Не вдалося розібрати адаптивний план від AI");
+    }
+  } catch (error: any) {
+    console.error("Error generating adaptive workout:", error);
+    throw new Error(`Помилка генерації адаптивного тренування: ${error.message || 'Невідома помилка'}`);
+  }
+};
+
+export const generateWellnessRecommendations = async (
+  userProfile: UserProfile,
+  wellnessCheck: WellnessCheck,
+  workoutHistory: WorkoutLog[]
+): Promise<WellnessRecommendation[]> => {
+  if (!ai) {
+    throw new Error(UI_TEXT.apiKeyMissing);
+  }
+
+  const wellnessPrompt = `Ти - експерт з здорового способу життя та відновлення. Надай персоналізовані рекомендації для покращення самопочуття та продуктивності тренувань.
+
+ВАЖЛИВО: Відповідь має бути ВИКЛЮЧНО у форматі JSON-масиву без жодних пояснень.
+
+Профіль користувача:
+${JSON.stringify(userProfile, null, 2)}
+
+Поточне самопочуття:
+${JSON.stringify(wellnessCheck, null, 2)}
+
+Історія тренувань:
+${JSON.stringify(workoutHistory.slice(0, 10), null, 2)}
+
+Створи рекомендації для покращення:
+
+1. Енергія (якщо енергія низька):
+   - Харчування
+   - Відпочинок
+   - Активність
+   - Додатки
+
+2. Відновлення (якщо втома висока):
+   - Сон
+   - Розтяжка
+   - Масаж
+   - Відпочинок
+
+3. Мотивація (якщо мотивація низька):
+   - Постановка цілей
+   - Відстеження прогресу
+   - Система нагород
+   - Підтримка
+
+4. Стрес (якщо стрес високий):
+   - Дихальні вправи
+   - Медитація
+   - Активність
+   - Розслаблення
+
+Формат JSON:
+[
+  {
+    "type": "energy|recovery|motivation|stress",
+    "title": "Заголовок рекомендації",
+    "description": "Детальний опис",
+    "actions": ["Дія 1", "Дія 2", "Дія 3"],
+    "priority": "high|medium|low"
+  }
+]`;
+
+  try {
+    const model = ai.getGenerativeModel({ model: GEMINI_MODEL_TEXT });
+    const response = await model.generateContent(wellnessPrompt);
+    const result = await response.response;
+    let jsonStr = result.text().trim();
+    
+    // Видаляємо можливі markdown-розмітки
+    const fenceRegex = /^```(?:json)?\s*\n?(.*?)\n?\s*```$/s;
+    const match = jsonStr.match(fenceRegex);
+    if (match && match[1]) {
+      jsonStr = match[1].trim();
+    }
+
+    try {
+      const recommendations: WellnessRecommendation[] = JSON.parse(jsonStr);
+      return recommendations;
+    } catch (e) {
+      console.error("Error parsing wellness recommendations:", e);
+      throw new Error("Не вдалося розібрати рекомендації по самопочуттю");
+    }
+  } catch (error: any) {
+    console.error("Error generating wellness recommendations:", error);
+    throw new Error(`Помилка генерації рекомендацій: ${error.message || 'Невідома помилка'}`);
   }
 };

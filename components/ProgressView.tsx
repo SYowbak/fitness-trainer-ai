@@ -5,6 +5,7 @@ import { UI_TEXT } from '../constants';
 interface ProgressViewProps {
   workoutLogs: WorkoutLog[];
   userProfile: UserProfile | null;
+  onAnalyzeWorkout?: (workoutLog: WorkoutLog) => void;
 }
 
 const ExerciseLogRow: React.FC<{loggedEx: LoggedExercise}> = ({loggedEx}) => {
@@ -41,7 +42,7 @@ const ExerciseLogRow: React.FC<{loggedEx: LoggedExercise}> = ({loggedEx}) => {
 };
 
 
-const ProgressView: React.FC<ProgressViewProps> = ({ workoutLogs, userProfile }) => {
+const ProgressView: React.FC<ProgressViewProps> = ({ workoutLogs, userProfile, onAnalyzeWorkout }) => {
   return (
     <div className="p-4 sm:p-6 bg-gray-800/80 rounded-xl shadow-2xl backdrop-blur-sm">
       <h2 className="text-2xl sm:text-3xl font-bold text-center mb-6 sm:mb-8 text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">
@@ -93,6 +94,15 @@ const ProgressView: React.FC<ProgressViewProps> = ({ workoutLogs, userProfile })
                           ex && typeof ex === 'object' ? <ExerciseLogRow key={exIdx} loggedEx={ex} /> : null
                         )}
                       </div>
+                    )}
+                    {onAnalyzeWorkout && (
+                      <button
+                        onClick={() => onAnalyzeWorkout(log)}
+                        className="mt-2 px-3 py-1 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+                      >
+                        <i className="fas fa-chart-line mr-1"></i>
+                        Аналізувати
+                      </button>
                     )}
                   </div>
                 ) : null

@@ -187,7 +187,125 @@ export const UI_TEXT = {
   workoutAnalysisError: "Помилка при аналізі тренування",
   workoutAnalysisSuccess: "Тренування проаналізовано",
   recommendation: "Рекомендація",
-  nextAction: "Наступна дія"
+  nextAction: "Наступна дія",
+  
+  // Нові константи для покращеного аналізу
+  progressAnalysis: "Аналіз прогресу",
+  overallTrend: "Загальний тренд",
+  strengthProgress: "Прогрес сили",
+  enduranceProgress: "Прогрес витривалості",
+  consistencyScore: "Консистентність",
+  improving: "Прогрес",
+  plateau: "Плато",
+  declining: "Регрес",
+  unknown: "Невідомо",
+  
+  // Рекомендації
+  aiRecommendation: "Рекомендація AI",
+  suggestedWeight: "Рекомендована вага",
+  suggestedReps: "Рекомендовані повторення",
+  suggestedSets: "Рекомендовані підходи",
+  reason: "Причина",
+  
+  // Варіації вправ
+  exerciseVariations: "Варіації вправи",
+  tryVariation: "Спробуйте варіацію для уникнення плато та підтримки прогресу",
+  variationType: "Тип варіації",
+  difficulty: "Складність",
+  progression: "Прогресія",
+  regression: "Регресія",
+  alternative: "Альтернатива",
+  beginner: "Початківець",
+  intermediate: "Середній",
+  advanced: "Просунутий",
+  
+  // Аналіз трендів
+  averageWeight: "Середня вага",
+  averageReps: "Середні повторення",
+  workoutConsistency: "Консистентність тренувань",
+  progressTrend: "Тренд прогресу",
+  
+  // Детальні рекомендації
+  detailedAnalysis: "Детальний аналіз",
+  exerciseSpecificRecommendation: "Рекомендація для вправи",
+  performanceInsights: "Інсайти продуктивності",
+  improvementSuggestions: "Пропозиції покращення",
+  
+  // Варіативність
+  variationForPlateau: "Варіація для уникнення плато",
+  changeExercise: "Змінити вправу",
+  maintainProgress: "Підтримувати прогрес",
+  increaseIntensity: "Збільшити інтенсивність",
+  decreaseIntensity: "Зменшити інтенсивність",
+  
+  // Система самопочуття
+  wellnessCheck: "Перевірка самопочуття",
+  howAreYouFeeling: "Як ви себе почуваєте?",
+  energyLevel: "Рівень енергії",
+  sleepQuality: "Якість сну",
+  stressLevel: "Рівень стресу",
+  motivation: "Мотивація",
+  fatigue: "Втома",
+  addNotes: "Додати нотатки",
+  skipWellnessCheck: "Пропустити",
+  continueWithCheck: "Продовжити з перевіркою",
+  
+  // Рівні енергії
+  veryLow: "Дуже низький",
+  low: "Низький",
+  normal: "Нормальний",
+  high: "Високий",
+  veryHigh: "Дуже високий",
+  
+  // Якість сну
+  poor: "Поганий",
+  fair: "Задовільний",
+  good: "Хороший",
+  excellent: "Відмінний",
+  
+  // Рівень стресу
+  high: "Високий",
+  moderate: "Помірний",
+  low: "Низький",
+  
+  // Адаптивні тренування
+  adaptiveWorkout: "Адаптивне тренування",
+  workoutAdapted: "Тренування адаптовано під ваше самопочуття",
+  intensityReduced: "Інтенсивність зменшена",
+  intensityMaintained: "Інтенсивність збережена",
+  intensityIncreased: "Інтенсивність збільшена",
+  focusRecovery: "Фокус на відновленні",
+  focusMaintenance: "Фокус на підтримці",
+  focusPerformance: "Фокус на продуктивності",
+  
+  // Рекомендації по самопочуттю
+  wellnessRecommendations: "Рекомендації по самопочуттю",
+  energyRecommendations: "Рекомендації по енергії",
+  recoveryRecommendations: "Рекомендації по відновленню",
+  motivationRecommendations: "Рекомендації по мотивації",
+  stressRecommendations: "Рекомендації по стресу",
+  
+  // Адаптації вправ
+  exerciseAdapted: "Вправа адаптована",
+  setsReduced: "Підходи зменшені",
+  repsReduced: "Повторення зменшені",
+  restIncreased: "Відпочинок збільшений",
+  alternativeExercise: "Альтернативна вправа",
+  easierVariation: "Легша варіація",
+  
+  // Повідомлення
+  listenToYourBody: "Прислухайтесь до свого тіла",
+  itsOkayToReduce: "Це нормально зменшити навантаження",
+  qualityOverQuantity: "Якість важливіша за кількість",
+  betterToSkip: "Краще пропустити тренування, ніж травмуватися",
+  tomorrowWillBeBetter: "Завтра буде краще",
+  
+  // Мотиваційні повідомлення
+  youGotThis: "Ви справитесь!",
+  everyWorkoutCounts: "Кожне тренування має значення",
+  progressNotPerfection: "Прогрес, а не досконалість",
+  consistencyIsKey: "Консистентність - це ключ",
+  smallStepsBigResults: "Малі кроки - великі результати"
 };
 
 export function getUkrainianGoal(goal: FitnessGoal): string {
