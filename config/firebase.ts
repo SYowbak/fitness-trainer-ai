@@ -1,4 +1,4 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getAnalytics } from 'firebase/analytics';
@@ -15,8 +15,24 @@ const firebaseConfig = {
   databaseURL: "https://fitness-trainer-ai-gemini-default-rtdb.europe-west1.firebasedatabase.app"
 };
 
-const app = initializeApp(firebaseConfig);
+let app;
+try {
+  app = initializeApp(firebaseConfig);
+} catch (error) {
+  // Якщо app вже ініціалізовано, отримуємо існуючий
+  app = getApp();
+}
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-export const analytics = getAnalytics(app);
-export const database = getDatabase(app); 
+export const analytics = typeof window !== 'undefined' ? getAnalytics(app) : null;
+export const database = getDatabase(app);
+
+// Додаткова перевірка для development середовища
+if (process.env.NODE_ENV === 'development') {
+  console.log('Firebase initialized with config:', {
+    auth: !!auth,
+    db: !!db,
+    analytics: !!analytics,
+    database: !!database
+  });
+} 

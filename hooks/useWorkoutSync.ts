@@ -46,13 +46,14 @@ export const useWorkoutSync = (userId: string) => {
 
   // Підписуємось на зміни в базі даних
   useEffect(() => {
-    if (!userId) {
-      // console.log("useWorkoutSync: userId відсутній, не підписуємось на Firebase Realtime Database.");
+    if (!userId || !database) {
+      // console.log("useWorkoutSync: userId або database відсутній, не підписуємось на Firebase Realtime Database.");
       return;
     }
     const sessionRef = ref(database, `workoutSessions/${userId}`);
     
-    const unsubscribe = onValue(sessionRef, (snapshot) => {
+    let unsubscribe: (() => void) | undefined;
+    unsubscribe = onValue(sessionRef, (snapshot) => {
       const data = snapshot.val();
       // console.log("Дані з Firebase Realtime Database (onValue):", data);
       if (data) {
@@ -148,14 +149,14 @@ export const useWorkoutSync = (userId: string) => {
     });
 
     return () => {
-      if (userId) {
-      unsubscribe();
+      if (userId && database && unsubscribe) {
+        unsubscribe();
       }
     };
   }, [userId]);
 
   const startWorkout = async (dayNumber: number, exercises: Exercise[]) => {
-    if (!userId) { console.error("startWorkout: userId відсутній."); return; }
+    if (!userId || !database) { console.error("startWorkout: userId або database відсутній."); return; }
     // console.log("startWorkout викликано. День:", dayNumber, "Вправи:", exercises);
     const newSession: WorkoutSession = {
       activeDay: dayNumber,
@@ -196,7 +197,7 @@ export const useWorkoutSync = (userId: string) => {
   };
 
   const updateExercise = async (exerciseIndex: number, loggedSets: LoggedSetWithAchieved[], success: boolean) => {
-    if (!userId) { console.error("updateExercise: userId відсутній."); return; }
+    if (!userId || !database) { console.error("updateExercise: userId або database відсутній."); return; }
     const sanitizedLoggedSets = loggedSets.map(set => ({
       repsAchieved: set.repsAchieved ?? null,
       weightUsed: set.weightUsed ?? null,
@@ -236,7 +237,7 @@ export const useWorkoutSync = (userId: string) => {
   };
 
   const endWorkout = async () => {
-    if (!userId) { console.error("endWorkout: userId відсутній."); return; }
+    if (!userId || !database) { console.error("endWorkout: userId або database відсутній."); return; }
     const sessionPath = `workoutSessions/${userId}`; // Лог для шляху
     // console.log("endWorkout: Спроба завершити тренування за шляхом:", sessionPath, "з userId:", userId);
     try {
@@ -248,7 +249,7 @@ export const useWorkoutSync = (userId: string) => {
   };
 
   const updateTimer = async (time: number) => {
-    if (!userId) { console.error("updateTimer: userId відсутній."); return; }
+    if (!userId || !database) { console.error("updateTimer: userId або database відсутній."); return; }
     const cleanedTime = removeUndefined(time);
     const sessionPath = `workoutSessions/${userId}/workoutTimer`; // Лог для шляху
     // console.log("updateTimer: Спроба оновити таймер за шляхом:", sessionPath, "з userId:", userId);
@@ -261,7 +262,7 @@ export const useWorkoutSync = (userId: string) => {
   };
 
   const updateWellnessCheck = async (wellnessCheck: WellnessCheck) => {
-    if (!userId) { console.error("updateWellnessCheck: userId відсутній."); return; }
+    if (!userId || !database) { console.error("updateWellnessCheck: userId або database відсутній."); return; }
     const cleanedWellnessCheck = removeUndefined(wellnessCheck);
     const sessionPath = `workoutSessions/${userId}/wellnessCheck`;
     console.log("Оновлюємо wellnessCheck у live-сесії:", cleanedWellnessCheck);
@@ -275,7 +276,7 @@ export const useWorkoutSync = (userId: string) => {
   };
 
   const updateAdaptiveWorkoutPlan = async (adaptiveWorkoutPlan: AdaptiveWorkoutPlan) => {
-    if (!userId) { console.error("updateAdaptiveWorkoutPlan: userId відсутній."); return; }
+    if (!userId || !database) { console.error("updateAdaptiveWorkoutPlan: userId або database відсутній."); return; }
     const cleanedAdaptiveWorkoutPlan = removeUndefined(adaptiveWorkoutPlan);
     const sessionPath = `workoutSessions/${userId}/adaptiveWorkoutPlan`;
     console.log("Оновлюємо adaptiveWorkoutPlan у live-сесії:", cleanedAdaptiveWorkoutPlan);
@@ -289,7 +290,7 @@ export const useWorkoutSync = (userId: string) => {
   };
 
   const updateWellnessRecommendations = async (wellnessRecommendations: WellnessRecommendation[]) => {
-    if (!userId) { console.error("updateWellnessRecommendations: userId відсутній."); return; }
+    if (!userId || !database) { console.error("updateWellnessRecommendations: userId або database відсутній."); return; }
     const cleanedWellnessRecommendations = removeUndefined(wellnessRecommendations);
     const sessionPath = `workoutSessions/${userId}/wellnessRecommendations`;
     console.log("Оновлюємо wellnessRecommendations у live-сесії:", cleanedWellnessRecommendations);

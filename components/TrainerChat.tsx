@@ -28,7 +28,7 @@ const TrainerChat: React.FC<TrainerChatProps> = ({
 
   useEffect(() => {
     const loadChatHistory = async () => {
-      if (!user) return;
+      if (!user || !database) return;
       
       try {
         const chatRef = ref(database, `users/${user.uid}/chatHistory`);
@@ -53,7 +53,7 @@ const TrainerChat: React.FC<TrainerChatProps> = ({
 
   useEffect(() => {
     const saveChatHistory = async () => {
-      if (!user || messages.length === 0) return;
+      if (!user || !database || messages.length === 0) return;
       
       try {
         const chatRef = ref(database, `users/${user.uid}/chatHistory`);
@@ -117,7 +117,7 @@ const TrainerChat: React.FC<TrainerChatProps> = ({
   };
 
   const clearChat = async () => {
-    if (!user) return;
+    if (!user || !database) return;
     
     try {
       const chatRef = ref(database, `users/${user.uid}/chatHistory`);
