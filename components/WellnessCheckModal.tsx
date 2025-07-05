@@ -55,10 +55,10 @@ const WellnessCheckModal: React.FC<WellnessCheckModalProps> = ({
 
   const getStressLevelText = (level: StressLevel) => {
     switch (level) {
-      case StressLevel.HIGH: return UI_TEXT.high;
-      case StressLevel.MODERATE: return UI_TEXT.moderate;
-      case StressLevel.LOW: return UI_TEXT.low;
-      default: return UI_TEXT.low;
+      case StressLevel.HIGH: return UI_TEXT.stressHigh;
+      case StressLevel.MODERATE: return UI_TEXT.stressModerate;
+      case StressLevel.LOW: return UI_TEXT.stressLow;
+      default: return UI_TEXT.stressLow;
     }
   };
 

@@ -264,9 +264,9 @@ export const UI_TEXT = {
   excellent: "Відмінний",
   
   // Рівень стресу
-  high: "Високий",
-  moderate: "Помірний",
-  low: "Низький",
+  stressHigh: "Високий",
+  stressModerate: "Помірний",
+  stressLow: "Низький",
   
   // Адаптивні тренування
   adaptiveWorkout: "Адаптивне тренування",

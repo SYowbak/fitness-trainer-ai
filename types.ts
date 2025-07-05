@@ -123,6 +123,12 @@ export interface WorkoutLog {
   dayCompleted?: number; // День плану, який був завершений
   workoutDuration?: string; // Тривалість тренування у форматі HH:MM:SS
   loggedExercises: LoggedExercise[]; // Виконані вправи
+  
+  // Нові поля для збереження wellness check та адаптацій
+  wellnessCheck?: WellnessCheck | null; // Дані про самопочуття
+  adaptiveWorkoutPlan?: AdaptiveWorkoutPlan | null; // Адаптивний план тренування
+  wellnessRecommendations?: WellnessRecommendation[] | null; // Рекомендації по самопочуттю
+  wasAdaptiveWorkout?: boolean; // Чи було тренування адаптивним
 }
 
 export interface ExerciseRecommendation {

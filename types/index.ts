@@ -11,7 +11,7 @@ export type UserProfile = {
 
 export type WorkoutLog = {
   id: string;
-  date: string;
+  date: Date | { seconds: number; nanoseconds: number };
   exercises: Array<{
     name: string;
     sets: number;

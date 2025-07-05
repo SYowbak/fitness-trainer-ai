@@ -26,7 +26,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   variations = [],
   onSelectVariation
 }) => {
-  console.log(`ExerciseCard ${exercise.name} rendering. isCompleted: ${exercise.isCompletedDuringSession}`);
+  // console.log(`ExerciseCard ${exercise.name} rendering. isCompleted: ${exercise.isCompletedDuringSession}`);
   const [isExpanded, setIsExpanded] = useState(false);
   const [showLogForm, setShowLogForm] = useState(false);
   const [isCompleted, setIsCompleted] = useState<boolean>(exercise.isCompletedDuringSession);
@@ -42,7 +42,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
 
   // Ініціалізуємо або оновлюємо isCompleted та allSetsSuccessful, коли exercise змінюється
   useEffect(() => {
-    console.log(`ExerciseCard ${exercise.name}: useEffect [isCompletedDuringSession, sessionSuccess] triggered.`);
+    // console.log(`ExerciseCard ${exercise.name}: useEffect [isCompletedDuringSession, sessionSuccess] triggered.`);
     setIsCompleted(exercise.isCompletedDuringSession);
     setAllSetsSuccessful(exercise.sessionSuccess ?? true);
     // Приховуємо форму логування, якщо вправу вже завершено
@@ -52,7 +52,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   }, [exercise.isCompletedDuringSession, exercise.sessionSuccess, exercise.name]);
 
   useEffect(() => {
-    console.log(`ExerciseCard ${exercise.name}: loggedSetsData changed:`, loggedSetsData);
+    // console.log(`ExerciseCard ${exercise.name}: loggedSetsData changed:`, loggedSetsData);
   }, [loggedSetsData, exercise.name]);
 
   useEffect(() => {
@@ -92,7 +92,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   };
 
   const handleSetDataChange = (setIndex: number, field: keyof LoggedSetWithAchieved, value: string) => {
-    console.log(`ExerciseCard ${exercise.name}: handleSetDataChange for set ${setIndex}, field ${field}, value ${value}`);
+    // console.log(`ExerciseCard ${exercise.name}: handleSetDataChange for set ${setIndex}, field ${field}, value ${value}`);
     const newLoggedSetsData = [...loggedSetsData];
     newLoggedSetsData[setIndex] = { ...newLoggedSetsData[setIndex], [field]: value === '' ? null : parseFloat(value) };
     setLoggedSetsData(newLoggedSetsData);
@@ -100,7 +100,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   
   const handleLogFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log(`ExerciseCard ${exercise.name}: handleLogFormSubmit. loggedSetsData:`, loggedSetsData);
+    // console.log(`ExerciseCard ${exercise.name}: handleLogFormSubmit. loggedSetsData:`, loggedSetsData);
     // Фільтруємо підходи, щоб включити лише ті, які мають введені дані (не null)
     const validSets = loggedSetsData.filter(s => s.repsAchieved !== null && s.weightUsed !== null) as LoggedSetWithAchieved[];
     
@@ -274,7 +274,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
 
               <button 
                   onClick={() => {
-                    console.log(`ExerciseCard ${exercise.name}: 'Mark as Done' button clicked. Initializing form data.`);
+                    // console.log(`ExerciseCard ${exercise.name}: 'Mark as Done' button clicked. Initializing form data.`);
                     if (exercise.sessionLoggedSets && exercise.sessionLoggedSets.length > 0) {
                       setLoggedSetsData(exercise.sessionLoggedSets.map(set => ({
                         repsAchieved: set.repsAchieved !== undefined ? set.repsAchieved : null,

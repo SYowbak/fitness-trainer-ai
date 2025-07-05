@@ -233,7 +233,7 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
               <div className="mt-4">
                 <h4 className="text-green-300 font-medium mb-2">Адаптації вправ:</h4>
                 <div className="space-y-2">
-                  {adaptiveWorkoutPlan.adaptations.slice(0, 3).map((adaptation, index) => (
+                  {adaptiveWorkoutPlan.adaptations.map((adaptation, index) => (
                     <div key={index} className="text-xs text-green-200 bg-green-900/20 p-2 rounded">
                       <p><strong>{adaptation.exerciseName}:</strong> {adaptation.adaptationReason}</p>
                       <p className="text-green-300">
@@ -311,6 +311,17 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
     );
   };
 
+  const getAdaptedExercise = (exercise) => {
+    if (!adaptiveWorkoutPlan || !adaptiveWorkoutPlan.adaptations) return exercise;
+    const adaptation = adaptiveWorkoutPlan.adaptations.find(a => a.exerciseName === exercise.name);
+    if (!adaptation) return exercise;
+    return {
+      ...exercise,
+      sets: adaptation.adaptedSets || exercise.sets,
+      reps: adaptation.adaptedReps || exercise.reps,
+    };
+  };
+
   return (
     <div className="space-y-6">
       {/* Відображення трендів прогресу */}
@@ -386,16 +397,17 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
       <div className="space-y-4">
         {exercisesToDisplay.map((exercise, index) => {
           const variations = exerciseVariations.get(exercise.name) || [];
+          const adaptedExercise = getAdaptedExercise(exercise);
           
           return (
             <ExerciseCard
-              key={exercise.id}
-              exercise={exercise}
+              key={adaptedExercise.id}
+              exercise={adaptedExercise}
               isActive={activeDay !== null}
               onLogExercise={(loggedSets, success) => {
                 const updatedExercises = [...exercisesToDisplay];
                 updatedExercises[index] = {
-                  ...exercise,
+                  ...adaptedExercise,
                   isCompletedDuringSession: true,
                   sessionLoggedSets: loggedSets,
                   sessionSuccess: success

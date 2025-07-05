@@ -246,6 +246,11 @@ const App: React.FC = () => {
       dayCompleted: session.activeDay ?? null,
       workoutDuration: formatTime(Math.floor((Date.now() - session.startTime) / 1000)) ?? null,
       loggedExercises: loggedExercisesForSession,
+      // Зберігаємо wellness check та адаптації, якщо вони були
+      wellnessCheck: currentWellnessCheck || null,
+      adaptiveWorkoutPlan: adaptiveWorkoutPlan || null,
+      wellnessRecommendations: wellnessRecommendations || null,
+      wasAdaptiveWorkout: !!adaptiveWorkoutPlan,
     };
 
     try {
@@ -259,6 +264,12 @@ const App: React.FC = () => {
     }
 
     endWorkout();
+    
+    // Очищаємо стан wellness check та адаптацій після завершення тренування
+    setCurrentWellnessCheck(null);
+    setAdaptiveWorkoutPlan(null);
+    setWellnessRecommendations([]);
+    setWellnessRecommendationsModalOpen(false);
     
     // --- Start Workout Analysis ---
     try {
@@ -432,8 +443,55 @@ const App: React.FC = () => {
 
   const handleWellnessCheckSkip = useCallback(() => {
     setWellnessCheckModalOpen(false);
-    // Продовжуємо з оригінальним планом
-  }, []);
+    if (pendingWorkoutDay !== null && currentWorkoutPlan) {
+      // Стартуємо тренування з оригінальним планом без адаптації
+      const planForDay = currentWorkoutPlan.find(d => d.day === pendingWorkoutDay);
+      if (planForDay) {
+        startWorkout(planForDay.day, planForDay.exercises);
+      }
+      setPendingWorkoutDay(null);
+    }
+  }, [pendingWorkoutDay, currentWorkoutPlan, startWorkout]);
+
+  // Додаємо функцію для видалення логів за датою
+  const handleDeleteLogsByDate = useCallback(async (dateStr: string) => {
+    if (!user || !user.uid) return;
+    try {
+      // 1. Знайти всі логи користувача
+      const logsQuery = query(collection(db, 'workoutLogs'), where('userId', '==', user.uid));
+      const logsSnapshot = await getDocs(logsQuery);
+      // 2. Відфільтрувати по даті (тільки день/місяць/рік)
+      const logsToDelete = logsSnapshot.docs.filter(docSnap => {
+        const data = docSnap.data();
+        let logDate = '';
+        if (data.date && typeof data.date === 'object' && 'seconds' in data.date) {
+          logDate = new Date(data.date.seconds * 1000).toLocaleDateString('uk-UA', { year: 'numeric', month: 'long', day: 'numeric' });
+        } else if (data.date instanceof Date) {
+          logDate = data.date.toLocaleDateString('uk-UA', { year: 'numeric', month: 'long', day: 'numeric' });
+        } else {
+          logDate = 'Невідома дата';
+        }
+        return logDate === dateStr;
+      });
+      // 3. Видалити з Firestore
+      await Promise.all(logsToDelete.map(docSnap => deleteDoc(doc(db, 'workoutLogs', docSnap.id))));
+      // 4. Оновити локальний стан
+      setWorkoutLogs(prev => prev.filter(log => {
+        let logDate = '';
+        if (log.date && typeof log.date === 'object' && 'seconds' in log.date) {
+          logDate = new Date(log.date.seconds * 1000).toLocaleDateString('uk-UA', { year: 'numeric', month: 'long', day: 'numeric' });
+        } else if (log.date instanceof Date) {
+          logDate = log.date.toLocaleDateString('uk-UA', { year: 'numeric', month: 'long', day: 'numeric' });
+        } else {
+          logDate = 'Невідома дата';
+        }
+        return logDate !== dateStr;
+      }));
+    } catch (error) {
+      console.error('Помилка при видаленні логів за датою:', error);
+      setError('Не вдалося видалити логи за цю дату. Спробуйте ще раз.');
+    }
+  }, [user]);
 
   const renderView = () => {
     if (!user) {
@@ -490,6 +548,7 @@ const App: React.FC = () => {
               workoutLogs={workoutLogs}
               userProfile={userProfile}
               onAnalyzeWorkout={handleAnalyzeWorkout}
+              onDeleteLog={handleDeleteLogsByDate}
             />
           </div>
         );
