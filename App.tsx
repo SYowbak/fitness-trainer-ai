@@ -66,10 +66,13 @@ const App: React.FC = () => {
 
   // Автоматичний вибір початкової вкладки на основі наявності плану тренувань
   useEffect(() => {
-    if (currentWorkoutPlan && currentWorkoutPlan.length > 0 && currentView === 'profile') {
+    // Безпечна перевірка наявності плану тренувань
+    const hasWorkoutPlan = currentWorkoutPlan && Array.isArray(currentWorkoutPlan) && currentWorkoutPlan.length > 0;
+    
+    if (hasWorkoutPlan && currentView === 'profile') {
       // Якщо є план тренувань і зараз відображається профіль, переключаємося на тренування
       setCurrentView('workout');
-    } else if (!currentWorkoutPlan && currentView !== 'profile') {
+    } else if (!hasWorkoutPlan && currentView !== 'profile') {
       // Якщо немає плану тренувань і зараз не профіль, переключаємося на профіль
       setCurrentView('profile');
     }
@@ -529,7 +532,7 @@ const App: React.FC = () => {
         return (
           <div className="container mx-auto px-4 py-8">
             <WorkoutDisplay
-              workoutPlan={adaptiveWorkoutPlan ? [adaptiveWorkoutPlan] : currentWorkoutPlan}
+              workoutPlan={adaptiveWorkoutPlan ? [adaptiveWorkoutPlan] : (currentWorkoutPlan || null)}
               onStartWorkout={handleStartWorkoutWithWellnessCheck}
               onLogExercise={handleLogSingleExercise}
               onEndWorkout={handleEndWorkout}
@@ -622,8 +625,8 @@ const App: React.FC = () => {
               <div className="flex-1 min-h-0">
                 <TrainerChat
                   userProfile={userProfile!}
-                  lastWorkoutLog={workoutLogs[0] || null}
-                  previousWorkoutLogs={workoutLogs.slice(1)}
+                  lastWorkoutLog={workoutLogs && workoutLogs.length > 0 ? workoutLogs[0] : null}
+                  previousWorkoutLogs={workoutLogs && workoutLogs.length > 1 ? workoutLogs.slice(1) : []}
                 />
               </div>
             </div>
