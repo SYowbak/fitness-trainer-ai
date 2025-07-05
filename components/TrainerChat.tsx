@@ -4,7 +4,7 @@ import { generateTrainerResponse } from '../services/trainerChatService';
 import { UI_TEXT } from '../constants';
 import { database } from '../config/firebase';
 import { ref, set, get, remove } from 'firebase/database';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 
 interface TrainerChatProps {
   userProfile: UserProfile;
