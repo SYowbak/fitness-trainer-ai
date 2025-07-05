@@ -7,7 +7,7 @@ import WorkoutDisplay from './components/WorkoutDisplay';
 import ProgressView from './components/ProgressView';
 import Spinner from './components/Spinner';
 import ErrorMessage from './components/ErrorMessage';
-import TrainerChat from './components/TrainerChat';
+
 import { generateWorkoutPlan as apiGenerateWorkoutPlan, generateAdaptiveWorkout, generateWellnessRecommendations } from './services/geminiService';
 import { useAuth } from './hooks/useAuth';
 import { AuthForm } from './components/AuthForm';
@@ -21,25 +21,25 @@ import WellnessCheckModal from './components/WellnessCheckModal';
 import WellnessRecommendations from './components/WellnessRecommendations';
 import { WellnessCheck, AdaptiveWorkoutPlan, WellnessRecommendation } from './types';
 
-type View = 'profile' | 'workout' | 'progress' | 'chat';
+type View = 'profile' | 'workout' | 'progress';
 
 const App: React.FC = () => {
   const { user, loading, logout, setUser } = useAuth();
   const { workoutPlan, saveWorkoutPlan, profile: firestoreProfile, workoutLogs: firestoreWorkoutLogs, saveProfile, saveWorkoutLog } = useUserData();
-  const { session, startWorkout, updateExercise, endWorkout, updateTimer } = useWorkoutSync(user?.uid || '');
+  const { session, startWorkout, updateExercise, endWorkout, updateTimer, updateWellnessCheck, updateAdaptiveWorkoutPlan, updateWellnessRecommendations } = useWorkoutSync(user?.uid || '');
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [currentWorkoutPlan, setCurrentWorkoutPlan] = useState<DailyWorkoutPlan[] | null>(null);
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [currentView, setCurrentView] = useState<View>('profile');
+  const [currentView, setCurrentView] = useState<View>('workout');
   const [apiKeyMissing, setApiKeyMissing] = useState<boolean>(false);
   const [exerciseRecommendations, setExerciseRecommendations] = useState<any[]>([]);
   const [exerciseVariations, setExerciseVariations] = useState<Map<string, any[]>>(new Map());
   const [progressTrends, setProgressTrends] = useState<any>(null);
   const [wellnessCheckModalOpen, setWellnessCheckModalOpen] = useState<boolean>(false);
   const [wellnessRecommendationsModalOpen, setWellnessRecommendationsModalOpen] = useState<boolean>(false);
-  const [currentWellnessCheck, setCurrentWellnessCheck] = useState<WellnessCheck | null>(null);
+  // const [currentWellnessCheck, setCurrentWellnessCheck] = useState<WellnessCheck | null>(null);
   const [wellnessRecommendations, setWellnessRecommendations] = useState<WellnessRecommendation[]>([]);
   const [adaptiveWorkoutPlan, setAdaptiveWorkoutPlan] = useState<AdaptiveWorkoutPlan | null>(null);
   const [pendingWorkoutDay, setPendingWorkoutDay] = useState<number | null>(null);
@@ -58,6 +58,20 @@ const App: React.FC = () => {
       setCurrentWorkoutPlan(null);
     }
   }, [workoutPlan]);
+
+  // Автоматично переключаємося на вкладку "Профіль", якщо немає плану тренувань
+  useEffect(() => {
+    if (user && !workoutPlan && currentView === 'workout') {
+      setCurrentView('profile');
+    }
+  }, [user, workoutPlan, currentView]);
+
+  // Автоматично переключаємося на вкладку "Тренування", якщо є план і користувач на вкладці "Профіль"
+  useEffect(() => {
+    if (user && workoutPlan && currentView === 'profile') {
+      setCurrentView('workout');
+    }
+  }, [user, workoutPlan, currentView]);
 
   // Синхронізація профілю та логів з useUserData (Firestore)
   useEffect(() => {
@@ -180,32 +194,7 @@ const App: React.FC = () => {
     setWellnessCheckModalOpen(true);
   }, []);
 
-  // Оновлений handleStartWorkout для роботи з адаптивними планами
-  const handleStartWorkout = useCallback(async (dayNumber: number) => {
-    console.log("handleStartWorkout викликано для дня:", dayNumber);
-    
-    // Якщо є адаптивний план, використовуємо його
-    const planToUse = adaptiveWorkoutPlan || currentWorkoutPlan;
-    
-    if (!planToUse || !Array.isArray(planToUse)) {
-      console.log("planToUse відсутній або не є масивом.");
-      return;
-    }
 
-    const planForDay = planToUse.find(d => d.day === dayNumber);
-    if (planForDay && planForDay.exercises && Array.isArray(planForDay.exercises)) {
-      console.log("Знайдено план для дня:", dayNumber, "з вправами:", planForDay.exercises);
-      try {
-        await startWorkout(dayNumber, planForDay.exercises);
-        console.log("startWorkout успішно викликано.");
-      } catch (e: any) {
-        console.error("Помилка при початку тренування (handleStartWorkout):", e);
-        setError(e.message || "Помилка при початку тренування.");
-      }
-    } else {
-      console.log("План для дня не знайдено або вправи відсутні/не є масивом.", planForDay);
-    }
-  }, [adaptiveWorkoutPlan, currentWorkoutPlan, startWorkout]);
 
   const handleLogSingleExercise = useCallback((exerciseIndex: number, loggedSets: LoggedSetWithAchieved[], success: boolean) => {
     updateExercise(exerciseIndex, loggedSets, success);
@@ -247,11 +236,11 @@ const App: React.FC = () => {
       dayCompleted: session.activeDay ?? null,
       workoutDuration: formatTime(Math.floor((Date.now() - session.startTime) / 1000)) ?? null,
       loggedExercises: loggedExercisesForSession,
-      // Явно зберігаємо всі поля (навіть якщо null)
-      wellnessCheck: currentWellnessCheck ?? null,
-      adaptiveWorkoutPlan: adaptiveWorkoutPlan ?? null,
-      wellnessRecommendations: wellnessRecommendations ?? null,
-      wasAdaptiveWorkout: !!adaptiveWorkoutPlan,
+      // Використовуємо дані з live-сесії замість локального стану
+      wellnessCheck: session.wellnessCheck ?? null,
+      adaptiveWorkoutPlan: session.adaptiveWorkoutPlan ?? null,
+      wellnessRecommendations: session.wellnessRecommendations ?? null,
+      wasAdaptiveWorkout: !!session.adaptiveWorkoutPlan,
     };
     console.log('Зберігаємо workoutLog у Firestore:', newLog);
 
@@ -267,8 +256,9 @@ const App: React.FC = () => {
 
     endWorkout();
     
-    // Очищаємо стан wellness check та адаптацій після завершення тренування
-    setCurrentWellnessCheck(null);
+    // Очищаємо локальний стан wellness check та адаптацій після завершення тренування
+    // (live-сесія автоматично очиститься через endWorkout)
+    // setCurrentWellnessCheck(null);
     setAdaptiveWorkoutPlan(null);
     setWellnessRecommendations([]);
     setWellnessRecommendationsModalOpen(false);
@@ -401,7 +391,7 @@ const App: React.FC = () => {
       return;
     }
 
-    setCurrentWellnessCheck(wellnessCheck);
+    // setCurrentWellnessCheck(wellnessCheck);
     setWellnessCheckModalOpen(false);
     setIsLoading(true);
 
@@ -433,6 +423,12 @@ const App: React.FC = () => {
 
       // АВТОМАТИЧНО СТАРТУЄМО ТРЕНУВАННЯ
       await startWorkout(adaptivePlan.day, adaptivePlan.exercises);
+      
+      // ОНОВЛЮЄМО LIVE-СЕСІЮ з wellnessCheck, adaptiveWorkoutPlan та wellnessRecommendations
+      await updateWellnessCheck(wellnessCheck);
+      await updateAdaptiveWorkoutPlan(adaptivePlan);
+      await updateWellnessRecommendations(recommendations);
+      
       setPendingWorkoutDay(null);
     } catch (error: any) {
       console.error('Error generating adaptive workout:', error);
@@ -441,7 +437,7 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [userProfile, currentWorkoutPlan, workoutLogs, saveWorkoutPlan, pendingWorkoutDay, startWorkout]);
+  }, [userProfile, currentWorkoutPlan, workoutLogs, saveWorkoutPlan, pendingWorkoutDay, startWorkout, updateWellnessCheck, updateAdaptiveWorkoutPlan, updateWellnessRecommendations]);
 
   const handleWellnessCheckSkip = useCallback(() => {
     setWellnessCheckModalOpen(false);
@@ -456,7 +452,13 @@ const App: React.FC = () => {
   }, [pendingWorkoutDay, currentWorkoutPlan, startWorkout]);
 
   // Додаємо функцію для видалення логів за датою
-  const handleDeleteLogsByDate = useCallback(async (dateStr: string) => {
+  const handleDeleteLogsByDate = useCallback(async (logOrDate: string | WorkoutLog) => {
+    // Якщо передано WorkoutLog, витягуємо дату
+    const dateStr = typeof logOrDate === 'string' ? logOrDate : 
+      (logOrDate.date instanceof Date ? 
+        logOrDate.date.toLocaleDateString('uk-UA', { year: 'numeric', month: 'long', day: 'numeric' }) :
+        new Date(logOrDate.date.seconds * 1000).toLocaleDateString('uk-UA', { year: 'numeric', month: 'long', day: 'numeric' })
+      );
     if (!user || !user.uid) return;
     try {
       // 1. Знайти всі логи користувача
@@ -538,8 +540,8 @@ const App: React.FC = () => {
               exerciseVariations={exerciseVariations}
               onSelectVariation={handleSelectVariation}
               progressTrends={progressTrends}
-              wellnessCheck={currentWellnessCheck}
-              adaptiveWorkoutPlan={adaptiveWorkoutPlan}
+              wellnessCheck={session.wellnessCheck}
+              adaptiveWorkoutPlan={session.adaptiveWorkoutPlan}
             />
           </div>
         );
@@ -554,16 +556,7 @@ const App: React.FC = () => {
             />
           </div>
         );
-      case 'chat':
-        return (
-          <div className="container mx-auto px-4 py-8">
-            <TrainerChat
-              userProfile={userProfile!}
-              lastWorkoutLog={workoutLogs[0] || null}
-              previousWorkoutLogs={workoutLogs.slice(1)}
-            />
-          </div>
-        );
+
       default:
         return null;
     }
@@ -616,11 +609,11 @@ const App: React.FC = () => {
               </button>
             </div>
             <div className="flex-1 min-h-0">
-              <TrainerChat
-                userProfile={userProfile!}
-                lastWorkoutLog={workoutLogs[0] || null}
-                previousWorkoutLogs={workoutLogs.slice(1)}
-              />
+              {/* TrainerChat буде додано пізніше */}
+              <div className="p-4 text-center text-gray-400">
+                <i className="fas fa-comments text-2xl mb-2"></i>
+                <p>Чат з тренером</p>
+              </div>
             </div>
           </div>
         )}

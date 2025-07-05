@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ref, onValue, set, remove } from 'firebase/database';
 import { database } from '../config/firebase';
-import { Exercise, LoggedSetWithAchieved } from '../types';
+import { Exercise, LoggedSetWithAchieved, WellnessCheck, AdaptiveWorkoutPlan, WellnessRecommendation } from '../types';
 
 // Утиліта для очищення undefined значень для Firebase Realtime Database
 function removeUndefined(obj: any): any {
@@ -27,6 +27,9 @@ interface WorkoutSession {
   sessionExercises: Exercise[];
   startTime: number | null;
   workoutTimer: number;
+  wellnessCheck?: WellnessCheck | null;
+  adaptiveWorkoutPlan?: AdaptiveWorkoutPlan | null;
+  wellnessRecommendations?: WellnessRecommendation[] | null;
 }
 
 export const useWorkoutSync = (userId: string) => {
@@ -35,7 +38,10 @@ export const useWorkoutSync = (userId: string) => {
     activeDay: null,
     sessionExercises: [],
     startTime: null,
-    workoutTimer: 0
+    workoutTimer: 0,
+    wellnessCheck: null,
+    adaptiveWorkoutPlan: null,
+    wellnessRecommendations: null
   });
 
   // Підписуємось на зміни в базі даних
@@ -102,14 +108,30 @@ export const useWorkoutSync = (userId: string) => {
             return true;
           };
 
-          return {
+          const newSession = {
             activeDay: cleanedData.activeDay ?? null,
             sessionExercises: areExercisesEqual(newSessionExercises, oldSessionExercises)
               ? oldSessionExercises // Використовуємо старе посилання, якщо дані не змінилися
               : newSessionExercises, // Інакше - нове посилання
             startTime: cleanedData.startTime ?? null,
             workoutTimer: cleanedData.workoutTimer ?? 0,
+            wellnessCheck: cleanedData.wellnessCheck ?? null,
+            adaptiveWorkoutPlan: cleanedData.adaptiveWorkoutPlan ?? null,
+            wellnessRecommendations: cleanedData.wellnessRecommendations ?? null,
           };
+          
+          // Логуємо зміни в wellnessCheck/adaptiveWorkoutPlan для контролю live-синхронізації
+          if (cleanedData.wellnessCheck !== prevSession.wellnessCheck) {
+            console.log("Отримано оновлений wellnessCheck з live-сесії:", cleanedData.wellnessCheck);
+          }
+          if (cleanedData.adaptiveWorkoutPlan !== prevSession.adaptiveWorkoutPlan) {
+            console.log("Отримано оновлений adaptiveWorkoutPlan з live-сесії:", cleanedData.adaptiveWorkoutPlan);
+          }
+          if (cleanedData.wellnessRecommendations !== prevSession.wellnessRecommendations) {
+            console.log("Отримано оновлені wellnessRecommendations з live-сесії:", cleanedData.wellnessRecommendations);
+          }
+          
+          return newSession;
         });
       } else {
         // console.log("Дані з Firebase Realtime Database порожні.");
@@ -117,7 +139,10 @@ export const useWorkoutSync = (userId: string) => {
           activeDay: null,
           sessionExercises: [],
           startTime: null,
-          workoutTimer: 0
+          workoutTimer: 0,
+          wellnessCheck: null,
+          adaptiveWorkoutPlan: null,
+          wellnessRecommendations: null
         });
       }
     });
@@ -151,7 +176,10 @@ export const useWorkoutSync = (userId: string) => {
         notes: ex.notes ?? null,
       })),
       startTime: Date.now(),
-      workoutTimer: 0
+      workoutTimer: 0,
+      wellnessCheck: null,
+      adaptiveWorkoutPlan: null,
+      wellnessRecommendations: null
     };
 
     const cleanedSession = removeUndefined(newSession);
@@ -232,11 +260,56 @@ export const useWorkoutSync = (userId: string) => {
     }
   };
 
+  const updateWellnessCheck = async (wellnessCheck: WellnessCheck) => {
+    if (!userId) { console.error("updateWellnessCheck: userId відсутній."); return; }
+    const cleanedWellnessCheck = removeUndefined(wellnessCheck);
+    const sessionPath = `workoutSessions/${userId}/wellnessCheck`;
+    console.log("Оновлюємо wellnessCheck у live-сесії:", cleanedWellnessCheck);
+    try {
+      await set(ref(database, sessionPath), cleanedWellnessCheck);
+      console.log("wellnessCheck успішно оновлено у live-сесії");
+    } catch (error) {
+      console.error("Помилка при оновленні wellnessCheck у Firebase:", error);
+      throw error;
+    }
+  };
+
+  const updateAdaptiveWorkoutPlan = async (adaptiveWorkoutPlan: AdaptiveWorkoutPlan) => {
+    if (!userId) { console.error("updateAdaptiveWorkoutPlan: userId відсутній."); return; }
+    const cleanedAdaptiveWorkoutPlan = removeUndefined(adaptiveWorkoutPlan);
+    const sessionPath = `workoutSessions/${userId}/adaptiveWorkoutPlan`;
+    console.log("Оновлюємо adaptiveWorkoutPlan у live-сесії:", cleanedAdaptiveWorkoutPlan);
+    try {
+      await set(ref(database, sessionPath), cleanedAdaptiveWorkoutPlan);
+      console.log("adaptiveWorkoutPlan успішно оновлено у live-сесії");
+    } catch (error) {
+      console.error("Помилка при оновленні adaptiveWorkoutPlan у Firebase:", error);
+      throw error;
+    }
+  };
+
+  const updateWellnessRecommendations = async (wellnessRecommendations: WellnessRecommendation[]) => {
+    if (!userId) { console.error("updateWellnessRecommendations: userId відсутній."); return; }
+    const cleanedWellnessRecommendations = removeUndefined(wellnessRecommendations);
+    const sessionPath = `workoutSessions/${userId}/wellnessRecommendations`;
+    console.log("Оновлюємо wellnessRecommendations у live-сесії:", cleanedWellnessRecommendations);
+    try {
+      await set(ref(database, sessionPath), cleanedWellnessRecommendations);
+      console.log("wellnessRecommendations успішно оновлено у live-сесії");
+    } catch (error) {
+      console.error("Помилка при оновленні wellnessRecommendations у Firebase:", error);
+      throw error;
+    }
+  };
+
   return {
     session,
     startWorkout,
     updateExercise,
     endWorkout,
-    updateTimer
+    updateTimer,
+    updateWellnessCheck,
+    updateAdaptiveWorkoutPlan,
+    updateWellnessRecommendations
   };
 }; 

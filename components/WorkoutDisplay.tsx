@@ -265,6 +265,27 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
       }
     };
 
+    const getEnergyText = (level: string) => {
+      switch (level) {
+        case 'very_low': return 'Дуже низька';
+        case 'low': return 'Низька';
+        case 'normal': return 'Нормальна';
+        case 'high': return 'Висока';
+        case 'very_high': return 'Дуже висока';
+        default: return level;
+      }
+    };
+
+    const getSleepText = (quality: string) => {
+      switch (quality) {
+        case 'poor': return 'Поганий';
+        case 'fair': return 'Посередній';
+        case 'good': return 'Хороший';
+        case 'excellent': return 'Відмінний';
+        default: return quality;
+      }
+    };
+
     return (
       <div className="mb-6 p-4 bg-blue-900/30 border border-blue-500/30 rounded-lg">
         <div className="flex items-start space-x-3">
@@ -279,12 +300,12 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
               <div className="text-center">
                 <i className={`${getEnergyIcon(wellnessCheck.energyLevel)} text-2xl mb-1`}></i>
                 <p className="text-blue-300 font-medium">Енергія</p>
-                <p className="text-blue-200 text-xs">{wellnessCheck.energyLevel}</p>
+                <p className="text-blue-200 text-xs">{getEnergyText(wellnessCheck.energyLevel)}</p>
               </div>
               <div className="text-center">
                 <i className="fas fa-bed text-blue-400 text-2xl mb-1"></i>
                 <p className="text-blue-300 font-medium">Сон</p>
-                <p className="text-blue-200 text-xs">{wellnessCheck.sleepQuality}</p>
+                <p className="text-blue-200 text-xs">{getSleepText(wellnessCheck.sleepQuality)}</p>
               </div>
               <div className="text-center">
                 <i className="fas fa-fire text-orange-400 text-2xl mb-1"></i>
