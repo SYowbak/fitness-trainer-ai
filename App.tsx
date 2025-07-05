@@ -69,36 +69,39 @@ const App: React.FC = () => {
     // Безпечна перевірка наявності плану тренувань
     const hasWorkoutPlan = currentWorkoutPlan && Array.isArray(currentWorkoutPlan) && currentWorkoutPlan.length > 0;
     
-    if (hasWorkoutPlan && currentView === 'profile') {
-      // Якщо є план тренувань і зараз відображається профіль, переключаємося на тренування
-      setCurrentView('workout');
-    } else if (!hasWorkoutPlan && currentView !== 'profile') {
-      // Якщо немає плану тренувань і зараз не профіль, переключаємося на профіль
-      setCurrentView('profile');
+    // Перевіряємо тільки якщо користувач авторизований
+    if (user) {
+      if (hasWorkoutPlan && currentView === 'profile') {
+        // Якщо є план тренувань і зараз відображається профіль, переключаємося на тренування
+        setCurrentView('workout');
+      } else if (!hasWorkoutPlan && currentView !== 'profile') {
+        // Якщо немає плану тренувань і зараз не профіль, переключаємося на профіль
+        setCurrentView('profile');
+      }
     }
-  }, [currentWorkoutPlan, currentView]);
+  }, [user, currentWorkoutPlan, currentView]);
 
   // Оновлюємо таймер на основі сесії з useWorkoutSync
   useEffect(() => {
     let timerInterval: number | null = null;
-    if (session.startTime && session.activeDay !== null) {
+    if (user && session.startTime && session.activeDay !== null) {
       const startTime = session.startTime;
       timerInterval = window.setInterval(() => {
         const currentTime = Date.now();
         const elapsedTime = Math.floor((currentTime - startTime) / 1000);
         updateTimer(elapsedTime);
       }, 1000);
-    } else {
+    } else if (user) {
       updateTimer(0); // Скидаємо таймер, якщо тренування не активне
     }
     return () => {
       if (timerInterval) clearInterval(timerInterval);
     };
-  }, [session.startTime, session.activeDay, updateTimer]);
+  }, [user, session.startTime, session.activeDay, updateTimer]);
 
   // Аналізуємо прогрес при зміні логів тренувань
   useEffect(() => {
-    if (workoutLogs.length > 0) {
+    if (workoutLogs && workoutLogs.length > 0) {
       const trends = analyzeProgressTrends(workoutLogs);
       setProgressTrends(trends);
     }
@@ -106,7 +109,7 @@ const App: React.FC = () => {
 
   // Отримуємо варіації вправ для поточного плану
   const loadExerciseVariations = useCallback(async () => {
-    if (!userProfile || !currentWorkoutPlan || !workoutLogs.length) return;
+    if (!userProfile || !currentWorkoutPlan || !workoutLogs || !workoutLogs.length) return;
 
     const variationsMap = new Map<string, any[]>();
     
