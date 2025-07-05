@@ -18,7 +18,10 @@ export const analyzeWorkout = async (
     return {
       updatedPlan: analysis.updatedPlan,
       recommendation: analysis.recommendation,
-      dailyRecommendations: analysis.dailyRecommendations
+      dailyRecommendations: analysis.dailyRecommendations.map(rec => ({
+        ...rec,
+        action: 'maintain' as const // Додаємо обов'язкове поле action з дефолтним значенням
+      }))
     };
   } catch (error) {
     console.error('Помилка при аналізі тренування:', error);
