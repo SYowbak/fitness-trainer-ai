@@ -195,7 +195,7 @@ export interface WellnessCheck {
 
 export interface AdaptiveWorkoutPlan extends DailyWorkoutPlan {
   originalPlan: DailyWorkoutPlan;
-  adaptations: {
+  adaptations?: {
     exerciseName: string;
     originalSets: string;
     originalReps: string;
@@ -204,7 +204,7 @@ export interface AdaptiveWorkoutPlan extends DailyWorkoutPlan {
     adaptationReason: string;
     energyLevel: EnergyLevel;
   }[];
-  overallAdaptation: {
+  overallAdaptation?: {
     intensity: 'reduced' | 'maintained' | 'increased';
     duration: 'shorter' | 'normal' | 'longer';
     focus: 'recovery' | 'maintenance' | 'performance';

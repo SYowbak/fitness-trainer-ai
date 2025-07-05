@@ -15,14 +15,19 @@ import { useAuth } from './useAuth';
 
 // Утиліта для очищення undefined
 function removeUndefined(obj: any): any {
-  if (Array.isArray(obj)) {
+  if (obj === undefined) {
+    return null; // Firebase не дозволяє undefined, замінюємо на null
+  } else if (Array.isArray(obj)) {
     return obj.map(removeUndefined);
   } else if (obj && typeof obj === 'object') {
-    return Object.fromEntries(
-      Object.entries(obj)
-        .filter(([_, v]) => v !== undefined)
-        .map(([k, v]) => [k, removeUndefined(v)])
-    );
+    const newObj: { [key: string]: any } = {};
+    for (const key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        const value = obj[key];
+        newObj[key] = removeUndefined(value);
+      }
+    }
+    return newObj;
   }
   return obj;
 }
@@ -104,7 +109,20 @@ export const useUserData = () => {
         );
         
         const querySnapshot = await getDocs(q);
-        const logs = querySnapshot.docs.map(doc => doc.data() as WorkoutLog);
+        const logs = querySnapshot.docs.map(doc => {
+          const data = doc.data() as WorkoutLog;
+          // Перекоюємося, що adaptiveWorkoutPlan.adaptations завжди є масивом
+          if (data.adaptiveWorkoutPlan) {
+            return {
+              ...data,
+              adaptiveWorkoutPlan: {
+                ...data.adaptiveWorkoutPlan,
+                adaptations: data.adaptiveWorkoutPlan.adaptations || []
+              }
+            };
+          }
+          return data;
+        });
         setWorkoutLogs(logs);
       } catch (error) {
         console.error('Error loading workout logs:', error);
@@ -152,11 +170,17 @@ export const useUserData = () => {
     if (!user) throw new Error('User not authenticated');
 
     try {
-      const logWithUserId = {
+      // Перекоюємося, що adaptiveWorkoutPlan.adaptations завжди є масивом
+      const safeLog = {
         ...log,
-        userId: user.uid
+        userId: user.uid,
+        adaptiveWorkoutPlan: log.adaptiveWorkoutPlan ? {
+          ...log.adaptiveWorkoutPlan,
+          adaptations: log.adaptiveWorkoutPlan.adaptations || []
+        } : null
       };
-      const cleanedLog = removeUndefined(logWithUserId);
+      
+      const cleanedLog = removeUndefined(safeLog);
       const logsRef = collection(db, 'workoutLogs');
       await setDoc(doc(logsRef), cleanedLog);
       setWorkoutLogs(prev => [cleanedLog as WorkoutLog, ...prev]);

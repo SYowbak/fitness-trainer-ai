@@ -74,13 +74,17 @@ export const analyzeProgressTrends = (workoutHistory: WorkoutLog[]): {
   let completedWorkouts = 0;
 
   recentWorkouts.forEach(workout => {
-    workout.loggedExercises.forEach(exercise => {
-      exercise.loggedSets.forEach(set => {
-        if (set.weightUsed) totalWeight += set.weightUsed;
-        if (set.repsAchieved) totalReps += set.repsAchieved;
+    if (workout.loggedExercises && Array.isArray(workout.loggedExercises)) {
+      workout.loggedExercises.forEach(exercise => {
+        if (exercise.loggedSets && Array.isArray(exercise.loggedSets)) {
+          exercise.loggedSets.forEach(set => {
+            if (set.weightUsed) totalWeight += set.weightUsed;
+            if (set.repsAchieved) totalReps += set.repsAchieved;
+          });
+        }
       });
-    });
-    if (workout.loggedExercises.length > 0) completedWorkouts++;
+      if (workout.loggedExercises.length > 0) completedWorkouts++;
+    }
   });
 
   const avgWeight = totalWeight / Math.max(1, recentWorkouts.length);

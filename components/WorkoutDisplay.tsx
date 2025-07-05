@@ -213,23 +213,25 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
               {UI_TEXT.workoutAdapted}
             </p>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-              <div>
-                <p className="text-green-300 font-medium">Інтенсивність:</p>
-                <p className="text-green-200">{getIntensityText(adaptiveWorkoutPlan.overallAdaptation.intensity)}</p>
+            {adaptiveWorkoutPlan.overallAdaptation && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div>
+                  <p className="text-green-300 font-medium">Інтенсивність:</p>
+                  <p className="text-green-200">{getIntensityText(adaptiveWorkoutPlan.overallAdaptation.intensity)}</p>
+                </div>
+                <div>
+                  <p className="text-green-300 font-medium">Фокус:</p>
+                  <p className="text-green-200">{getFocusText(adaptiveWorkoutPlan.overallAdaptation.focus)}</p>
+                </div>
+                <div>
+                  <p className="text-green-300 font-medium">Причина:</p>
+                  <p className="text-green-200 text-xs">{adaptiveWorkoutPlan.overallAdaptation.reason}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-green-300 font-medium">Фокус:</p>
-                <p className="text-green-200">{getFocusText(adaptiveWorkoutPlan.overallAdaptation.focus)}</p>
-              </div>
-              <div>
-                <p className="text-green-300 font-medium">Причина:</p>
-                <p className="text-green-200 text-xs">{adaptiveWorkoutPlan.overallAdaptation.reason}</p>
-              </div>
-            </div>
+            )}
 
             {/* Адаптації вправ */}
-            {adaptiveWorkoutPlan.adaptations.length > 0 && (
+            {adaptiveWorkoutPlan.adaptations && adaptiveWorkoutPlan.adaptations.length > 0 && (
               <div className="mt-4">
                 <h4 className="text-green-300 font-medium mb-2">Адаптації вправ:</h4>
                 <div className="space-y-2">

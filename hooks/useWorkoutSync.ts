@@ -54,10 +54,11 @@ export const useWorkoutSync = (userId: string) => {
     
     const unsubscribe = onValue(sessionRef, (snapshot) => {
       const data = snapshot.val();
-      // console.log("Дані з Firebase Realtime Database (onValue):", data);
+      // Додаємо детальне логування отриманих даних з Firebase
+      console.log("[Firebase] Отримано сирі дані:", data);
       if (data) {
         const cleanedData = removeUndefined(data);
-        // console.log("Очищені дані з Firebase (onValue):", cleanedData);
+        console.log("[Firebase] Очищені дані:", cleanedData);
 
         setSession(prevSession => {
           const newSessionExercises = cleanedData.sessionExercises ?? [];
@@ -108,19 +109,32 @@ export const useWorkoutSync = (userId: string) => {
             return true;
           };
 
+          // Переконуємося, що adaptiveWorkoutPlan.adaptations завжди масив
+          const safeAdaptiveWorkoutPlan = cleanedData.adaptiveWorkoutPlan ? {
+            ...cleanedData.adaptiveWorkoutPlan,
+            adaptations: Array.isArray(cleanedData.adaptiveWorkoutPlan.adaptations)
+              ? cleanedData.adaptiveWorkoutPlan.adaptations
+              : []
+          } : null;
+
+          // Переконуємося, що wellnessRecommendations завжди масив або null
+          const safeWellnessRecommendations = Array.isArray(cleanedData.wellnessRecommendations)
+            ? cleanedData.wellnessRecommendations
+            : (cleanedData.wellnessRecommendations === null ? null : []);
+
           const newSession = {
             activeDay: cleanedData.activeDay ?? null,
             sessionExercises: areExercisesEqual(newSessionExercises, oldSessionExercises)
-              ? oldSessionExercises // Використовуємо старе посилання, якщо дані не змінилися
-              : newSessionExercises, // Інакше - нове посилання
+              ? oldSessionExercises
+              : newSessionExercises,
             startTime: cleanedData.startTime ?? null,
             workoutTimer: cleanedData.workoutTimer ?? 0,
             wellnessCheck: cleanedData.wellnessCheck ?? null,
-            adaptiveWorkoutPlan: cleanedData.adaptiveWorkoutPlan ?? null,
-            wellnessRecommendations: cleanedData.wellnessRecommendations ?? null,
+            adaptiveWorkoutPlan: safeAdaptiveWorkoutPlan,
+            wellnessRecommendations: safeWellnessRecommendations,
           };
           
-          // Логуємо зміни в wellnessCheck/adaptiveWorkoutPlan для контролю live-синхронізації
+          // Логуємо зміни для live-синхронізації
           if (cleanedData.wellnessCheck !== prevSession.wellnessCheck) {
             console.log("Отримано оновлений wellnessCheck з live-сесії:", cleanedData.wellnessCheck);
           }
@@ -276,7 +290,14 @@ export const useWorkoutSync = (userId: string) => {
 
   const updateAdaptiveWorkoutPlan = async (adaptiveWorkoutPlan: AdaptiveWorkoutPlan) => {
     if (!userId) { console.error("updateAdaptiveWorkoutPlan: userId відсутній."); return; }
-    const cleanedAdaptiveWorkoutPlan = removeUndefined(adaptiveWorkoutPlan);
+    
+    // Перекоюємося, що adaptations завжди є масивом
+    const safeAdaptiveWorkoutPlan = {
+      ...adaptiveWorkoutPlan,
+      adaptations: adaptiveWorkoutPlan.adaptations || []
+    };
+    
+    const cleanedAdaptiveWorkoutPlan = removeUndefined(safeAdaptiveWorkoutPlan);
     const sessionPath = `workoutSessions/${userId}/adaptiveWorkoutPlan`;
     console.log("Оновлюємо adaptiveWorkoutPlan у live-сесії:", cleanedAdaptiveWorkoutPlan);
     try {

@@ -700,7 +700,7 @@ ${JSON.stringify(workoutHistory.slice(0, 5), null, 2)}
         })),
         notes: parsedResult.notes || originalPlan.notes || '',
         originalPlan: originalPlan,
-        adaptations: parsedResult.adaptations || [],
+        adaptations: Array.isArray(parsedResult.adaptations) ? parsedResult.adaptations : [],
         overallAdaptation: parsedResult.overallAdaptation || {
           intensity: 'maintained',
           duration: 'normal',

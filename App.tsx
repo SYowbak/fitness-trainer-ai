@@ -238,7 +238,10 @@ const App: React.FC = () => {
       loggedExercises: loggedExercisesForSession,
       // Використовуємо дані з live-сесії замість локального стану
       wellnessCheck: session.wellnessCheck ?? null,
-      adaptiveWorkoutPlan: session.adaptiveWorkoutPlan ?? null,
+      adaptiveWorkoutPlan: session.adaptiveWorkoutPlan ? {
+        ...session.adaptiveWorkoutPlan,
+        adaptations: session.adaptiveWorkoutPlan.adaptations || []
+      } : null,
       wellnessRecommendations: session.wellnessRecommendations ?? null,
       wasAdaptiveWorkout: !!session.adaptiveWorkoutPlan,
     };
@@ -552,7 +555,10 @@ const App: React.FC = () => {
               onSelectVariation={handleSelectVariation}
               progressTrends={progressTrends}
               wellnessCheck={session.wellnessCheck}
-              adaptiveWorkoutPlan={session.adaptiveWorkoutPlan}
+              adaptiveWorkoutPlan={session.adaptiveWorkoutPlan ? {
+                ...session.adaptiveWorkoutPlan,
+                adaptations: session.adaptiveWorkoutPlan.adaptations || []
+              } : null}
             />
           </div>
         );
