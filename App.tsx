@@ -42,6 +42,7 @@ const App: React.FC = () => {
   const [currentWellnessCheck, setCurrentWellnessCheck] = useState<WellnessCheck | null>(null);
   const [wellnessRecommendations, setWellnessRecommendations] = useState<WellnessRecommendation[]>([]);
   const [adaptiveWorkoutPlan, setAdaptiveWorkoutPlan] = useState<AdaptiveWorkoutPlan | null>(null);
+  const [pendingWorkoutDay, setPendingWorkoutDay] = useState<number | null>(null);
 
   useEffect(() => {
     if (typeof import.meta.env === 'undefined' || !import.meta.env.VITE_API_KEY) {
@@ -174,7 +175,7 @@ const App: React.FC = () => {
   }, [userProfile, apiKeyMissing, session.activeDay, endWorkout, saveWorkoutPlan]);
 
   const handleStartWorkoutWithWellnessCheck = useCallback(async (dayNumber: number) => {
-    // Показуємо модальне вікно перевірки самопочуття перед початком тренування
+    setPendingWorkoutDay(dayNumber);
     setWellnessCheckModalOpen(true);
   }, []);
 
@@ -381,8 +382,9 @@ const App: React.FC = () => {
 
   // Обробка перевірки самопочуття
   const handleWellnessCheckSubmit = useCallback(async (wellnessCheck: WellnessCheck) => {
-    if (!userProfile || !currentWorkoutPlan) {
-      setError('Не вдалося знайти профіль користувача або план тренувань');
+    if (!userProfile || !currentWorkoutPlan || pendingWorkoutDay === null) {
+      setError('Не вдалося знайти профіль користувача, план тренувань або день.');
+      setWellnessCheckModalOpen(false);
       return;
     }
 
@@ -394,11 +396,10 @@ const App: React.FC = () => {
       // Генеруємо адаптивний план тренування
       const adaptivePlan = await generateAdaptiveWorkout(
         userProfile,
-        currentWorkoutPlan[0], // Беремо перший день для прикладу
+        currentWorkoutPlan.find(d => d.day === pendingWorkoutDay) || currentWorkoutPlan[0],
         wellnessCheck,
         workoutLogs
       );
-
       setAdaptiveWorkoutPlan(adaptivePlan);
 
       // Генеруємо рекомендації по самопочуттю
@@ -407,27 +408,27 @@ const App: React.FC = () => {
         wellnessCheck,
         workoutLogs
       );
-
       setWellnessRecommendations(recommendations);
-
-      // Показуємо рекомендації
       setWellnessRecommendationsModalOpen(true);
 
       // Оновлюємо план тренувань з адаптивним планом
       const updatedPlan = currentWorkoutPlan.map(dayPlan => 
         dayPlan.day === adaptivePlan.day ? adaptivePlan : dayPlan
       );
-      
       setCurrentWorkoutPlan(updatedPlan);
       await saveWorkoutPlan(updatedPlan);
 
+      // АВТОМАТИЧНО СТАРТУЄМО ТРЕНУВАННЯ
+      await startWorkout(adaptivePlan.day, adaptivePlan.exercises);
+      setPendingWorkoutDay(null);
     } catch (error: any) {
       console.error('Error generating adaptive workout:', error);
       setError(error.message || 'Помилка при адаптації тренування');
+      setPendingWorkoutDay(null);
     } finally {
       setIsLoading(false);
     }
-  }, [userProfile, currentWorkoutPlan, workoutLogs, saveWorkoutPlan]);
+  }, [userProfile, currentWorkoutPlan, workoutLogs, saveWorkoutPlan, pendingWorkoutDay, startWorkout]);
 
   const handleWellnessCheckSkip = useCallback(() => {
     setWellnessCheckModalOpen(false);

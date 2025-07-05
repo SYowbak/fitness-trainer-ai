@@ -135,10 +135,10 @@ const TrainerChat: React.FC<TrainerChatProps> = ({
   return (
     <div className="flex flex-col h-[600px] bg-white rounded-lg shadow-lg">
       <div className="p-4 border-b flex justify-between items-center">
-        <h2 className="text-xl font-semibold">Чат з тренером</h2>
+        <h2 className="text-xl font-semibold text-gray-900">Чат з тренером</h2>
         <button
           onClick={clearChat}
-          className="text-sm text-gray-500 hover:text-gray-700"
+          className="text-sm text-gray-600 hover:text-gray-800"
         >
           Очистити чат
         </button>
@@ -154,7 +154,7 @@ const TrainerChat: React.FC<TrainerChatProps> = ({
               className={`max-w-[80%] rounded-lg p-3 ${
                 message.role === 'user'
                   ? 'bg-blue-500 text-white'
-                  : 'bg-gray-100 text-gray-800'
+                  : 'bg-gray-200 text-gray-900'
               }`}
             >
               {message.content}
@@ -163,7 +163,7 @@ const TrainerChat: React.FC<TrainerChatProps> = ({
         ))}
         {isLoading && (
           <div className="flex justify-start">
-            <div className="bg-gray-100 text-gray-800 rounded-lg p-3">
+            <div className="bg-gray-200 text-gray-900 rounded-lg p-3">
               Тренер набирає повідомлення...
             </div>
           </div>
@@ -183,7 +183,7 @@ const TrainerChat: React.FC<TrainerChatProps> = ({
             value={inputMessage}
             onChange={handleInputChange}
             placeholder="Напишіть повідомлення..."
-            className="flex-1 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 placeholder-gray-700"
             disabled={isLoading}
           />
           <button
@@ -195,7 +195,7 @@ const TrainerChat: React.FC<TrainerChatProps> = ({
           </button>
         </div>
         {isTyping && (
-          <div className="text-sm text-gray-500 mt-1">
+          <div className="text-sm text-gray-600 mt-1">
             Набираєте повідомлення...
           </div>
         )}

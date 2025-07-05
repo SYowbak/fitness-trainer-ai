@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { UserProfile, WorkoutLog } from '../types';
-import { UI_TEXT } from '../constants';
+import { UI_TEXT, GEMINI_MODEL_TEXT } from '../constants';
 
 const ai = new GoogleGenerativeAI(import.meta.env.VITE_API_KEY || '');
 
@@ -51,10 +51,10 @@ ${userMessage}
    - Вік: ${userProfile.age}
    - Зріст: ${userProfile.height} см
    - Вага: ${userProfile.weight} кг
-   - Тип статури: ${userProfile.bodyType}
-   - Рівень досвіду: ${userProfile.experienceLevel}
-   - Фітнес-ціль: ${userProfile.fitnessGoal}
-   - Цільові групи м'язів: ${userProfile.targetMuscleGroups.join(', ')}
+   - Тип статури: ${(userProfile as any).bodyType}
+   - Рівень досвіду: ${(userProfile as any).experienceLevel}
+   - Фітнес-ціль: ${(userProfile as any).fitnessGoal}
+   - Цільові групи м'язів: ${(userProfile as any).targetMuscleGroups.join(', ')}
 
 2. Історія тренувань:
    - Аналіз попередніх логів
@@ -102,7 +102,7 @@ ${userMessage}
 Відповідай на повідомлення користувача, враховуючи всі надані дані та контекст діалогу.`;
 
   try {
-    const model = ai.getGenerativeModel({ model: 'gemini-pro' });
+    const model = ai.getGenerativeModel({ model: GEMINI_MODEL_TEXT });
     const response = await model.generateContent(chatPrompt);
     const result = await response.response;
     return result.text();
