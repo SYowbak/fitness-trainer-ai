@@ -145,11 +145,11 @@ const ProgressView: React.FC<ProgressViewProps> = ({ workoutLogs, userProfile, o
                                 <div className="grid grid-cols-2 gap-2 text-xs">
                                   <div>
                                     <span className="text-blue-200">Енергія:</span>
-                                    <span className="text-blue-300 ml-1">{getEnergyText(log.wellnessCheck.energyLevel)}</span>
+                                    <span className="text-blue-300 ml-1">{getEnergyText(log.wellnessCheck.energyLevel || '')}</span>
                                   </div>
                                   <div>
                                     <span className="text-blue-200">Сон:</span>
-                                    <span className="text-blue-300 ml-1">{getSleepText(log.wellnessCheck.sleepQuality)}</span>
+                                    <span className="text-blue-300 ml-1">{getSleepText(log.wellnessCheck.sleepQuality || '')}</span>
                                   </div>
                                   <div>
                                     <span className="text-blue-200">Мотивація:</span>
@@ -169,14 +169,14 @@ const ProgressView: React.FC<ProgressViewProps> = ({ workoutLogs, userProfile, o
                             )}
 
                             {/* Відображення адаптацій, якщо були */}
-                            {log.wasAdaptiveWorkout && log.adaptiveWorkoutPlan && log.adaptiveWorkoutPlan.adaptations && log.adaptiveWorkoutPlan.adaptations.length > 0 && (
+                            {log.wasAdaptiveWorkout && log.adaptiveWorkoutPlan && log.adaptiveWorkoutPlan.adaptations && (log.adaptiveWorkoutPlan.adaptations || []).length > 0 && (
                               <div className="mb-3 p-3 bg-green-900/30 border border-green-500/30 rounded-lg">
                                 <h4 className="text-sm font-medium text-green-300 mb-2">
                                   <i className="fas fa-magic mr-1"></i>
                                   Адаптації тренування
                                 </h4>
                                 <div className="space-y-1">
-                                  {log.adaptiveWorkoutPlan.adaptations.map((adaptation, idx) => (
+                                  {(log.adaptiveWorkoutPlan.adaptations || []).map((adaptation, idx) => (
                                     <div key={idx} className="text-xs text-green-200">
                                       <strong>{adaptation.exerciseName}:</strong> {adaptation.adaptationReason}
                                       <div className="text-green-300">
@@ -194,14 +194,14 @@ const ProgressView: React.FC<ProgressViewProps> = ({ workoutLogs, userProfile, o
                             )}
 
                             {/* Відображення рекомендацій, якщо були */}
-                            {log.wasAdaptiveWorkout && log.wellnessRecommendations && log.wellnessRecommendations.length > 0 && (
+                            {log.wasAdaptiveWorkout && log.wellnessRecommendations && (log.wellnessRecommendations || []).length > 0 && (
                               <div className="mb-3 p-3 bg-purple-900/30 border border-purple-500/30 rounded-lg">
                                 <h4 className="text-sm font-medium text-purple-300 mb-2">
                                   <i className="fas fa-lightbulb mr-1"></i>
                                   Рекомендації по самопочуттю
                                 </h4>
                                 <div className="space-y-1">
-                                  {log.wellnessRecommendations.slice(0, 3).map((rec, idx) => (
+                                  {(log.wellnessRecommendations || []).slice(0, 3).map((rec, idx) => (
                                     <div key={idx} className="text-xs text-purple-200">
                                       <strong>{rec.title}</strong>
                                       <div className="text-purple-300">{rec.description}</div>

@@ -229,11 +229,11 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
             </div>
 
             {/* Адаптації вправ */}
-            {adaptiveWorkoutPlan.adaptations.length > 0 && (
+            {(adaptiveWorkoutPlan.adaptations || []).length > 0 && (
               <div className="mt-4">
                 <h4 className="text-green-300 font-medium mb-2">Адаптації вправ:</h4>
                 <div className="space-y-2">
-                  {adaptiveWorkoutPlan.adaptations.map((adaptation, index) => (
+                  {(adaptiveWorkoutPlan.adaptations || []).map((adaptation, index) => (
                     <div key={index} className="text-xs text-green-200 bg-green-900/20 p-2 rounded">
                       <p><strong>{adaptation.exerciseName}:</strong> {adaptation.adaptationReason}</p>
                       <p className="text-green-300">
@@ -334,7 +334,9 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
 
   const getAdaptedExercise = (exercise) => {
     if (!adaptiveWorkoutPlan || !adaptiveWorkoutPlan.adaptations) return exercise;
-    const adaptation = adaptiveWorkoutPlan.adaptations.find(a => a.exerciseName === exercise.name);
+    const adaptation = Array.isArray(adaptiveWorkoutPlan.adaptations)
+      ? adaptiveWorkoutPlan.adaptations.find(a => a.exerciseName === exercise.name)
+      : undefined;
     if (!adaptation) return exercise;
     return {
       ...exercise,
@@ -383,7 +385,11 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
               </button>
             )}
               <button
-              onClick={() => selectedDayForView !== null && onStartWorkout(selectedDayForView)}
+              onClick={() => {
+                if (typeof selectedDayForView === 'number') {
+                  onStartWorkout(selectedDayForView);
+                }
+              }}
               disabled={selectedDayForView === null}
               className={`w-full md:w-auto px-4 py-2 rounded transition-colors ${
                 selectedDayForView === null
