@@ -64,7 +64,7 @@ export const useUserData = () => {
   // Завантаження профілю
   useEffect(() => {
     const loadProfile = async () => {
-      if (!user || !db) {
+      if (!user) {
         setProfile(null);
         setLoading(false);
         return;
@@ -90,7 +90,7 @@ export const useUserData = () => {
   // Завантаження логів тренувань
   useEffect(() => {
     const loadWorkoutLogs = async () => {
-      if (!user || !db) {
+      if (!user) {
         setWorkoutLogs([]);
         return;
       }
@@ -117,7 +117,7 @@ export const useUserData = () => {
   // Завантаження плану тренувань
   useEffect(() => {
     const loadWorkoutPlan = async () => {
-      if (!user || !db) {
+      if (!user) {
         setWorkoutPlan(null);
         return;
       }
@@ -136,7 +136,7 @@ export const useUserData = () => {
 
   // Збереження профілю
   const saveProfile = async (profile: UserProfile) => {
-    if (!user || !db) throw new Error('User not authenticated or database not available');
+    if (!user) throw new Error('User not authenticated');
 
     try {
       await setDoc(doc(db, 'users', user.uid), profile);
@@ -149,7 +149,7 @@ export const useUserData = () => {
 
   // Збереження логу тренування
   const saveWorkoutLog = async (log: WorkoutLog) => {
-    if (!user || !db) throw new Error('User not authenticated or database not available');
+    if (!user) throw new Error('User not authenticated');
 
     try {
       const logWithUserId = {
@@ -168,7 +168,7 @@ export const useUserData = () => {
 
   // Збереження плану тренувань
   const saveWorkoutPlan = async (plan: DailyWorkoutPlan[]) => {
-    if (!user || !db) throw new Error('User not authenticated or database not available');
+    if (!user) throw new Error('User not authenticated');
     try {
       const cleanedPlan = cleanWorkoutPlanForFirestore(plan);
       const docRef = doc(db, 'workoutPlans', user.uid);

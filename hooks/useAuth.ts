@@ -15,26 +15,15 @@ export const useAuth = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!auth) {
-      setLoading(false);
-      return;
-    }
-    
-    let unsubscribe: (() => void) | undefined;
-    unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
       setLoading(false);
     });
 
-    return () => {
-      if (unsubscribe) {
-        unsubscribe();
-      }
-    };
+    return unsubscribe;
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    if (!auth) throw new Error('Authentication not available');
     try {
       const result = await signInWithEmailAndPassword(auth, email, password);
       return result.user;
@@ -44,7 +33,6 @@ export const useAuth = () => {
   };
 
   const signUp = async (email: string, password: string) => {
-    if (!auth) throw new Error('Authentication not available');
     try {
       const result = await createUserWithEmailAndPassword(auth, email, password);
       return result.user;
@@ -54,7 +42,6 @@ export const useAuth = () => {
   };
 
   const signInWithGoogle = async () => {
-    if (!auth) throw new Error('Authentication not available');
     try {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
@@ -65,7 +52,6 @@ export const useAuth = () => {
   };
 
   const logout = async () => {
-    if (!auth) throw new Error('Authentication not available');
     try {
       await signOut(auth);
     } catch (error) {

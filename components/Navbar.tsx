@@ -1,7 +1,7 @@
 import React from 'react';
 import { UI_TEXT } from '../constants';
 
-type View = 'profile' | 'workout' | 'progress';
+type View = 'profile' | 'workout' | 'progress' | 'chat';
 
 interface NavbarProps {
   currentView: View;
@@ -43,7 +43,12 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, onViewChange }) => {
         onClick={() => onViewChange('progress')}
         iconClass="fas fa-chart-line"
       />
-
+      <NavItem 
+        label="Чат з тренером" 
+        isActive={currentView === 'chat'} 
+        onClick={() => onViewChange('chat')}
+        iconClass="fas fa-comments"
+      />
     </nav>
   );
 };
