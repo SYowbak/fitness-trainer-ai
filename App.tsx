@@ -247,12 +247,13 @@ const App: React.FC = () => {
       dayCompleted: session.activeDay ?? null,
       workoutDuration: formatTime(Math.floor((Date.now() - session.startTime) / 1000)) ?? null,
       loggedExercises: loggedExercisesForSession,
-      // Зберігаємо wellness check та адаптації, якщо вони були
-      wellnessCheck: currentWellnessCheck || null,
-      adaptiveWorkoutPlan: adaptiveWorkoutPlan || null,
-      wellnessRecommendations: wellnessRecommendations || null,
+      // Явно зберігаємо всі поля (навіть якщо null)
+      wellnessCheck: currentWellnessCheck ?? null,
+      adaptiveWorkoutPlan: adaptiveWorkoutPlan ?? null,
+      wellnessRecommendations: wellnessRecommendations ?? null,
       wasAdaptiveWorkout: !!adaptiveWorkoutPlan,
     };
+    console.log('Зберігаємо workoutLog у Firestore:', newLog);
 
     try {
       await saveWorkoutLog(newLog);
