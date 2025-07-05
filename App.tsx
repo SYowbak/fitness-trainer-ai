@@ -43,12 +43,20 @@ const App: React.FC = () => {
   const [adaptiveWorkoutPlan, setAdaptiveWorkoutPlan] = useState<AdaptiveWorkoutPlan | null>(null);
   const [pendingWorkoutDay, setPendingWorkoutDay] = useState<number | null>(null);
   const [isTrainerChatOpen, setIsTrainerChatOpen] = useState(false);
+  const [hasInitializedView, setHasInitializedView] = useState(false);
 
   useEffect(() => {
     if (typeof import.meta.env === 'undefined' || !import.meta.env.VITE_API_KEY) {
       setApiKeyMissing(true);
     }
   }, []);
+
+  // Скидаємо стан ініціалізації при виході користувача
+  useEffect(() => {
+    if (!user) {
+      setHasInitializedView(false);
+    }
+  }, [user]);
 
   useEffect(() => {
     if (workoutPlan) {
@@ -64,13 +72,13 @@ const App: React.FC = () => {
     setWorkoutLogs(firestoreWorkoutLogs);
   }, [firestoreProfile, firestoreWorkoutLogs]);
 
-  // Автоматичний вибір початкової вкладки на основі наявності плану тренувань
+  // Автоматичний вибір початкової вкладки на основі наявності плану тренувань (тільки при початковому завантаженні)
   useEffect(() => {
     // Безпечна перевірка наявності плану тренувань
     const hasWorkoutPlan = currentWorkoutPlan && Array.isArray(currentWorkoutPlan) && currentWorkoutPlan.length > 0;
     
-    // Перевіряємо тільки якщо користувач авторизований
-    if (user) {
+    // Перевіряємо тільки якщо користувач авторизований, це перше завантаження і ще не було ініціалізації
+    if (user && !hasInitializedView) {
       if (hasWorkoutPlan && currentView === 'profile') {
         // Якщо є план тренувань і зараз відображається профіль, переключаємося на тренування
         setCurrentView('workout');
@@ -78,8 +86,9 @@ const App: React.FC = () => {
         // Якщо немає плану тренувань і зараз не профіль, переключаємося на профіль
         setCurrentView('profile');
       }
+      setHasInitializedView(true);
     }
-  }, [user, currentWorkoutPlan, currentView]);
+  }, [user, currentWorkoutPlan, hasInitializedView]);
 
   // Оновлюємо таймер на основі сесії з useWorkoutSync
   useEffect(() => {
