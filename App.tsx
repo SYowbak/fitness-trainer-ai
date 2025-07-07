@@ -297,7 +297,9 @@ const App: React.FC = () => {
         // Оновлюємо лог у Firestore (асинхронно, не блокує UI)
         const logsRef = collection(db, 'workoutLogs');
         const logDoc = doc(logsRef, savedLogId);
-        await setDoc(logDoc, { ...newLog, recommendation: analysisResult.recommendation });
+        // Примусово підставляємо userId з авторизації!
+        const userId = user?.uid || userProfile?.uid;
+        await setDoc(logDoc, { ...newLog, userId, recommendation: analysisResult.recommendation });
         // Оновлюємо локальний стан
         setWorkoutLogs(prev => prev.map(log =>
           log.id === savedLogId ? { ...log, recommendation: analysisResult.recommendation } : log
