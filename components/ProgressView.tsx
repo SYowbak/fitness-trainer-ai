@@ -189,6 +189,19 @@ const ProgressView: React.FC<ProgressViewProps> = ({ workoutLogs, userProfile, o
                               </div>
                             )}
 
+                            {/* Додаємо блок для загальної рекомендації/аналізу тренування */}
+                            {log.recommendation?.text && (
+                              <div className="mb-3 p-3 bg-yellow-900/30 border border-yellow-500/30 rounded-lg">
+                                <h4 className="text-sm font-medium text-yellow-300 mb-2">
+                                  <i className="fas fa-star mr-1"></i>
+                                  Загальний аналіз тренування та рекомендація
+                                </h4>
+                                <div className="text-xs text-yellow-200">
+                                  {log.recommendation.text}
+                                </div>
+                              </div>
+                            )}
+
                             {Array.isArray(log.loggedExercises) && log.loggedExercises.length > 0 && (
                               <div>
                                 <h4 className="text-sm font-medium text-pink-400 mt-2 mb-1">Виконані вправи:</h4>

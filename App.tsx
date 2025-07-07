@@ -14,7 +14,7 @@ import { AuthForm } from './components/AuthForm';
 import { useUserData } from './hooks/useUserData';
 import { deleteUser } from 'firebase/auth';
 import { db } from './config/firebase';
-import { doc, deleteDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, deleteDoc, collection, query, where, getDocs, setDoc } from 'firebase/firestore';
 import { analyzeWorkout, getExerciseVariations, analyzeProgressTrends } from './services/workoutAnalysisService';
 import { useWorkoutSync } from './hooks/useWorkoutSync';
 import WellnessCheckModal from './components/WellnessCheckModal';
@@ -245,7 +245,6 @@ const App: React.FC = () => {
       dayCompleted: session.activeDay ?? null,
       workoutDuration: formatTime(Math.floor((Date.now() - session.startTime) / 1000)) ?? null,
       loggedExercises: loggedExercisesForSession,
-      // Використовуємо дані з live-сесії замість локального стану
       wellnessCheck: session.wellnessCheck ?? null,
       adaptiveWorkoutPlan: session.adaptiveWorkoutPlan ? {
         ...session.adaptiveWorkoutPlan,
@@ -256,9 +255,11 @@ const App: React.FC = () => {
     };
     console.log('Зберігаємо workoutLog у Firestore:', newLog);
 
+    let savedLogId: string | undefined = undefined;
     try {
       await saveWorkoutLog(newLog);
       setWorkoutLogs(prev => [...prev, newLog]);
+      savedLogId = newLog.id;
       alert(UI_TEXT.workoutLogged);
     } catch (e: any) {
       console.error("Error saving workout log:", e);
@@ -267,13 +268,10 @@ const App: React.FC = () => {
     }
 
     endWorkout();
-    
-    // Очищаємо локальний стан адаптацій після завершення тренування
-    // (live-сесія автоматично очиститься через endWorkout)
     setAdaptiveWorkoutPlan(null);
     setWellnessRecommendations([]);
     setWellnessRecommendationsModalOpen(false);
-    
+
     // --- Start Workout Analysis ---
     try {
       const analysisResult = await analyzeWorkout(
@@ -282,10 +280,7 @@ const App: React.FC = () => {
         newLog,
         workoutLogs
       );
-      
-      // Зберігаємо рекомендації для відображення
       setExerciseRecommendations(analysisResult.dailyRecommendations || []);
-      
       if (analysisResult?.updatedPlan) {
         const planIndex = currentWorkoutPlan.findIndex(p => p.day === analysisResult.updatedPlan.day);
         if (planIndex !== -1) {
@@ -297,12 +292,17 @@ const App: React.FC = () => {
           console.error("Analyzed plan day not found in current workout plan.", analysisResult.updatedPlan);
         }
       }
-      
-      // Показуємо детальні рекомендації
-      if (analysisResult.recommendation) {
-        alert(`Аналіз завершено!\n\nЗагальна рекомендація: ${analysisResult.recommendation.text}`);
+      // --- ОНОВЛЮЄМО recommendation у Firestore та локальному стані ---
+      if (savedLogId && analysisResult.recommendation) {
+        // Оновлюємо лог у Firestore (асинхронно, не блокує UI)
+        const logsRef = collection(db, 'workoutLogs');
+        const logDoc = doc(logsRef, savedLogId);
+        await setDoc(logDoc, { ...newLog, recommendation: analysisResult.recommendation });
+        // Оновлюємо локальний стан
+        setWorkoutLogs(prev => prev.map(log =>
+          log.id === savedLogId ? { ...log, recommendation: analysisResult.recommendation } : log
+        ));
       }
-      
       setCurrentView('progress');
     } catch (e: any) {
       console.error("Error analyzing workout:", e);

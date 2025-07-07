@@ -129,6 +129,11 @@ export interface WorkoutLog {
   adaptiveWorkoutPlan?: AdaptiveWorkoutPlan | null; // Адаптивний план тренування
   wellnessRecommendations?: WellnessRecommendation[] | null; // Рекомендації по самопочуттю
   wasAdaptiveWorkout?: boolean; // Чи було тренування адаптивним
+  // Додаємо поле для загальної рекомендації/аналізу
+  recommendation?: {
+    text: string;
+    action: string;
+  } | null;
 }
 
 export interface ExerciseRecommendation {
