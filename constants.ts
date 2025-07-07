@@ -305,7 +305,8 @@ export const UI_TEXT = {
   everyWorkoutCounts: "Кожне тренування має значення",
   progressNotPerfection: "Прогрес, а не досконалість",
   consistencyIsKey: "Консистентність - це ключ",
-  smallStepsBigResults: "Малі кроки - великі результати"
+  smallStepsBigResults: "Малі кроки - великі результати",
+  aiOverloaded: "Сервіс AI тимчасово перевантажений. Спробуйте ще раз через кілька секунд."
 };
 
 export function getUkrainianGoal(goal: FitnessGoal): string {

@@ -206,6 +206,16 @@ export const generateWorkoutPlan = async (profile: UserProfile, modelName: strin
     if (error.message && error.message.toLowerCase().includes("fetch")) { 
         throw new Error("Помилка мережі при зверненні до AI сервісу. Перевірте ваше інтернет-з'єднання та спробуйте пізніше.");
     }
+    if (
+      (error.response && error.response.status === 503) ||
+      (error.message && (
+        error.message.toLowerCase().includes("overload") ||
+        error.message.toLowerCase().includes("unavailable") ||
+        error.message.toLowerCase().includes("service unavailable")
+      ))
+    ) {
+      throw new Error(UI_TEXT.aiOverloaded);
+    }
     throw new Error(`Помилка генерації плану: ${error.message || 'Невідома помилка сервісу AI'}`);
   }
 };
@@ -445,6 +455,16 @@ ${JSON.stringify(Object.fromEntries(exerciseProgress), null, 2)}
      if (error.message && error.message.toLowerCase().includes("fetch")) { 
         throw new Error("Помилка мережі при зверненні до AI сервісу аналізу. Перевірте ваше інтернет-з'єднання та спробуйте пізніше.");
     }
+    if (
+      (error.response && error.response.status === 503) ||
+      (error.message && (
+        error.message.toLowerCase().includes("overload") ||
+        error.message.toLowerCase().includes("unavailable") ||
+        error.message.toLowerCase().includes("service unavailable")
+      ))
+    ) {
+      throw new Error(UI_TEXT.aiOverloaded);
+    }
     throw new Error(`Помилка аналізу тренування: ${error.message || 'Невідома помилка сервісу AI'}`);
   }
 };
@@ -540,6 +560,16 @@ ${JSON.stringify(originalExercise, null, 2)}
     }
   } catch (error: any) {
     console.error("Error generating exercise variations:", error);
+    if (
+      (error.response && error.response.status === 503) ||
+      (error.message && (
+        error.message.toLowerCase().includes("overload") ||
+        error.message.toLowerCase().includes("unavailable") ||
+        error.message.toLowerCase().includes("service unavailable")
+      ))
+    ) {
+      throw new Error(UI_TEXT.aiOverloaded);
+    }
     throw new Error(`Помилка генерації варіацій вправ: ${error.message || 'Невідома помилка'}`);
   }
 };
@@ -716,6 +746,16 @@ ${JSON.stringify(workoutHistory.slice(0, 5), null, 2)}
     }
   } catch (error: any) {
     console.error("Error generating adaptive workout:", error);
+    if (
+      (error.response && error.response.status === 503) ||
+      (error.message && (
+        error.message.toLowerCase().includes("overload") ||
+        error.message.toLowerCase().includes("unavailable") ||
+        error.message.toLowerCase().includes("service unavailable")
+      ))
+    ) {
+      throw new Error(UI_TEXT.aiOverloaded);
+    }
     throw new Error(`Помилка генерації адаптивного тренування: ${error.message || 'Невідома помилка'}`);
   }
 };
@@ -801,6 +841,16 @@ ${JSON.stringify(workoutHistory.slice(0, 10), null, 2)}
     }
   } catch (error: any) {
     console.error("Error generating wellness recommendations:", error);
+    if (
+      (error.response && error.response.status === 503) ||
+      (error.message && (
+        error.message.toLowerCase().includes("overload") ||
+        error.message.toLowerCase().includes("unavailable") ||
+        error.message.toLowerCase().includes("service unavailable")
+      ))
+    ) {
+      throw new Error(UI_TEXT.aiOverloaded);
+    }
     throw new Error(`Помилка генерації рекомендацій: ${error.message || 'Невідома помилка'}`);
   }
 };
