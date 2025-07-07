@@ -208,7 +208,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                     Спробуйте варіацію для уникнення плато та підтримки прогресу
                   </p>
                   <div className="space-y-2">
-                    {variations.slice(0, 2).map((variation, index) => (
+                    {variations.slice(0, 2).map((variation) => (
                       <button
                         key={variation.id}
                         onClick={() => onSelectVariation?.(variation)}
@@ -255,7 +255,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
             )}
             {exercise.recommendation?.text && (
                  <div className="bg-blue-800/30 p-2 rounded shadow col-span-full text-blue-200">
-                    <strong className="block text-blue-100 mb-0.5"><i className="fas fa-comment-dots mr-1"></i>Рекомендація ШІ:</strong>
+                    <strong className="block text-blue-100 mb-0.5"><i className="fas fa-comment-dots mr-1"></i>Аналіз виконання на попередньому тренуванні та наступна рекомендація:</strong>
                     <p className="text-xs sm:text-sm">{exercise.recommendation.text}</p>
                  </div>
             )}
