@@ -179,8 +179,15 @@ export const useUserData = () => {
           adaptations: log.adaptiveWorkoutPlan.adaptations || []
         } : null
       };
-      
-      const cleanedLog = removeUndefined(safeLog);
+      // --- Додаємо конвертацію дати ---
+      let dateForFirestore = safeLog.date;
+      if (dateForFirestore instanceof Date) {
+        dateForFirestore = {
+          seconds: Math.floor(dateForFirestore.getTime() / 1000),
+          nanoseconds: (dateForFirestore.getTime() % 1000) * 1e6
+        };
+      }
+      const cleanedLog = removeUndefined({ ...safeLog, date: dateForFirestore });
       const logsRef = collection(db, 'workoutLogs');
       await setDoc(doc(logsRef), cleanedLog);
       setWorkoutLogs(prev => [cleanedLog as WorkoutLog, ...prev]);
