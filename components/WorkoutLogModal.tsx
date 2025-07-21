@@ -1,0 +1,133 @@
+import React, { useState } from 'react';
+import { WorkoutLog, LoggedExercise } from '../types';
+
+interface ExerciseLogRowProps {
+  loggedEx: LoggedExercise;
+}
+
+const ExerciseLogRow: React.FC<ExerciseLogRowProps> = ({ loggedEx }) => (
+  <div className="p-3 bg-gray-700/50 rounded-md my-2 text-xs sm:text-sm">
+    <p className="font-semibold text-yellow-400">{loggedEx.exerciseName}</p>
+    <p>План: {loggedEx.originalSets ?? '-'} x {loggedEx.originalReps ?? '-'} @ {loggedEx.targetWeightAtLogging ?? 'N/A'}kg</p>
+    {loggedEx.loggedSets.map((set, i) => (
+      <p key={i} className="text-gray-300">Підхід {i + 1}: {set.repsAchieved ?? '-'} повт. @ {set.weightUsed ?? '-'} кг</p>
+    ))}
+  </div>
+);
+
+interface AccordionSectionProps {
+  title: string;
+  icon: string;
+  children: React.ReactNode;
+}
+
+const AccordionSection: React.FC<AccordionSectionProps> = ({ title, icon, children }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="border-b border-gray-700">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex justify-between items-center p-4 text-left text-purple-300 hover:bg-gray-700/50 transition-colors"
+      >
+        <div className="flex items-center">
+          <i className={`fas ${icon} mr-3 w-5 text-center`}></i>
+          <span className="font-semibold">{title}</span>
+        </div>
+        <i className={`fas fa-chevron-down transform transition-transform ${isOpen ? 'rotate-180' : ''}`}></i>
+      </button>
+      {isOpen && <div className="p-4 bg-gray-800 text-gray-300 text-sm">{children}</div>}
+    </div>
+  );
+};
+
+interface WorkoutLogModalProps {
+  logs: WorkoutLog[];
+  onClose: () => void;
+  onAnalyzeWorkout: (log: WorkoutLog) => void;
+  isAnalyzing: boolean;
+}
+
+export const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({ logs, onClose, onAnalyzeWorkout, isAnalyzing }) => {
+  if (!logs.length) return null;
+
+  const logDate = logs[0].date instanceof Date ? logs[0].date : new Date(logs[0].date.seconds * 1000);
+
+  return (
+    <div 
+      className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-5 border-b border-gray-700 sticky top-0 bg-gray-800 z-10">
+          <h2 className="text-xl sm:text-2xl font-bold text-center text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">
+            Тренування за {logDate.toLocaleDateString('uk-UA', { year: 'numeric', month: 'long', day: 'numeric' })}
+          </h2>
+          <button onClick={onClose} className="absolute top-3 right-3 text-gray-400 hover:text-white transition-colors">
+            <i className="fas fa-times fa-lg"></i>
+          </button>
+        </div>
+
+        <div className="p-2 sm:p-4">
+          {logs.map(log => (
+            <div key={log.id} className="mb-4 bg-gray-900/50 rounded-lg">
+              <div className="p-4 flex justify-between items-center">
+                <div className="flex items-center space-x-4">
+                  <span className="text-sm font-semibold text-yellow-400"><i className="fas fa-stopwatch mr-1.5"></i>{log.workoutDuration}</span>
+                  <span className="text-sm font-semibold text-gray-300"><i className="fas fa-running mr-1.5"></i>День {log.dayCompleted}</span>
+                </div>
+                {!log.recommendation && (
+                  <button 
+                    onClick={() => onAnalyzeWorkout(log)} 
+                    disabled={isAnalyzing}
+                    className="px-3 py-1.5 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors text-xs font-semibold disabled:bg-gray-500"
+                  >
+                    {isAnalyzing ? 'Аналізуємо...' : 'Аналізувати'}
+                  </button>
+                )}
+              </div>
+              
+              {log.wellnessCheck && (
+                <AccordionSection title="Самопочуття" icon="fa-heartbeat">
+                  <div className="grid grid-cols-2 gap-2">
+                    <p><strong>Енергія:</strong> {log.wellnessCheck.energyLevel}</p>
+                    <p><strong>Сон:</strong> {log.wellnessCheck.sleepQuality}</p>
+                    <p><strong>Мотивація:</strong> {log.wellnessCheck.motivation}/10</p>
+                    <p><strong>Втома:</strong> {log.wellnessCheck.fatigue}/10</p>
+                  </div>
+                </AccordionSection>
+              )}
+
+              {log.adaptiveWorkoutPlan?.adaptations && log.adaptiveWorkoutPlan.adaptations.length > 0 && (
+                <AccordionSection title="Адаптації" icon="fa-magic">
+                  <div className="space-y-2">
+                    {log.adaptiveWorkoutPlan.adaptations.map((a, i) => (
+                      <div key={i}>
+                        <p className="font-semibold text-green-400">{a.exerciseName}:</p>
+                        <p>{a.adaptationReason}</p>
+                      </div>
+                    ))}
+                  </div>
+                </AccordionSection>
+              )}
+
+              {log.recommendation?.text && (
+                <AccordionSection title="Загальний аналіз" icon="fa-star">
+                  <p>{log.recommendation.text}</p>
+                </AccordionSection>
+              )}
+
+              <AccordionSection title="Виконані вправи" icon="fa-dumbbell">
+                {log.loggedExercises.map((ex, i) => <ExerciseLogRow key={i} loggedEx={ex} />)}
+              </AccordionSection>
+
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}; 

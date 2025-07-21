@@ -581,6 +581,7 @@ const App: React.FC = () => {
               userProfile={userProfile}
               onAnalyzeWorkout={handleAnalyzeWorkout}
               onDeleteLog={handleDeleteLogsByDate}
+              isAnalyzing={isLoading} // Передаємо стан завантаження
             />
           </div>
         );
