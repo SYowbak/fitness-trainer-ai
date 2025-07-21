@@ -110,9 +110,9 @@ const ProgressView: React.FC<ProgressViewProps> = ({ workoutLogs, userProfile, o
                             {log.workoutDuration !== undefined && (
                               <p className="text-xs sm:text-sm text-yellow-400 mb-1"><i className="fas fa-stopwatch mr-1"></i>{log.workoutDuration}</p>
                             )}
-                            {log.dayCompleted !== undefined && (
-                              <p className="text-sm mb-2"><i className="fas fa-running mr-2"></i>День плану: {log.dayCompleted}</p>
-                            )}
+                    {log.dayCompleted !== undefined && (
+                       <p className="text-sm mb-2"><i className="fas fa-running mr-2"></i>День плану: {log.dayCompleted}</p>
+                    )}
                             {/* Відображення wellness check, якщо був адаптивний тренування */}
                             {log.wasAdaptiveWorkout && log.wellnessCheck && (
                               <div className="mb-3 p-3 bg-blue-900/30 border border-blue-500/30 rounded-lg">
@@ -201,25 +201,25 @@ const ProgressView: React.FC<ProgressViewProps> = ({ workoutLogs, userProfile, o
                                 </div>
                               </div>
                             )}
-
-                            {Array.isArray(log.loggedExercises) && log.loggedExercises.length > 0 && (
-                              <div>
-                                <h4 className="text-sm font-medium text-pink-400 mt-2 mb-1">Виконані вправи:</h4>
-                                {log.loggedExercises.map((ex, exIdx) =>
-                                  ex && typeof ex === 'object' ? <ExerciseLogRow key={exIdx} loggedEx={ex} /> : null
-                                )}
-                              </div>
-                            )}
-                            {onAnalyzeWorkout && (
-                              <button
-                                onClick={() => onAnalyzeWorkout(log)}
-                                className="mt-2 px-3 py-1 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
-                              >
-                                <i className="fas fa-chart-line mr-1"></i>
-                                Аналізувати
-                              </button>
-                            )}
-                          </div>
+                    
+                    {Array.isArray(log.loggedExercises) && log.loggedExercises.length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-medium text-pink-400 mt-2 mb-1">Виконані вправи:</h4>
+                        {log.loggedExercises.map((ex, exIdx) => 
+                          ex && typeof ex === 'object' ? <ExerciseLogRow key={exIdx} loggedEx={ex} /> : null
+                        )}
+                      </div>
+                    )}
+                    {onAnalyzeWorkout && (
+                      <button
+                        onClick={() => onAnalyzeWorkout(log)}
+                        className="mt-2 px-3 py-1 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+                      >
+                        <i className="fas fa-chart-line mr-1"></i>
+                        Аналізувати
+                      </button>
+                    )}
+                  </div>
                         ))}
                       </div>
                     )}

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ref, onValue, set, remove } from 'firebase/database';
+import { ref, onValue, set, remove, get } from 'firebase/database';
 import { database } from '../config/firebase';
 import { Exercise, LoggedSetWithAchieved, WellnessCheck, AdaptiveWorkoutPlan, WellnessRecommendation } from '../types';
 
@@ -251,10 +251,19 @@ export const useWorkoutSync = (userId: string) => {
 
   const endWorkout = async () => {
     if (!userId) { console.error("endWorkout: userId відсутній."); return; }
-    const sessionPath = `workoutSessions/${userId}`; // Лог для шляху
-    // console.log("endWorkout: Спроба завершити тренування за шляхом:", sessionPath, "з userId:", userId);
+    
+    // Перевіряємо, чи існує активна сесія перед видаленням
+    const sessionRef = ref(database, `workoutSessions/${userId}`);
+    const snapshot = await get(sessionRef);
+    
+    if (!snapshot.exists()) {
+      console.log("Сесія вже завершена або не існує");
+      return;
+    }
+    
     try {
-      await remove(ref(database, sessionPath));
+      await remove(sessionRef);
+      console.log("Сесія успішно завершена");
     } catch (error) {
       console.error("Помилка при завершенні тренування у Firebase:", error);
       throw error;

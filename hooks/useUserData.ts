@@ -170,7 +170,37 @@ export const useUserData = () => {
     if (!user) throw new Error('User not authenticated');
 
     try {
-      // Перекоюємося, що adaptiveWorkoutPlan.adaptations завжди є масивом
+      // Перевіряємо, чи існує вже лог з таким id
+      if (log.id) {
+        const existingLogRef = doc(db, 'workoutLogs', log.id);
+        const existingLogSnap = await getDoc(existingLogRef);
+        if (existingLogSnap.exists()) {
+          console.log('Лог з таким ID вже існує, оновлюємо його');
+          const updatedLog = {
+            ...log,
+            userId: user.uid,
+            adaptiveWorkoutPlan: log.adaptiveWorkoutPlan ? {
+              ...log.adaptiveWorkoutPlan,
+              adaptations: log.adaptiveWorkoutPlan.adaptations || []
+            } : null
+          };
+          
+          let dateForFirestore = updatedLog.date;
+          if (dateForFirestore instanceof Date) {
+            dateForFirestore = {
+              seconds: Math.floor(dateForFirestore.getTime() / 1000),
+              nanoseconds: (dateForFirestore.getTime() % 1000) * 1e6
+            };
+          }
+          
+          const cleanedLog = removeUndefined({ ...updatedLog, date: dateForFirestore });
+          await setDoc(existingLogRef, cleanedLog);
+          setWorkoutLogs(prev => prev.map(l => l.id === log.id ? cleanedLog as WorkoutLog : l));
+          return;
+        }
+      }
+
+      // Якщо лог новий, створюємо новий документ
       const safeLog = {
         ...log,
         userId: user.uid,
@@ -179,7 +209,7 @@ export const useUserData = () => {
           adaptations: log.adaptiveWorkoutPlan.adaptations || []
         } : null
       };
-      // --- Додаємо конвертацію дати ---
+
       let dateForFirestore = safeLog.date;
       if (dateForFirestore instanceof Date) {
         dateForFirestore = {
@@ -187,10 +217,14 @@ export const useUserData = () => {
           nanoseconds: (dateForFirestore.getTime() % 1000) * 1e6
         };
       }
+
       const cleanedLog = removeUndefined({ ...safeLog, date: dateForFirestore });
       const logsRef = collection(db, 'workoutLogs');
-      await setDoc(doc(logsRef), cleanedLog);
-      setWorkoutLogs(prev => [cleanedLog as WorkoutLog, ...prev]);
+      const newLogRef = doc(logsRef);
+      await setDoc(newLogRef, { ...cleanedLog, id: newLogRef.id });
+      
+      const finalLog = { ...cleanedLog, id: newLogRef.id } as WorkoutLog;
+      setWorkoutLogs(prev => [finalLog, ...prev]);
     } catch (error) {
       console.error('Error saving workout log:', error);
       throw error;

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Exercise, LoggedSetWithAchieved } from '../types';
 import { UI_TEXT, formatTime } from '../constants';
+import { useSound } from '../hooks/useSound';
 
 interface ExerciseCardProps {
   exercise: Exercise;
@@ -36,6 +37,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   const [restTimer, setRestTimer] = useState<number>(0);
   const [isResting, setIsResting] = useState<boolean>(false);
   const [restStartTime, setRestStartTime] = useState<number | null>(null);
+  const { play: playRestEndSound } = useSound('/sounds/Yeah_buddy_Ronnie_Ccoleman.mp3');
 
   const exerciseRecommendation = recommendations.find(rec => rec.exerciseName === exercise.name);
   const hasVariations = variations.length > 0;
@@ -70,6 +72,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
         if (remaining <= 0) {
           setIsResting(false);
           setRestStartTime(null);
+          playRestEndSound(); // Відтворюємо звук
           alert(`Відпочинок для "${exercise.name}" завершено!`);
         } else {
            const interval = window.requestAnimationFrame(calculateTime);
@@ -84,7 +87,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
       setRestStartTime(null);
     }
     
-  }, [isResting, restStartTime, exercise.rest, exercise.name]);
+  }, [isResting, restStartTime, exercise.rest, exercise.name, playRestEndSound]);
 
   const handleStartRest = () => {
     setRestStartTime(Date.now());

@@ -14,7 +14,7 @@ import { AuthForm } from './components/AuthForm';
 import { useUserData } from './hooks/useUserData';
 import { deleteUser } from 'firebase/auth';
 import { db } from './config/firebase';
-import { doc, deleteDoc, collection, query, where, getDocs, setDoc } from 'firebase/firestore';
+import { collection, doc, deleteDoc, getDocs, query, where } from 'firebase/firestore';
 import { analyzeWorkout, getExerciseVariations, analyzeProgressTrends } from './services/workoutAnalysisService';
 import { useWorkoutSync } from './hooks/useWorkoutSync';
 import WellnessCheckModal from './components/WellnessCheckModal';
@@ -219,6 +219,14 @@ const App: React.FC = () => {
       return;
     }
 
+    // Перевіряємо наявність userId
+    const userId = user?.uid || userProfile?.uid;
+    if (!userId) {
+      console.error("No userId available");
+      alert("Помилка: Не вдалося визначити користувача.");
+      return;
+    }
+
     const loggedExercisesForSession: LoggedExercise[] = session.sessionExercises
       .filter(ex => ex.isCompletedDuringSession)
       .map((ex) => ({
@@ -236,10 +244,16 @@ const App: React.FC = () => {
       alert("Тренування завершено, але жодної вправи не було залоговано.");
       return;
     }
+
+    // Спочатку завершуємо активну сесію, щоб запобігти повторним викликам
+    endWorkout();
+    setAdaptiveWorkoutPlan(null);
+    setWellnessRecommendations([]);
+    setWellnessRecommendationsModalOpen(false);
     
     const newLog: WorkoutLog = {
       id: new Date().toISOString(),
-      userId: userProfile?.uid || 'anonymous',
+      userId: userId, // Тепер тут гарантовано string
       date: new Date(),
       duration: Math.floor((Date.now() - session.startTime) / 1000),
       dayCompleted: session.activeDay ?? null,
@@ -253,34 +267,27 @@ const App: React.FC = () => {
       wellnessRecommendations: session.wellnessRecommendations ?? null,
       wasAdaptiveWorkout: !!session.adaptiveWorkoutPlan,
     };
-    console.log('Зберігаємо workoutLog у Firestore:', newLog);
 
-    let savedLogId: string | undefined = undefined;
     try {
-      await saveWorkoutLog(newLog);
-      setWorkoutLogs(prev => [...prev, newLog]);
-      savedLogId = newLog.id;
-      alert(UI_TEXT.workoutLogged);
-    } catch (e: any) {
-      console.error("Error saving workout log:", e);
-      setError(e.message || "Помилка при збереженні логу тренування.");
-      return;
-    }
-
-    endWorkout();
-    setAdaptiveWorkoutPlan(null);
-    setWellnessRecommendations([]);
-    setWellnessRecommendationsModalOpen(false);
-
-    // --- Start Workout Analysis ---
-    try {
+      // Спочатку аналізуємо тренування
       const analysisResult = await analyzeWorkout(
         userProfile,
         currentDayPlan,
         newLog,
         workoutLogs
       );
-      setExerciseRecommendations(analysisResult.dailyRecommendations || []);
+
+      // Додаємо результат аналізу до логу
+      const finalLog = {
+        ...newLog,
+        recommendation: analysisResult.recommendation || null
+      };
+
+      // Зберігаємо фінальний лог з усіма даними
+      await saveWorkoutLog(finalLog);
+      setWorkoutLogs(prev => [finalLog, ...prev]);
+
+      // Оновлюємо план тренувань, якщо потрібно
       if (analysisResult?.updatedPlan) {
         const planIndex = currentWorkoutPlan.findIndex(p => p.day === analysisResult.updatedPlan.day);
         if (planIndex !== -1) {
@@ -288,30 +295,25 @@ const App: React.FC = () => {
           newWorkoutPlan[planIndex] = analysisResult.updatedPlan;
           setCurrentWorkoutPlan(newWorkoutPlan);
           await saveWorkoutPlan(newWorkoutPlan);
-        } else {
-          console.error("Analyzed plan day not found in current workout plan.", analysisResult.updatedPlan);
         }
       }
-      // --- ОНОВЛЮЄМО recommendation у Firestore та локальному стані ---
-      if (savedLogId && analysisResult.recommendation) {
-        // Оновлюємо лог у Firestore (асинхронно, не блокує UI)
-        const logsRef = collection(db, 'workoutLogs');
-        const logDoc = doc(logsRef, savedLogId);
-        // Примусово підставляємо userId з авторизації!
-        const userId = user?.uid || userProfile?.uid;
-        await setDoc(logDoc, { ...newLog, userId, recommendation: analysisResult.recommendation });
-        // Оновлюємо локальний стан
-        setWorkoutLogs(prev => prev.map(log =>
-          log.id === savedLogId ? { ...log, recommendation: analysisResult.recommendation } : log
-        ));
+
+      setExerciseRecommendations(analysisResult.dailyRecommendations || []);
+      setCurrentView('progress');
+      
+    } catch (e: any) {
+      console.error("Error during workout completion:", e);
+      setError(e.message || "Помилка при завершенні тренування");
+      // Навіть якщо аналіз не вдався, все одно зберігаємо базовий лог
+      try {
+        await saveWorkoutLog(newLog);
+        setWorkoutLogs(prev => [newLog, ...prev]);
+      } catch (saveError) {
+        console.error("Error saving basic workout log:", saveError);
       }
       setCurrentView('progress');
-    } catch (e: any) {
-      console.error("Error analyzing workout:", e);
-      setError(e.message || "Помилка при аналізі тренування.");
-      setCurrentView('progress');
     }
-  }, [session, currentWorkoutPlan, userProfile, endWorkout, saveWorkoutLog, saveWorkoutPlan, workoutLogs]);
+  }, [session, currentWorkoutPlan, userProfile, endWorkout, saveWorkoutLog, saveWorkoutPlan, workoutLogs, user]);
 
   // Обробка вибору варіації вправи
   const handleSelectVariation = useCallback((exerciseName: string, variation: any) => {
