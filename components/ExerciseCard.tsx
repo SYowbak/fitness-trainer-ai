@@ -57,6 +57,8 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   }, [loggedSetsData, exercise.name]);
 
   useEffect(() => {
+    let animationFrameId: number | null = null;
+
     if (isResting && restStartTime !== null) {
       const totalRestDuration = typeof exercise.rest === 'string' 
         ? (exercise.rest.includes('секунд') ? parseInt(exercise.rest.split(' ')[0], 10) : parseInt(exercise.rest, 10)) || 60
@@ -69,27 +71,11 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
         setRestTimer(Math.max(0, remaining));
 
         if (remaining <= 0) {
-          console.log('Таймер завершився, починаємо відтворення звуку...');
+          console.log('[ExerciseCard] Таймер завершено, відтворюємо звук.');
+          audioElement.play().catch(e => console.error("Помилка відтворення звуку:", e));
           
-          // Спочатку відтворюємо звук
-          audioElement.currentTime = 0;
-          const playPromise = audioElement.play();
-          
-          if (playPromise !== undefined) {
-            playPromise
-              .then(() => {
-                console.log('Звук успішно почав відтворюватися');
-              })
-              .catch(error => {
-                console.error('Помилка відтворення звуку:', error);
-              });
-          }
-
-          // Показуємо нотифікацію
           if ('Notification' in window) {
-            console.log('Запитуємо дозвіл на нотифікації...');
             Notification.requestPermission().then(permission => {
-              console.log('Отримано дозвіл на нотифікації:', permission);
               if (permission === 'granted') {
                 new Notification('Час відпочинку завершено!', {
                   body: `Час продовжити вправу: ${exercise.name}`,
@@ -98,25 +84,20 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
               }
             });
           }
-
-          // Оновлюємо стан
+          
           setIsResting(false);
           setRestStartTime(null);
         } else {
-          const interval = window.requestAnimationFrame(calculateTime);
-          return () => window.cancelAnimationFrame(interval);
+          animationFrameId = requestAnimationFrame(calculateTime);
         }
       };
       
       calculateTime();
     }
     
-    // Очищення при розмонтуванні
     return () => {
-      if (audioElement) {
-        console.log('Очищення аудіо елемента...');
-        audioElement.pause();
-        audioElement.currentTime = 0;
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
       }
     };
   }, [isResting, restStartTime, exercise.rest, exercise.name, audioElement]);

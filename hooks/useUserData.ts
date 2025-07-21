@@ -166,94 +166,50 @@ export const useUserData = () => {
   };
 
   // Збереження логу тренування
-  const saveWorkoutLog = async (log: WorkoutLog) => {
-    console.log('Початок saveWorkoutLog');
-    console.log('Отриманий лог:', log);
-    
+  const saveWorkoutLog = async (log: WorkoutLog): Promise<WorkoutLog> => {
+    console.log('[saveWorkoutLog] Початок. Отримано лог:', log);
     if (!user) {
-      console.error('saveWorkoutLog: Користувач не автентифікований');
+      console.error('[saveWorkoutLog] Користувач не автентифікований.');
       throw new Error('User not authenticated');
     }
 
     try {
-      // Перевіряємо, чи існує вже лог з таким id
+      let finalLog: WorkoutLog;
+      let logRef;
+
       if (log.id) {
-        console.log('Знайдено існуючий ID логу:', log.id);
-        const existingLogRef = doc(db, 'workoutLogs', log.id);
-        const existingLogSnap = await getDoc(existingLogRef);
-        
-        if (existingLogSnap.exists()) {
-          console.log('Лог з таким ID вже існує, оновлюємо його');
-          const updatedLog = {
-            ...log,
-            userId: user.uid,
-            adaptiveWorkoutPlan: log.adaptiveWorkoutPlan ? {
-              ...log.adaptiveWorkoutPlan,
-              adaptations: log.adaptiveWorkoutPlan.adaptations || []
-            } : null
-          };
-          
-          let dateForFirestore = updatedLog.date;
-          if (dateForFirestore instanceof Date) {
-            dateForFirestore = {
-              seconds: Math.floor(dateForFirestore.getTime() / 1000),
-              nanoseconds: (dateForFirestore.getTime() % 1000) * 1e6
-            };
+        // Оновлення існуючого логу
+        console.log(`[saveWorkoutLog] Оновлюємо існуючий лог з ID: ${log.id}`);
+        logRef = doc(db, 'workoutLogs', log.id);
+        finalLog = { ...log, userId: user.uid };
+      } else {
+        // Створення нового логу
+        const newLogId = `${user.uid}_${Date.now()}`;
+        console.log(`[saveWorkoutLog] Створюємо новий лог з ID: ${newLogId}`);
+        logRef = doc(db, 'workoutLogs', newLogId);
+        finalLog = { ...log, id: newLogId, userId: user.uid };
+      }
+      
+      // Підготовка даних для Firestore
+      const dateForFirestore = finalLog.date instanceof Date
+        ? {
+            seconds: Math.floor(finalLog.date.getTime() / 1000),
+            nanoseconds: (finalLog.date.getTime() % 1000) * 1e6
           }
-          
-          console.log('Підготовлений оновлений лог:', updatedLog);
-          const cleanedLog = removeUndefined({ ...updatedLog, date: dateForFirestore });
-          console.log('Очищений лог для Firebase:', cleanedLog);
-          
-          await setDoc(existingLogRef, cleanedLog);
-          console.log('Лог успішно оновлено');
-          
-          setWorkoutLogs(prev => prev.map(l => l.id === log.id ? cleanedLog as WorkoutLog : l));
-          return;
-        }
-      }
+        : finalLog.date;
 
-      // Якщо лог новий, створюємо новий документ з ID, що включає userId
-      const timestamp = Date.now();
-      const newLogId = `${user.uid}_${timestamp}`;
-      console.log('Створюємо новий лог з ID:', newLogId);
+      const cleanedLog = removeUndefined({ ...finalLog, date: dateForFirestore });
       
-      const safeLog = {
-        ...log,
-        id: newLogId,
-        userId: user.uid,
-        adaptiveWorkoutPlan: log.adaptiveWorkoutPlan ? {
-          ...log.adaptiveWorkoutPlan,
-          adaptations: log.adaptiveWorkoutPlan.adaptations || []
-        } : null
-      };
+      console.log(`[saveWorkoutLog] Зберігаємо дані в Firestore за шляхом: ${logRef.path}`);
+      console.log('[saveWorkoutLog] Очищені дані для збереження:', cleanedLog);
 
-      let dateForFirestore = safeLog.date;
-      if (dateForFirestore instanceof Date) {
-        dateForFirestore = {
-          seconds: Math.floor(dateForFirestore.getTime() / 1000),
-          nanoseconds: (dateForFirestore.getTime() % 1000) * 1e6
-        };
-      }
+      await setDoc(logRef, cleanedLog, { merge: true }); // Використовуємо merge: true для безпечного оновлення
+      
+      console.log('[saveWorkoutLog] Лог успішно збережено в Firestore.');
+      return cleanedLog as WorkoutLog;
 
-      console.log('Підготовлений новий лог:', safeLog);
-      const cleanedLog = removeUndefined({ ...safeLog, date: dateForFirestore });
-      console.log('Очищений новий лог для Firebase:', cleanedLog);
-      
-      const logRef = doc(db, 'workoutLogs', newLogId);
-      console.log('Зберігаємо лог за шляхом:', logRef.path);
-      
-      await setDoc(logRef, cleanedLog);
-      console.log('Новий лог успішно збережено');
-      
-      setWorkoutLogs(prev => [cleanedLog as WorkoutLog, ...prev]);
     } catch (error) {
-      console.error('Детальна помилка при збереженні логу:', error);
-      if (error instanceof Error) {
-        console.error('Назва помилки:', error.name);
-        console.error('Повідомлення помилки:', error.message);
-        console.error('Стек помилки:', error.stack);
-      }
+      console.error('[saveWorkoutLog] Детальна помилка:', error);
       throw error;
     }
   };
