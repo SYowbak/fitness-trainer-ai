@@ -9,11 +9,19 @@ interface ProgressViewProps {
   workoutLogs: WorkoutLog[];
   userProfile: UserProfile | null;
   onAnalyzeWorkout: (log: WorkoutLog) => void;
-  onDeleteLog?: (log: WorkoutLog) => void;
+  onDeleteLog: (log: WorkoutLog) => void;
   isAnalyzing: boolean;
+  analyzingLogId: string | null;
 }
 
-const ProgressView: React.FC<ProgressViewProps> = ({ workoutLogs, userProfile, onAnalyzeWorkout, onDeleteLog, isAnalyzing }) => {
+const ProgressView: React.FC<ProgressViewProps> = ({ 
+  workoutLogs, 
+  userProfile, 
+  onAnalyzeWorkout, 
+  onDeleteLog, 
+  isAnalyzing,
+  analyzingLogId
+}) => {
   const [modalLogs, setModalLogs] = useState<WorkoutLog[]>([]);
 
   const workoutDates = useMemo(() => {
@@ -65,7 +73,9 @@ const ProgressView: React.FC<ProgressViewProps> = ({ workoutLogs, userProfile, o
           logs={modalLogs}
           onClose={() => setModalLogs([])}
           onAnalyzeWorkout={onAnalyzeWorkout}
+          onDeleteLog={onDeleteLog}
           isAnalyzing={isAnalyzing}
+          analyzingLogId={analyzingLogId}
         />
       )}
     </div>

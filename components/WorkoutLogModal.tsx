@@ -61,10 +61,19 @@ interface WorkoutLogModalProps {
   logs: WorkoutLog[];
   onClose: () => void;
   onAnalyzeWorkout: (log: WorkoutLog) => void;
+  onDeleteLog: (log: WorkoutLog) => void;
   isAnalyzing: boolean;
+  analyzingLogId: string | null;
 }
 
-export const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({ logs, onClose, onAnalyzeWorkout, isAnalyzing }) => {
+export const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({ 
+  logs, 
+  onClose, 
+  onAnalyzeWorkout, 
+  onDeleteLog,
+  isAnalyzing, 
+  analyzingLogId 
+}) => {
   if (!logs.length) return null;
   const logDate = logs[0].date instanceof Date ? logs[0].date : new Date(logs[0].date.seconds * 1000);
 
@@ -128,134 +137,153 @@ export const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({ logs, onClose,
         </div>
 
         <div className="p-2 sm:p-4 max-h-[70vh] overflow-y-auto">
-          {logs.map(log => (
-            <div key={log.id} className="mb-4 bg-gray-900/50 rounded-lg">
-              <div className="p-4 flex justify-between items-center">
-                <div className="flex items-center space-x-4">
-                  <span className="text-sm font-semibold text-yellow-400">
-                    <i className="fas fa-stopwatch mr-1.5"></i>{log.workoutDuration}
-                  </span>
-                  <span className="text-sm font-semibold text-gray-300">
-                    <i className="fas fa-running mr-1.5"></i>День {log.dayCompleted}
-                  </span>
+          {logs.map(log => {
+            const isCurrentLogAnalyzing = isAnalyzing && analyzingLogId === log.id;
+            return (
+              <div key={log.id} className="mb-4 bg-gray-900/50 rounded-lg overflow-hidden">
+                <div className="p-4 flex justify-between items-center flex-wrap gap-2">
+                  <div className="flex items-center space-x-4">
+                    <span className="text-sm font-semibold text-yellow-400">
+                      <i className="fas fa-stopwatch mr-1.5"></i>{log.workoutDuration}
+                    </span>
+                    <span className="text-sm font-semibold text-gray-300">
+                      <i className="fas fa-running mr-1.5"></i>День {log.dayCompleted}
+                    </span>
+                  </div>
+                  {!log.recommendation && (
+                    <button 
+                      onClick={() => onAnalyzeWorkout(log)} 
+                      disabled={isCurrentLogAnalyzing}
+                      className="px-3 py-1.5 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors text-xs font-semibold disabled:bg-gray-500 disabled:cursor-not-allowed flex items-center"
+                    >
+                      {isCurrentLogAnalyzing ? (
+                        <>
+                          <i className="fas fa-spinner fa-spin mr-2"></i>
+                          Аналізуємо...
+                        </>
+                      ) : (
+                        'Аналізувати'
+                      )}
+                    </button>
+                  )}
                 </div>
-                {!log.recommendation && (
-                  <button 
-                    onClick={() => onAnalyzeWorkout(log)} 
-                    disabled={isAnalyzing}
-                    className="px-3 py-1.5 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors text-xs font-semibold disabled:bg-gray-500"
-                  >
-                    {isAnalyzing ? 'Аналізуємо...' : 'Аналізувати'}
-                  </button>
-                )}
-              </div>
-              
-              {log.wellnessCheck && (
-                <AccordionSection title="Самопочуття" icon="fa-heartbeat" defaultOpen={true}>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-purple-300 mb-1">
-                        <i className="fas fa-bolt mr-2"></i>Енергія
-                      </p>
-                      <p className="pl-6">{getEnergyLevelText(log.wellnessCheck.energyLevel)}</p>
-                    </div>
-                    <div>
-                      <p className="text-purple-300 mb-1">
-                        <i className="fas fa-bed mr-2"></i>Сон
-                      </p>
-                      <p className="pl-6">{getSleepQualityText(log.wellnessCheck.sleepQuality)}</p>
-                    </div>
-                    <div>
-                      <p className="text-purple-300 mb-1">
-                        <i className="fas fa-brain mr-2"></i>Стрес
-                      </p>
-                      <p className="pl-6">{getStressLevelText(log.wellnessCheck.stressLevel)}</p>
-                    </div>
-                    <div>
-                      <p className="text-purple-300 mb-1">
-                        <i className="fas fa-fire mr-2"></i>Мотивація
-                      </p>
-                      <p className="pl-6">{log.wellnessCheck.motivation}/10</p>
-                    </div>
-                    <div>
-                      <p className="text-purple-300 mb-1">
-                        <i className="fas fa-tired mr-2"></i>Втома
-                      </p>
-                      <p className="pl-6">{log.wellnessCheck.fatigue}/10</p>
-                    </div>
-                    {log.wellnessCheck.notes && (
-                      <div className="col-span-2">
+                
+                {log.wellnessCheck && (
+                  <AccordionSection title="Самопочуття" icon="fa-heartbeat" defaultOpen={true}>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
                         <p className="text-purple-300 mb-1">
-                          <i className="fas fa-sticky-note mr-2"></i>Нотатки
+                          <i className="fas fa-bolt mr-2"></i>Енергія
                         </p>
-                        <p className="pl-6">{log.wellnessCheck.notes}</p>
+                        <p className="pl-6">{getEnergyLevelText(log.wellnessCheck.energyLevel)}</p>
                       </div>
-                    )}
-                  </div>
-                </AccordionSection>
-              )}
-
-              {log.wellnessRecommendations && log.wellnessRecommendations.length > 0 && (
-                <AccordionSection title="Рекомендації по самопочуттю" icon="fa-lightbulb">
-                  <div className="space-y-4">
-                    {log.wellnessRecommendations.map((rec, i) => (
-                      <div key={i} className="bg-gray-700/30 p-3 rounded-lg">
-                        <h4 className="font-semibold text-lg mb-2 flex items-center">
-                          <i className={`${getRecommendationIcon(rec.type)} mr-3`}></i>
-                          {rec.title}
-                        </h4>
-                        <p className="text-gray-300 mb-3">{rec.description}</p>
-                        {rec.actions && rec.actions.length > 0 && (
-                          <div>
-                            <h5 className="font-medium text-gray-400 mb-1">Рекомендовані дії:</h5>
-                            <ul className="list-disc list-inside space-y-1 text-gray-300 pl-2">
-                              {rec.actions.map((action, j) => (
-                                <li key={j}>{action}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
+                      <div>
+                        <p className="text-purple-300 mb-1">
+                          <i className="fas fa-bed mr-2"></i>Сон
+                        </p>
+                        <p className="pl-6">{getSleepQualityText(log.wellnessCheck.sleepQuality)}</p>
                       </div>
-                    ))}
-                  </div>
-                </AccordionSection>
-              )}
-
-              {log.adaptiveWorkoutPlan?.adaptations && log.adaptiveWorkoutPlan.adaptations.length > 0 && (
-                <AccordionSection title="Адаптації" icon="fa-magic">
-                  <div className="space-y-2">
-                    {log.adaptiveWorkoutPlan.adaptations.map((a, i) => (
-                      <div key={i} className="bg-gray-700/30 p-3 rounded">
-                        <p className="font-semibold text-green-400 mb-1">{a.exerciseName}</p>
-                        <p className="text-gray-300">{a.adaptationReason}</p>
+                      <div>
+                        <p className="text-purple-300 mb-1">
+                          <i className="fas fa-brain mr-2"></i>Стрес
+                        </p>
+                        <p className="pl-6">{getStressLevelText(log.wellnessCheck.stressLevel)}</p>
                       </div>
-                    ))}
-                  </div>
+                      <div>
+                        <p className="text-purple-300 mb-1">
+                          <i className="fas fa-fire mr-2"></i>Мотивація
+                        </p>
+                        <p className="pl-6">{log.wellnessCheck.motivation}/10</p>
+                      </div>
+                      <div>
+                        <p className="text-purple-300 mb-1">
+                          <i className="fas fa-tired mr-2"></i>Втома
+                        </p>
+                        <p className="pl-6">{log.wellnessCheck.fatigue}/10</p>
+                      </div>
+                      {log.wellnessCheck.notes && (
+                        <div className="col-span-2">
+                          <p className="text-purple-300 mb-1">
+                            <i className="fas fa-sticky-note mr-2"></i>Нотатки
+                          </p>
+                          <p className="pl-6">{log.wellnessCheck.notes}</p>
+                        </div>
+                      )}
+                    </div>
+                  </AccordionSection>
+                )}
+
+                {log.wellnessRecommendations && log.wellnessRecommendations.length > 0 && (
+                  <AccordionSection title="Рекомендації по самопочуттю" icon="fa-lightbulb">
+                    <div className="space-y-4">
+                      {log.wellnessRecommendations.map((rec, i) => (
+                        <div key={i} className="bg-gray-700/30 p-3 rounded-lg">
+                          <h4 className="font-semibold text-lg mb-2 flex items-center">
+                            <i className={`${getRecommendationIcon(rec.type)} mr-3`}></i>
+                            {rec.title}
+                          </h4>
+                          <p className="text-gray-300 mb-3">{rec.description}</p>
+                          {rec.actions && rec.actions.length > 0 && (
+                            <div>
+                              <h5 className="font-medium text-gray-400 mb-1">Рекомендовані дії:</h5>
+                              <ul className="list-disc list-inside space-y-1 text-gray-300 pl-2">
+                                {rec.actions.map((action, j) => (
+                                  <li key={j}>{action}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </AccordionSection>
+                )}
+
+                {log.adaptiveWorkoutPlan?.adaptations && log.adaptiveWorkoutPlan.adaptations.length > 0 && (
+                  <AccordionSection title="Адаптації" icon="fa-magic">
+                    <div className="space-y-2">
+                      {log.adaptiveWorkoutPlan.adaptations.map((a, i) => (
+                        <div key={i} className="bg-gray-700/30 p-3 rounded">
+                          <p className="font-semibold text-green-400 mb-1">{a.exerciseName}</p>
+                          <p className="text-gray-300">{a.adaptationReason}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </AccordionSection>
+                )}
+
+                {log.recommendation?.text && (
+                  <AccordionSection title="Загальний аналіз" icon="fa-star">
+                    <div className="bg-gray-700/30 p-3 rounded">
+                      <p>{log.recommendation.text}</p>
+                      {log.recommendation.action && (
+                        <p className="mt-2 text-green-400">
+                          <i className="fas fa-arrow-right mr-2"></i>
+                          Рекомендована дія: {log.recommendation.action}
+                        </p>
+                      )}
+                    </div>
+                  </AccordionSection>
+                )}
+
+                <AccordionSection title="Виконані вправи" icon="fa-dumbbell">
+                  {log.loggedExercises.map((ex, i) => (
+                    <ExerciseLogRow key={i} loggedEx={ex} />
+                  ))}
                 </AccordionSection>
-              )}
 
-              {log.recommendation?.text && (
-                <AccordionSection title="Загальний аналіз" icon="fa-star">
-                  <div className="bg-gray-700/30 p-3 rounded">
-                    <p>{log.recommendation.text}</p>
-                    {log.recommendation.action && (
-                      <p className="mt-2 text-green-400">
-                        <i className="fas fa-arrow-right mr-2"></i>
-                        Рекомендована дія: {log.recommendation.action}
-                      </p>
-                    )}
-                  </div>
-                </AccordionSection>
-              )}
-
-              <AccordionSection title="Виконані вправи" icon="fa-dumbbell">
-                {log.loggedExercises.map((ex, i) => (
-                  <ExerciseLogRow key={i} loggedEx={ex} />
-                ))}
-              </AccordionSection>
-
-            </div>
-          ))}
+                <div className="p-4 bg-gray-900/70 mt-2">
+                  <button
+                    onClick={() => onDeleteLog(log)}
+                    className="w-full text-red-400 hover:text-red-300 transition-colors text-sm font-semibold flex items-center justify-center gap-2"
+                  >
+                    <i className="fas fa-trash-alt"></i>
+                    Видалити цей запис
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

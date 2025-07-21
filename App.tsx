@@ -46,6 +46,8 @@ const App: React.FC = () => {
   const [isTrainerChatOpen, setIsTrainerChatOpen] = useState(false);
   const [hasInitializedView, setHasInitializedView] = useState(false);
   const [isWorkoutCompleteModalOpen, setIsWorkoutCompleteModalOpen] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analyzingLogId, setAnalyzingLogId] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof import.meta.env === 'undefined' || !import.meta.env.VITE_API_KEY) {
@@ -369,35 +371,51 @@ const App: React.FC = () => {
     }
   }, [saveWorkoutPlan]);
 
-  const handleAnalyzeWorkout = useCallback(async (workoutLog: WorkoutLog) => {
-    if (!userProfile || !currentWorkoutPlan) {
-      setError('Не вдалося знайти профіль користувача або план тренувань');
-      return;
-    }
-    
-    const currentDayPlan = currentWorkoutPlan.find(p => p.day === workoutLog.dayCompleted);
-    if (!currentDayPlan) {
-      setError('Не вдалося знайти план тренування для аналізу');
-      return;
-    }
-
-    setIsLoading(true);
+  const handleAnalyzeWorkoutFromLog = useCallback(async (logToAnalyze: WorkoutLog) => {
+    if (!userProfile || !currentWorkoutPlan || !logToAnalyze.id) return;
+    setIsAnalyzing(true);
+    setAnalyzingLogId(logToAnalyze.id);
     try {
+      const currentDayPlan = currentWorkoutPlan.find(p => p.day === logToAnalyze.dayCompleted);
+      if (!currentDayPlan) {
+        setError('Не вдалося знайти план тренування для аналізу');
+        return;
+      }
+
       const analysis = await analyzeWorkout(
         userProfile,
         currentDayPlan,
-        workoutLog,
-        workoutLogs.filter(log => log.id !== workoutLog.id)
+        logToAnalyze,
+        workoutLogs.filter(log => log.id !== logToAnalyze.id)
       );
       console.log('Workout analysis:', analysis);
       // Тут можна додати логіку для оновлення плану тренувань
     } catch (error) {
-      console.error('Error analyzing workout:', error);
-      setError('Помилка при аналізі тренування');
+      console.error("Помилка при повторному аналізі:", error);
+      setError("Не вдалося проаналізувати тренування. Спробуйте ще раз.");
     } finally {
-      setIsLoading(false);
+      setIsAnalyzing(false);
+      setAnalyzingLogId(null);
     }
-  }, [userProfile, currentWorkoutPlan, workoutLogs]);
+  }, [userProfile, currentWorkoutPlan, workoutLogs, saveWorkoutLog]);
+
+  const handleDeleteLog = async (logToDelete: WorkoutLog) => {
+    if (!user || !logToDelete.id) {
+      setError("Не вдалося видалити лог: користувач не знайдений або ID логу відсутній.");
+      return;
+    }
+
+    if (window.confirm("Ви впевнені, що хочете видалити цей запис тренування? Цю дію не можна буде скасувати.")) {
+      try {
+        const logRef = doc(db, 'workoutLogs', logToDelete.id);
+        await deleteDoc(logRef);
+        setWorkoutLogs(prevLogs => prevLogs.filter(log => log.id !== logToDelete.id));
+      } catch (error) {
+        console.error("Error deleting workout log: ", error);
+        setError("Помилка при видаленні логу тренування.");
+      }
+    }
+  };
 
   // Обробка перевірки самопочуття
   const handleWellnessCheckSubmit = useCallback(async (wellnessCheck: WellnessCheck) => {
@@ -467,64 +485,6 @@ const App: React.FC = () => {
     }
   }, [pendingWorkoutDay, currentWorkoutPlan, startWorkout]);
 
-  // Додаємо функцію для видалення логів за датою
-  const handleDeleteLogsByDate = useCallback(async (logOrDate: string | WorkoutLog) => {
-    if (!user || !user.uid) return;
-    
-    let targetDate: string;
-    
-    // Визначаємо цільову дату
-    if (typeof logOrDate === 'string') {
-      // Якщо передано рядок (дату)
-      targetDate = logOrDate;
-    } else {
-      // Якщо передано об'єкт WorkoutLog
-      if (logOrDate.date && typeof logOrDate.date === 'object' && 'seconds' in logOrDate.date) {
-        targetDate = new Date(logOrDate.date.seconds * 1000).toLocaleDateString('uk-UA', { year: 'numeric', month: 'long', day: 'numeric' });
-      } else if (logOrDate.date instanceof Date) {
-        targetDate = logOrDate.date.toLocaleDateString('uk-UA', { year: 'numeric', month: 'long', day: 'numeric' });
-      } else {
-        targetDate = 'Невідома дата';
-      }
-    }
-    
-    try {
-      // 1. Знайти всі логи користувача
-      const logsQuery = query(collection(db, 'workoutLogs'), where('userId', '==', user.uid));
-      const logsSnapshot = await getDocs(logsQuery);
-      // 2. Відфільтрувати по даті (тільки день/місяць/рік)
-      const logsToDelete = logsSnapshot.docs.filter(docSnap => {
-        const data = docSnap.data();
-        let logDate = '';
-        if (data.date && typeof data.date === 'object' && 'seconds' in data.date) {
-          logDate = new Date(data.date.seconds * 1000).toLocaleDateString('uk-UA', { year: 'numeric', month: 'long', day: 'numeric' });
-        } else if (data.date instanceof Date) {
-          logDate = data.date.toLocaleDateString('uk-UA', { year: 'numeric', month: 'long', day: 'numeric' });
-        } else {
-          logDate = 'Невідома дата';
-        }
-        return logDate === targetDate;
-      });
-      // 3. Видалити з Firestore
-      await Promise.all(logsToDelete.map(docSnap => deleteDoc(doc(db, 'workoutLogs', docSnap.id))));
-      // 4. Оновити локальний стан
-      setWorkoutLogs(prev => prev.filter(log => {
-        let logDate = '';
-        if (log.date && typeof log.date === 'object' && 'seconds' in log.date) {
-          logDate = new Date(log.date.seconds * 1000).toLocaleDateString('uk-UA', { year: 'numeric', month: 'long', day: 'numeric' });
-        } else if (log.date instanceof Date) {
-          logDate = log.date.toLocaleDateString('uk-UA', { year: 'numeric', month: 'long', day: 'numeric' });
-        } else {
-          logDate = 'Невідома дата';
-        }
-        return logDate !== targetDate;
-      }));
-    } catch (error) {
-      console.error('Помилка при видаленні логів за датою:', error);
-      setError('Не вдалося видалити логи за цю дату. Спробуйте ще раз.');
-    }
-  }, [user]);
-
   const renderView = () => {
     if (!user) {
       return <AuthForm />;
@@ -582,9 +542,10 @@ const App: React.FC = () => {
             <ProgressView
               workoutLogs={workoutLogs}
               userProfile={userProfile}
-              onAnalyzeWorkout={handleAnalyzeWorkout}
-              onDeleteLog={handleDeleteLogsByDate}
-              isAnalyzing={isLoading} // Передаємо стан завантаження
+              onAnalyzeWorkout={handleAnalyzeWorkoutFromLog}
+              onDeleteLog={handleDeleteLog}
+              isAnalyzing={isAnalyzing}
+              analyzingLogId={analyzingLogId}
             />
           </div>
         );
