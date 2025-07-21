@@ -210,20 +210,16 @@ const App: React.FC = () => {
   }, [updateExercise]);
   
   const handleEndWorkout = useCallback(async () => {
-    if (session.activeDay === null || !currentWorkoutPlan || !Array.isArray(currentWorkoutPlan) || !session.startTime || !userProfile) return;
+    if (session.activeDay === null || !currentWorkoutPlan || !Array.isArray(currentWorkoutPlan) || !session.startTime || !userProfile || !user) {
+      console.error("Відсутні необхідні дані для завершення тренування");
+      alert("Помилка: Не вдалося завершити тренування. Перевірте, чи ви авторизовані.");
+      return;
+    }
 
     const currentDayPlan = currentWorkoutPlan.find(p => p.day === session.activeDay);
     if (!currentDayPlan) {
       console.error("Could not find current day's plan.");
       alert("Помилка: Не вдалося знайти план тренування для аналізу.");
-      return;
-    }
-
-    // Перевіряємо наявність userId
-    const userId = user?.uid || userProfile?.uid;
-    if (!userId) {
-      console.error("No userId available");
-      alert("Помилка: Не вдалося визначити користувача.");
       return;
     }
 
@@ -253,7 +249,7 @@ const App: React.FC = () => {
     
     const newLog: WorkoutLog = {
       id: new Date().toISOString(),
-      userId: userId, // Тепер тут гарантовано string
+      userId: user.uid, // Використовуємо ТІЛЬКИ user.uid
       date: new Date(),
       duration: Math.floor((Date.now() - session.startTime) / 1000),
       dayCompleted: session.activeDay ?? null,
@@ -269,49 +265,52 @@ const App: React.FC = () => {
     };
 
     try {
-      // Спочатку аналізуємо тренування
-      const analysisResult = await analyzeWorkout(
-        userProfile,
-        currentDayPlan,
-        newLog,
-        workoutLogs
-      );
+      // Спочатку зберігаємо базовий лог
+      await saveWorkoutLog(newLog);
+      setWorkoutLogs(prev => [newLog, ...prev]);
 
-      // Додаємо результат аналізу до логу
-      const finalLog = {
-        ...newLog,
-        recommendation: analysisResult.recommendation || null
-      };
-
-      // Зберігаємо фінальний лог з усіма даними
-      await saveWorkoutLog(finalLog);
-      setWorkoutLogs(prev => [finalLog, ...prev]);
-
-      // Оновлюємо план тренувань, якщо потрібно
-      if (analysisResult?.updatedPlan) {
-        const planIndex = currentWorkoutPlan.findIndex(p => p.day === analysisResult.updatedPlan.day);
-        if (planIndex !== -1) {
-          const newWorkoutPlan = [...currentWorkoutPlan];
-          newWorkoutPlan[planIndex] = analysisResult.updatedPlan;
-          setCurrentWorkoutPlan(newWorkoutPlan);
-          await saveWorkoutPlan(newWorkoutPlan);
-        }
-      }
-
-      setExerciseRecommendations(analysisResult.dailyRecommendations || []);
-      setCurrentView('progress');
-      
-    } catch (e: any) {
-      console.error("Error during workout completion:", e);
-      setError(e.message || "Помилка при завершенні тренування");
-      // Навіть якщо аналіз не вдався, все одно зберігаємо базовий лог
       try {
-        await saveWorkoutLog(newLog);
-        setWorkoutLogs(prev => [newLog, ...prev]);
-      } catch (saveError) {
-        console.error("Error saving basic workout log:", saveError);
+        // Потім намагаємося проаналізувати тренування
+        const analysisResult = await analyzeWorkout(
+          userProfile,
+          currentDayPlan,
+          newLog,
+          workoutLogs
+        );
+
+        // Якщо аналіз успішний, оновлюємо лог з рекомендаціями
+        if (analysisResult.recommendation) {
+          const finalLog = {
+            ...newLog,
+            recommendation: analysisResult.recommendation
+          };
+          await saveWorkoutLog(finalLog);
+          setWorkoutLogs(prev => prev.map(log => 
+            log.id === newLog.id ? finalLog : log
+          ));
+        }
+
+        // Оновлюємо план тренувань, якщо потрібно
+        if (analysisResult?.updatedPlan) {
+          const planIndex = currentWorkoutPlan.findIndex(p => p.day === analysisResult.updatedPlan.day);
+          if (planIndex !== -1) {
+            const newWorkoutPlan = [...currentWorkoutPlan];
+            newWorkoutPlan[planIndex] = analysisResult.updatedPlan;
+            setCurrentWorkoutPlan(newWorkoutPlan);
+            await saveWorkoutPlan(newWorkoutPlan);
+          }
+        }
+
+        setExerciseRecommendations(analysisResult.dailyRecommendations || []);
+      } catch (analysisError) {
+        console.error("Error during workout analysis:", analysisError);
+        setError("Не вдалося проаналізувати тренування");
       }
+      
       setCurrentView('progress');
+    } catch (error) {
+      console.error("Error during workout completion:", error);
+      setError("Помилка при збереженні логу тренування");
     }
   }, [session, currentWorkoutPlan, userProfile, endWorkout, saveWorkoutLog, saveWorkoutPlan, workoutLogs, user]);
 
