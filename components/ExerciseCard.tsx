@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Exercise, LoggedSetWithAchieved } from '../types';
 import { UI_TEXT, formatTime } from '../constants';
-import { useSound } from '../hooks/useSound';
 
 interface ExerciseCardProps {
   exercise: Exercise;
