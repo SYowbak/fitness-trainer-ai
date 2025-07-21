@@ -1,29 +1,45 @@
 import React, { useState } from 'react';
-import { WorkoutLog, LoggedExercise } from '../types';
+import { WorkoutLog, LoggedExercise, EnergyLevel, SleepQuality, StressLevel } from '../types';
+import { UI_TEXT } from '../constants';
 
-interface ExerciseLogRowProps {
-  loggedEx: LoggedExercise;
-}
+// ExerciseLogRow з можливістю розгортання
+const ExerciseLogRow: React.FC<{loggedEx: LoggedExercise}> = ({ loggedEx }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  
+  return (
+    <div className="p-3 bg-gray-700/50 rounded-md my-2 text-xs sm:text-sm">
+      <button 
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full flex justify-between items-center text-left"
+      >
+        <span className="font-semibold text-yellow-400">{loggedEx.exerciseName}</span>
+        <i className={`fas fa-chevron-down transform transition-transform ${isExpanded ? 'rotate-180' : ''}`}></i>
+      </button>
+      
+      {isExpanded && (
+        <div className="mt-2 space-y-1 pl-2 border-l-2 border-gray-600">
+          <p>План: {loggedEx.originalSets ?? '-'} x {loggedEx.originalReps ?? '-'} @ {loggedEx.targetWeightAtLogging ?? 'N/A'}kg</p>
+          {loggedEx.loggedSets.map((set, i) => (
+            <p key={i} className="text-gray-300">
+              Підхід {i + 1}: {set.repsAchieved ?? '-'} повт. @ {set.weightUsed ?? '-'} кг
+            </p>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
-const ExerciseLogRow: React.FC<ExerciseLogRowProps> = ({ loggedEx }) => (
-  <div className="p-3 bg-gray-700/50 rounded-md my-2 text-xs sm:text-sm">
-    <p className="font-semibold text-yellow-400">{loggedEx.exerciseName}</p>
-    <p>План: {loggedEx.originalSets ?? '-'} x {loggedEx.originalReps ?? '-'} @ {loggedEx.targetWeightAtLogging ?? 'N/A'}kg</p>
-    {loggedEx.loggedSets.map((set, i) => (
-      <p key={i} className="text-gray-300">Підхід {i + 1}: {set.repsAchieved ?? '-'} повт. @ {set.weightUsed ?? '-'} кг</p>
-    ))}
-  </div>
-);
-
+// AccordionSection з можливістю розгортання
 interface AccordionSectionProps {
   title: string;
   icon: string;
   children: React.ReactNode;
+  defaultOpen?: boolean;
 }
 
-const AccordionSection: React.FC<AccordionSectionProps> = ({ title, icon, children }) => {
-  const [isOpen, setIsOpen] = useState(false);
-
+const AccordionSection: React.FC<AccordionSectionProps> = ({ title, icon, children, defaultOpen = false }) => {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
   return (
     <div className="border-b border-gray-700">
       <button
@@ -50,8 +66,38 @@ interface WorkoutLogModalProps {
 
 export const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({ logs, onClose, onAnalyzeWorkout, isAnalyzing }) => {
   if (!logs.length) return null;
-
   const logDate = logs[0].date instanceof Date ? logs[0].date : new Date(logs[0].date.seconds * 1000);
+
+  // Функції для перекладу станів
+  const getEnergyLevelText = (level: EnergyLevel) => {
+    switch (level) {
+      case EnergyLevel.VERY_LOW: return UI_TEXT.veryLow;
+      case EnergyLevel.LOW: return UI_TEXT.low;
+      case EnergyLevel.NORMAL: return UI_TEXT.normal;
+      case EnergyLevel.HIGH: return UI_TEXT.high;
+      case EnergyLevel.VERY_HIGH: return UI_TEXT.veryHigh;
+      default: return UI_TEXT.normal;
+    }
+  };
+
+  const getSleepQualityText = (quality: SleepQuality) => {
+    switch (quality) {
+      case SleepQuality.POOR: return UI_TEXT.poor;
+      case SleepQuality.FAIR: return UI_TEXT.fair;
+      case SleepQuality.GOOD: return UI_TEXT.good;
+      case SleepQuality.EXCELLENT: return UI_TEXT.excellent;
+      default: return UI_TEXT.good;
+    }
+  };
+
+  const getStressLevelText = (level: StressLevel) => {
+    switch (level) {
+      case StressLevel.HIGH: return UI_TEXT.stressHigh;
+      case StressLevel.MODERATE: return UI_TEXT.stressModerate;
+      case StressLevel.LOW: return UI_TEXT.stressLow;
+      default: return UI_TEXT.stressLow;
+    }
+  };
 
   return (
     <div 
@@ -76,8 +122,12 @@ export const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({ logs, onClose,
             <div key={log.id} className="mb-4 bg-gray-900/50 rounded-lg">
               <div className="p-4 flex justify-between items-center">
                 <div className="flex items-center space-x-4">
-                  <span className="text-sm font-semibold text-yellow-400"><i className="fas fa-stopwatch mr-1.5"></i>{log.workoutDuration}</span>
-                  <span className="text-sm font-semibold text-gray-300"><i className="fas fa-running mr-1.5"></i>День {log.dayCompleted}</span>
+                  <span className="text-sm font-semibold text-yellow-400">
+                    <i className="fas fa-stopwatch mr-1.5"></i>{log.workoutDuration}
+                  </span>
+                  <span className="text-sm font-semibold text-gray-300">
+                    <i className="fas fa-running mr-1.5"></i>День {log.dayCompleted}
+                  </span>
                 </div>
                 {!log.recommendation && (
                   <button 
@@ -91,12 +141,46 @@ export const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({ logs, onClose,
               </div>
               
               {log.wellnessCheck && (
-                <AccordionSection title="Самопочуття" icon="fa-heartbeat">
-                  <div className="grid grid-cols-2 gap-2">
-                    <p><strong>Енергія:</strong> {log.wellnessCheck.energyLevel}</p>
-                    <p><strong>Сон:</strong> {log.wellnessCheck.sleepQuality}</p>
-                    <p><strong>Мотивація:</strong> {log.wellnessCheck.motivation}/10</p>
-                    <p><strong>Втома:</strong> {log.wellnessCheck.fatigue}/10</p>
+                <AccordionSection title="Самопочуття" icon="fa-heartbeat" defaultOpen={true}>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-purple-300 mb-1">
+                        <i className="fas fa-bolt mr-2"></i>Енергія
+                      </p>
+                      <p className="pl-6">{getEnergyLevelText(log.wellnessCheck.energyLevel)}</p>
+                    </div>
+                    <div>
+                      <p className="text-purple-300 mb-1">
+                        <i className="fas fa-bed mr-2"></i>Сон
+                      </p>
+                      <p className="pl-6">{getSleepQualityText(log.wellnessCheck.sleepQuality)}</p>
+                    </div>
+                    <div>
+                      <p className="text-purple-300 mb-1">
+                        <i className="fas fa-brain mr-2"></i>Стрес
+                      </p>
+                      <p className="pl-6">{getStressLevelText(log.wellnessCheck.stressLevel)}</p>
+                    </div>
+                    <div>
+                      <p className="text-purple-300 mb-1">
+                        <i className="fas fa-fire mr-2"></i>Мотивація
+                      </p>
+                      <p className="pl-6">{log.wellnessCheck.motivation}/10</p>
+                    </div>
+                    <div>
+                      <p className="text-purple-300 mb-1">
+                        <i className="fas fa-tired mr-2"></i>Втома
+                      </p>
+                      <p className="pl-6">{log.wellnessCheck.fatigue}/10</p>
+                    </div>
+                    {log.wellnessCheck.notes && (
+                      <div className="col-span-2">
+                        <p className="text-purple-300 mb-1">
+                          <i className="fas fa-sticky-note mr-2"></i>Нотатки
+                        </p>
+                        <p className="pl-6">{log.wellnessCheck.notes}</p>
+                      </div>
+                    )}
                   </div>
                 </AccordionSection>
               )}
@@ -105,9 +189,9 @@ export const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({ logs, onClose,
                 <AccordionSection title="Адаптації" icon="fa-magic">
                   <div className="space-y-2">
                     {log.adaptiveWorkoutPlan.adaptations.map((a, i) => (
-                      <div key={i}>
-                        <p className="font-semibold text-green-400">{a.exerciseName}:</p>
-                        <p>{a.adaptationReason}</p>
+                      <div key={i} className="bg-gray-700/30 p-3 rounded">
+                        <p className="font-semibold text-green-400 mb-1">{a.exerciseName}</p>
+                        <p className="text-gray-300">{a.adaptationReason}</p>
                       </div>
                     ))}
                   </div>
@@ -116,12 +200,22 @@ export const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({ logs, onClose,
 
               {log.recommendation?.text && (
                 <AccordionSection title="Загальний аналіз" icon="fa-star">
-                  <p>{log.recommendation.text}</p>
+                  <div className="bg-gray-700/30 p-3 rounded">
+                    <p>{log.recommendation.text}</p>
+                    {log.recommendation.action && (
+                      <p className="mt-2 text-green-400">
+                        <i className="fas fa-arrow-right mr-2"></i>
+                        Рекомендована дія: {log.recommendation.action}
+                      </p>
+                    )}
+                  </div>
                 </AccordionSection>
               )}
 
               <AccordionSection title="Виконані вправи" icon="fa-dumbbell">
-                {log.loggedExercises.map((ex, i) => <ExerciseLogRow key={i} loggedEx={ex} />)}
+                {log.loggedExercises.map((ex, i) => (
+                  <ExerciseLogRow key={i} loggedEx={ex} />
+                ))}
               </AccordionSection>
 
             </div>
