@@ -200,9 +200,13 @@ export const useUserData = () => {
         }
       }
 
-      // Якщо лог новий, створюємо новий документ
+      // Якщо лог новий, створюємо новий документ з ID, що включає userId
+      const timestamp = Date.now();
+      const newLogId = `${user.uid}_${timestamp}`;
+      
       const safeLog = {
         ...log,
+        id: newLogId,
         userId: user.uid,
         adaptiveWorkoutPlan: log.adaptiveWorkoutPlan ? {
           ...log.adaptiveWorkoutPlan,
@@ -219,12 +223,10 @@ export const useUserData = () => {
       }
 
       const cleanedLog = removeUndefined({ ...safeLog, date: dateForFirestore });
-      const logsRef = collection(db, 'workoutLogs');
-      const newLogRef = doc(logsRef);
-      await setDoc(newLogRef, { ...cleanedLog, id: newLogRef.id });
+      const logRef = doc(db, 'workoutLogs', newLogId);
+      await setDoc(logRef, cleanedLog);
       
-      const finalLog = { ...cleanedLog, id: newLogRef.id } as WorkoutLog;
-      setWorkoutLogs(prev => [finalLog, ...prev]);
+      setWorkoutLogs(prev => [cleanedLog as WorkoutLog, ...prev]);
     } catch (error) {
       console.error('Error saving workout log:', error);
       throw error;

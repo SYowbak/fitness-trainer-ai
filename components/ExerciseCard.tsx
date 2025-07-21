@@ -70,10 +70,15 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
         setRestTimer(Math.max(0, remaining));
 
         if (remaining <= 0) {
+          // Спочатку запускаємо звук
+          playRestEndSound();
+          // Потім оновлюємо стан
           setIsResting(false);
           setRestStartTime(null);
-          playRestEndSound(); // Відтворюємо звук
-          alert(`Відпочинок для "${exercise.name}" завершено!`);
+          // І тільки потім показуємо сповіщення
+          setTimeout(() => {
+            alert(`Відпочинок для "${exercise.name}" завершено!`);
+          }, 100); // Невелика затримка, щоб звук точно почав грати
         } else {
            const interval = window.requestAnimationFrame(calculateTime);
            return () => window.cancelAnimationFrame(interval);
