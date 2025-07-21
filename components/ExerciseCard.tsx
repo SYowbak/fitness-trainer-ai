@@ -69,12 +69,27 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
         setRestTimer(Math.max(0, remaining));
 
         if (remaining <= 0) {
-          // Спочатку запускаємо звук
-          audioElement.play().catch(console.error);
+          console.log('Таймер завершився, починаємо відтворення звуку...');
           
-          // Показуємо нотифікацію замість alert
+          // Спочатку відтворюємо звук
+          audioElement.currentTime = 0;
+          const playPromise = audioElement.play();
+          
+          if (playPromise !== undefined) {
+            playPromise
+              .then(() => {
+                console.log('Звук успішно почав відтворюватися');
+              })
+              .catch(error => {
+                console.error('Помилка відтворення звуку:', error);
+              });
+          }
+
+          // Показуємо нотифікацію
           if ('Notification' in window) {
+            console.log('Запитуємо дозвіл на нотифікації...');
             Notification.requestPermission().then(permission => {
+              console.log('Отримано дозвіл на нотифікації:', permission);
               if (permission === 'granted') {
                 new Notification('Час відпочинку завершено!', {
                   body: `Час продовжити вправу: ${exercise.name}`,
@@ -83,7 +98,8 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
               }
             });
           }
-          
+
+          // Оновлюємо стан
           setIsResting(false);
           setRestStartTime(null);
         } else {
@@ -93,15 +109,15 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
       };
       
       calculateTime();
-    } else if (!isResting && restStartTime !== null) {
-      setIsResting(false);
-      setRestStartTime(null);
     }
     
     // Очищення при розмонтуванні
     return () => {
-      audioElement.pause();
-      audioElement.currentTime = 0;
+      if (audioElement) {
+        console.log('Очищення аудіо елемента...');
+        audioElement.pause();
+        audioElement.currentTime = 0;
+      }
     };
   }, [isResting, restStartTime, exercise.rest, exercise.name, audioElement]);
 

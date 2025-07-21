@@ -167,13 +167,21 @@ export const useUserData = () => {
 
   // Збереження логу тренування
   const saveWorkoutLog = async (log: WorkoutLog) => {
-    if (!user) throw new Error('User not authenticated');
+    console.log('Початок saveWorkoutLog');
+    console.log('Отриманий лог:', log);
+    
+    if (!user) {
+      console.error('saveWorkoutLog: Користувач не автентифікований');
+      throw new Error('User not authenticated');
+    }
 
     try {
       // Перевіряємо, чи існує вже лог з таким id
       if (log.id) {
+        console.log('Знайдено існуючий ID логу:', log.id);
         const existingLogRef = doc(db, 'workoutLogs', log.id);
         const existingLogSnap = await getDoc(existingLogRef);
+        
         if (existingLogSnap.exists()) {
           console.log('Лог з таким ID вже існує, оновлюємо його');
           const updatedLog = {
@@ -193,8 +201,13 @@ export const useUserData = () => {
             };
           }
           
+          console.log('Підготовлений оновлений лог:', updatedLog);
           const cleanedLog = removeUndefined({ ...updatedLog, date: dateForFirestore });
+          console.log('Очищений лог для Firebase:', cleanedLog);
+          
           await setDoc(existingLogRef, cleanedLog);
+          console.log('Лог успішно оновлено');
+          
           setWorkoutLogs(prev => prev.map(l => l.id === log.id ? cleanedLog as WorkoutLog : l));
           return;
         }
@@ -203,6 +216,7 @@ export const useUserData = () => {
       // Якщо лог новий, створюємо новий документ з ID, що включає userId
       const timestamp = Date.now();
       const newLogId = `${user.uid}_${timestamp}`;
+      console.log('Створюємо новий лог з ID:', newLogId);
       
       const safeLog = {
         ...log,
@@ -222,13 +236,24 @@ export const useUserData = () => {
         };
       }
 
+      console.log('Підготовлений новий лог:', safeLog);
       const cleanedLog = removeUndefined({ ...safeLog, date: dateForFirestore });
+      console.log('Очищений новий лог для Firebase:', cleanedLog);
+      
       const logRef = doc(db, 'workoutLogs', newLogId);
+      console.log('Зберігаємо лог за шляхом:', logRef.path);
+      
       await setDoc(logRef, cleanedLog);
+      console.log('Новий лог успішно збережено');
       
       setWorkoutLogs(prev => [cleanedLog as WorkoutLog, ...prev]);
     } catch (error) {
-      console.error('Error saving workout log:', error);
+      console.error('Детальна помилка при збереженні логу:', error);
+      if (error instanceof Error) {
+        console.error('Назва помилки:', error.name);
+        console.error('Повідомлення помилки:', error.message);
+        console.error('Стек помилки:', error.stack);
+      }
       throw error;
     }
   };
