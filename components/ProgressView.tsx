@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Calendar from 'react-calendar';
 import { WorkoutLog, UserProfile } from '../types';
 import { UI_TEXT } from '../constants';
@@ -23,6 +23,7 @@ const ProgressView: React.FC<ProgressViewProps> = ({
   analyzingLogId
 }) => {
   const [modalLogs, setModalLogs] = useState<WorkoutLog[]>([]);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
   const workoutDates = useMemo(() => {
     const dates = new Set<string>();
@@ -33,6 +34,17 @@ const ProgressView: React.FC<ProgressViewProps> = ({
     return dates;
   }, [workoutLogs]);
 
+  // Цей ефект буде оновлювати вміст модального вікна при зміні workoutLogs
+  useEffect(() => {
+    if (selectedDate) {
+      const updatedLogsForDate = workoutLogs.filter(log => {
+        const logDate = log.date instanceof Date ? log.date : new Date(log.date.seconds * 1000);
+        return logDate.toDateString() === selectedDate.toDateString();
+      });
+      setModalLogs(updatedLogsForDate);
+    }
+  }, [workoutLogs, selectedDate]);
+
   const tileContent = ({ date, view }: { date: Date, view: string }) => {
     if (view === 'month' && workoutDates.has(date.toDateString())) {
       return <div className="workout-dot" />;
@@ -41,13 +53,21 @@ const ProgressView: React.FC<ProgressViewProps> = ({
   };
   
   const handleDateClick = (value: Date) => {
+    setSelectedDate(value);
     const logs = workoutLogs.filter(log => {
       const logDate = log.date instanceof Date ? log.date : new Date(log.date.seconds * 1000);
       return logDate.toDateString() === value.toDateString();
     });
     if (logs.length > 0) {
       setModalLogs(logs);
+    } else {
+      setModalLogs([]); // Очищуємо, якщо логів немає
     }
+  };
+
+  const handleCloseModal = () => {
+    setModalLogs([]);
+    setSelectedDate(null); // Скидаємо вибрану дату
   };
 
   return (
@@ -71,7 +91,7 @@ const ProgressView: React.FC<ProgressViewProps> = ({
       {modalLogs.length > 0 && (
         <WorkoutLogModal
           logs={modalLogs}
-          onClose={() => setModalLogs([])}
+          onClose={handleCloseModal}
           onAnalyzeWorkout={onAnalyzeWorkout}
           onDeleteLog={onDeleteLog}
           isAnalyzing={isAnalyzing}

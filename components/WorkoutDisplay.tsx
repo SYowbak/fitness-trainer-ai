@@ -334,9 +334,9 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
     );
   };
 
-  const getAdaptedExercise = (exercise) => {
+  const getAdaptedExercise = (exercise: any) => {
     if (!adaptiveWorkoutPlan || !adaptiveWorkoutPlan.adaptations) return exercise;
-    const adaptation = adaptiveWorkoutPlan.adaptations.find(a => a.exerciseName === exercise.name);
+    const adaptation = adaptiveWorkoutPlan.adaptations.find((a: any) => a.exerciseName === exercise.name);
     if (!adaptation) return exercise;
     return {
       ...exercise,
