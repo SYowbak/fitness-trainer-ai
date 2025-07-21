@@ -98,7 +98,7 @@ export const EXPERIENCE_LEVEL_OPTIONS: Array<{ value: ExperienceLevel; label: st
 export const DEFAULT_TRAINING_FREQUENCY = 3;
 export const DEFAULT_WEIGHT_DECREMENT = 5; // kg for example
 
-export const GEMINI_MODEL_TEXT = "gemini-2.5-flash-preview-04-17";
+export const GEMINI_MODEL_TEXT = 'gemini-2.5-flash';
 
 export const UI_TEXT = {
   appName: APP_NAME,
