@@ -28,18 +28,13 @@ service cloud.firestore {
 
     // Правила для логів тренувань
     match /workoutLogs/{logId} {
-      // Дозволяємо створювати нові логи тільки автентифікованим користувачам
-      // та перевіряємо, що userId в логу відповідає ID авторизованого користувача
-      allow create: if isAuthenticated() && 
-                   request.resource.data.userId == request.auth.uid;
+      // Дозволяємо створювати та оновлювати логи, якщо userId в даних відповідає auth.uid
+      allow create, update: if isAuthenticated() && 
+                          request.resource.data.userId == request.auth.uid;
       
-      // Дозволяємо читати тільки свої логи
-      allow read: if isAuthenticated() && 
-                 resource.data.userId == request.auth.uid;
-      
-      // Дозволяємо оновлювати та видаляти тільки свої логи
-      allow update, delete: if isAuthenticated() && 
-                           resource.data.userId == request.auth.uid;
+      // Дозволяємо читати та видаляти, якщо це лог поточного користувача
+      allow read, delete: if isAuthenticated() && 
+                         resource.data.userId == request.auth.uid;
     }
 
     // За замовчуванням забороняємо доступ до всіх інших документів

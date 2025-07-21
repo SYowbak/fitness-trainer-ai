@@ -37,7 +37,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   const [restTimer, setRestTimer] = useState<number>(0);
   const [isResting, setIsResting] = useState<boolean>(false);
   const [restStartTime, setRestStartTime] = useState<number | null>(null);
-  const { play: playRestEndSound } = useSound('/sounds/Yeah_buddy_Ronnie_Ccoleman.mp3');
+  const [audioElement] = useState(() => new Audio('/sounds/Yeah_buddy_Ronnie_Ccoleman.mp3'));
 
   const exerciseRecommendation = recommendations.find(rec => rec.exerciseName === exercise.name);
   const hasVariations = variations.length > 0;
@@ -71,28 +71,40 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
 
         if (remaining <= 0) {
           // Спочатку запускаємо звук
-          playRestEndSound();
-          // Потім оновлюємо стан
+          audioElement.play().catch(console.error);
+          
+          // Показуємо нотифікацію замість alert
+          if ('Notification' in window) {
+            Notification.requestPermission().then(permission => {
+              if (permission === 'granted') {
+                new Notification('Час відпочинку завершено!', {
+                  body: `Час продовжити вправу: ${exercise.name}`,
+                  icon: '/favicon.ico'
+                });
+              }
+            });
+          }
+          
           setIsResting(false);
           setRestStartTime(null);
-          // І тільки потім показуємо сповіщення
-          setTimeout(() => {
-            alert(`Відпочинок для "${exercise.name}" завершено!`);
-          }, 100); // Невелика затримка, щоб звук точно почав грати
         } else {
-           const interval = window.requestAnimationFrame(calculateTime);
-           return () => window.cancelAnimationFrame(interval);
+          const interval = window.requestAnimationFrame(calculateTime);
+          return () => window.cancelAnimationFrame(interval);
         }
       };
       
       calculateTime();
-
     } else if (!isResting && restStartTime !== null) {
       setIsResting(false);
       setRestStartTime(null);
     }
     
-  }, [isResting, restStartTime, exercise.rest, exercise.name, playRestEndSound]);
+    // Очищення при розмонтуванні
+    return () => {
+      audioElement.pause();
+      audioElement.currentTime = 0;
+    };
+  }, [isResting, restStartTime, exercise.rest, exercise.name, audioElement]);
 
   const handleStartRest = () => {
     setRestStartTime(Date.now());
