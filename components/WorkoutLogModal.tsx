@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { WorkoutLog, LoggedExercise, EnergyLevel, SleepQuality, StressLevel } from '../types';
+import { WorkoutLog, LoggedExercise, EnergyLevel, SleepQuality, StressLevel, WellnessRecommendation } from '../types';
 import { UI_TEXT } from '../constants';
 
 // ExerciseLogRow з можливістю розгортання
@@ -99,9 +99,19 @@ export const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({ logs, onClose,
     }
   };
 
+  const getRecommendationIcon = (type: WellnessRecommendation['type']) => {
+    switch (type) {
+      case 'energy': return 'fas fa-bolt text-yellow-400';
+      case 'recovery': return 'fas fa-bed text-blue-400';
+      case 'motivation': return 'fas fa-fire text-orange-400';
+      case 'stress': return 'fas fa-brain text-purple-400';
+      default: return 'fas fa-heartbeat text-red-400';
+    }
+  };
+
   return (
     <div 
-      className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-start justify-center z-50 p-4 pt-16 sm:pt-20"
       onClick={onClose}
     >
       <div 
@@ -117,7 +127,7 @@ export const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({ logs, onClose,
           </button>
         </div>
 
-        <div className="p-2 sm:p-4">
+        <div className="p-2 sm:p-4 max-h-[70vh] overflow-y-auto">
           {logs.map(log => (
             <div key={log.id} className="mb-4 bg-gray-900/50 rounded-lg">
               <div className="p-4 flex justify-between items-center">
@@ -181,6 +191,32 @@ export const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({ logs, onClose,
                         <p className="pl-6">{log.wellnessCheck.notes}</p>
                       </div>
                     )}
+                  </div>
+                </AccordionSection>
+              )}
+
+              {log.wellnessRecommendations && log.wellnessRecommendations.length > 0 && (
+                <AccordionSection title="Рекомендації по самопочуттю" icon="fa-lightbulb">
+                  <div className="space-y-4">
+                    {log.wellnessRecommendations.map((rec, i) => (
+                      <div key={i} className="bg-gray-700/30 p-3 rounded-lg">
+                        <h4 className="font-semibold text-lg mb-2 flex items-center">
+                          <i className={`${getRecommendationIcon(rec.type)} mr-3`}></i>
+                          {rec.title}
+                        </h4>
+                        <p className="text-gray-300 mb-3">{rec.description}</p>
+                        {rec.actions && rec.actions.length > 0 && (
+                          <div>
+                            <h5 className="font-medium text-gray-400 mb-1">Рекомендовані дії:</h5>
+                            <ul className="list-disc list-inside space-y-1 text-gray-300 pl-2">
+                              {rec.actions.map((action, j) => (
+                                <li key={j}>{action}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </AccordionSection>
               )}

@@ -20,6 +20,7 @@ import { useWorkoutSync } from './hooks/useWorkoutSync';
 import WellnessCheckModal from './components/WellnessCheckModal';
 import WellnessRecommendations from './components/WellnessRecommendations';
 import { WellnessCheck, AdaptiveWorkoutPlan, WellnessRecommendation } from './types';
+import WorkoutCompleteModal from './components/WorkoutCompleteModal';
 
 type View = 'profile' | 'workout' | 'progress';
 
@@ -44,6 +45,7 @@ const App: React.FC = () => {
   const [pendingWorkoutDay, setPendingWorkoutDay] = useState<number | null>(null);
   const [isTrainerChatOpen, setIsTrainerChatOpen] = useState(false);
   const [hasInitializedView, setHasInitializedView] = useState(false);
+  const [isWorkoutCompleteModalOpen, setIsWorkoutCompleteModalOpen] = useState(false);
 
   useEffect(() => {
     if (typeof import.meta.env === 'undefined' || !import.meta.env.VITE_API_KEY) {
@@ -305,6 +307,7 @@ const App: React.FC = () => {
       }
 
       setExerciseRecommendations(analysisResult.dailyRecommendations || []);
+      setIsWorkoutCompleteModalOpen(true); // Відкриваємо модальне вікно
     } catch (analysisError) {
       console.error("[handleEndWorkout] Помилка під час аналізу тренування:", analysisError);
       setError("Не вдалося проаналізувати тренування");
@@ -673,6 +676,14 @@ const App: React.FC = () => {
           onClose={() => setWellnessRecommendationsModalOpen(false)}
         />
       )}
+
+      <WorkoutCompleteModal
+        isOpen={isWorkoutCompleteModalOpen}
+        onClose={() => {
+          setIsWorkoutCompleteModalOpen(false);
+          setCurrentView('progress');
+        }}
+      />
     </div>
   );
 };
