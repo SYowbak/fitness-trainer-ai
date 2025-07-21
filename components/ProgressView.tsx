@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import Calendar from 'react-calendar';
 import { WorkoutLog, UserProfile, LoggedExercise } from '../types';
 import { UI_TEXT } from '../constants';
-import '../../styles/Calendar.css'; // Імпортуємо стилі
+import '../styles/Calendar.css'; // Імпортуємо стилі
 
 interface ProgressViewProps {
   workoutLogs: WorkoutLog[];
