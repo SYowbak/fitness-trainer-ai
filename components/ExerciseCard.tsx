@@ -428,7 +428,15 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                 <i className="fas fa-check-square mr-2"></i>{UI_TEXT.markAsDone}
               </button>
               <button
-                onClick={onSkipExercise}
+                onClick={() => {
+                  // Immediately update local state to provide instant feedback
+                  setIsSkipped(true);
+                  setIsCompleted(false);
+                  setShowLogForm(false);
+                  setIsExpanded(false);
+                  // Call the parent's skip function
+                  onSkipExercise();
+                }}
                 className="w-full sm:w-auto bg-orange-600 hover:bg-orange-700 text-white font-medium py-2 px-3 rounded-md shadow-sm transition duration-300 ease-in-out flex items-center justify-center text-xs sm:text-sm"
               >
                 <i className="fas fa-forward mr-2"></i>Пропустити

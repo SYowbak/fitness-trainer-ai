@@ -10,6 +10,7 @@ import {
   UI_TEXT, 
   GEMINI_MODEL_TEXT 
 } from '../constants';
+import { withQuotaManagement, shouldEnableAIFeature, quotaManager } from '../utils/apiQuotaManager';
 
 export const getApiKey = (): string | null => {
   return import.meta.env.VITE_API_KEY || null;
@@ -65,7 +66,7 @@ const constructPlanPrompt = (profile: UserProfile): string => {
 3.  **Вправи:**
     *   **Підбір:** Ретельно підбери вправи, що відповідають статі, типу статури, цілі та бажаному акценту користувача. Включи оптимальне поєднання базових та ізолюючих вправ.
     *   **Назва:** Вкажи точну українську назву кожної вправи.
-    *   **Опис Техніки:** Надай достатньо детальний, але без зайвої води (приблизно 5-7 речень) покроковий опис правильної техніки виконання кожної вправи. Включи ключові моменти руху, правильне дихання та типові помилки. Опис має бути приблизно однакової довжини для всіх вправ.
+    *   **Опис Техніки:** Надай достатньо детальний, але без зайвої води (приблизно 5-7 речень) покроковий опис правильної техніки виконання кожної вправи. Включаю ключові моменти руху, правильне дихання та типові помилки. Опис має бути приблизно однакової довжини для всіх вправ.
     *   **Кількість підходів:** Вкажи кількість робочих підходів (наприклад, "3-4" або число 4 , вказуєш скільки насправді потрібно зробити підходів залежно від цілі користувача).
     *   **Кількість повторень:** Вкажи діапазон повторень, оптимальний для цілі (наприклад, "8-12" для гіпертрофії, "12-15" для витривалості).
     *   **Відпочинок:** Вкажи рекомендований час відпочинку між підходами в секундах (наприклад, "60-90 секунд").
@@ -137,8 +138,8 @@ export const generateWorkoutPlan = async (profile: UserProfile, modelName: strin
 
   const prompt = constructPlanPrompt(profile);
   
-  try {
-    const model = ai.getGenerativeModel({ model: modelName });
+  return withQuotaManagement(async () => {
+    const model = ai!.getGenerativeModel({ model: modelName });
     const response = await model.generateContent(prompt);
     const result = await response.response;
     let jsonStr = result.text().trim();
@@ -198,30 +199,7 @@ export const generateWorkoutPlan = async (profile: UserProfile, modelName: strin
       console.error("Original AI response text:", result.text());
       throw new Error("Не вдалося розібрати план тренувань від AI. Можливо, формат відповіді змінився, або сталася помилка на стороні AI.");
     }
-
-  } catch (error: any) {
-    console.error("Error during workout plan generation via Gemini API:", error);
-    if (error.message && (error.message.includes("API_KEY_INVALID") || (error.response && error.response.status === 400))) {
-         throw new Error("Наданий API ключ недійсний або не має дозволів. Будь ласка, перевірте ваш API ключ.");
-    }
-    if (error.message && error.message.toLowerCase().includes("candidate.safetyratings")) {
-        throw new Error("Відповідь від AI була заблокована через налаштування безпеки. Спробуйте змінити запит.");
-    }
-    if (error.message && error.message.toLowerCase().includes("fetch")) { 
-        throw new Error("Помилка мережі при зверненні до AI сервісу. Перевірте ваше інтернет-з'єднання та спробуйте пізніше.");
-    }
-    if (
-      (error.response && error.response.status === 503) ||
-      (error.message && (
-        error.message.toLowerCase().includes("overload") ||
-        error.message.toLowerCase().includes("unavailable") ||
-        error.message.toLowerCase().includes("service unavailable")
-      ))
-    ) {
-      throw new Error(UI_TEXT.aiOverloaded);
-    }
-    throw new Error(`Помилка генерації плану: ${error.message || 'Невідома помилка сервісу AI'}`);
-  }
+  }, undefined, { priority: 'high' });;
 };
 
 export const generateWorkoutAnalysis = async ({
@@ -457,7 +435,7 @@ ${JSON.stringify(Object.fromEntries(exerciseProgress), null, 2)}
      if (error.message && (error.message.includes("API_KEY_INVALID") || (error.response && error.response.status === 400))) {
          throw new Error("Наданий API ключ недійсний або не має дозволів для використання аналізу. Будь ласка, перевірте ваш API ключ.");
     }
-    if (error.message && error.message.toLowerCase().includes("candidate.safetyratings")) {
+    if (error.message && error.message.toLowerCase().includes("candidate.safetyetyratings")) {
         throw new Error("Відповідь від AI була заблокована через налаштування безпеки при аналізі. Спробуйте змінити дані або запит.");
     }
      if (error.message && error.message.toLowerCase().includes("fetch")) { 
@@ -487,12 +465,20 @@ export const generateExerciseVariations = async (
     throw new Error(UI_TEXT.apiKeyMissing);
   }
 
-  const modelName = "gemini-1.5-flash"; // Використовуємо gemini-1.5-flash для варіацій
+  // Check if variations feature should be enabled
+  if (!shouldEnableAIFeature('variations')) {
+    console.warn('Exercise variations disabled due to quota limits');
+    return []; // Return empty array as fallback
+  }
 
-  // Аналізуємо частоту виконання вправи
-  const exerciseFrequency = workoutHistory.filter(workout => 
-    workout.loggedExercises.some(ex => ex.exerciseName === originalExercise.name)
-  ).length;
+  const modelName = "gemini-1.5-flash";
+
+  // Calculate exercise frequency from workout history
+  const exerciseFrequency = shouldVaryExercise(originalExercise.name, workoutHistory) 
+    ? workoutHistory.slice(0, 10).filter(workout => 
+        workout.loggedExercises.some(ex => ex.exerciseName === originalExercise.name)
+      ).length 
+    : 0;
 
   const variationPrompt = `Ти - експерт з фітнесу, який створює варіації вправ для уникнення плато та підтримки прогресу. 
 
@@ -531,8 +517,8 @@ ${JSON.stringify(originalExercise, null, 2)}
   }
 ]`;
 
-  try {
-    const model = ai.getGenerativeModel({ model: modelName });
+  return withQuotaManagement(async () => {
+    const model = ai!.getGenerativeModel({ model: modelName });
     const response = await model.generateContent(variationPrompt);
     const result = await response.response;
     let jsonStr = result.text().trim();
@@ -544,47 +530,38 @@ ${JSON.stringify(originalExercise, null, 2)}
       jsonStr = match[1].trim();
     }
 
-    try {
-      const variations: any[] = JSON.parse(jsonStr);
-      
-      return variations.map((variation): Exercise => ({
-        id: uuidv4(),
-        name: variation.name || "Варіація вправи",
-        description: variation.description || "Опис відсутній",
-        sets: variation.sets || "3",
-        reps: variation.reps || "10-12",
-        rest: variation.rest || "60 секунд",
-        weightType: variation.weightType || 'total', // Додано обробку нового поля
-        videoSearchQuery: variation.videoSearchQuery || null,
-        targetWeight: null,
-        targetReps: null,
-        recommendation: {
-          text: variation.reason || "Варіація для уникнення плато",
-          action: "variation"
-        },
-        isCompletedDuringSession: false,
-        sessionLoggedSets: [],
-        sessionSuccess: false,
-        notes: `Варіація: ${variation.variationType || 'alternative'} | Складність: ${variation.difficulty || 'intermediate'}`
-      }));
-    } catch (e) {
-      console.error("Error parsing exercise variations:", e);
-      throw new Error("Не вдалося розібрати варіації вправ від AI");
-    }
-  } catch (error: any) {
-    console.error("Error generating exercise variations:", error);
-    if (
-      (error.response && error.response.status === 503) ||
-      (error.message && (
-        error.message.toLowerCase().includes("overload") ||
-        error.message.toLowerCase().includes("unavailable") ||
-        error.message.toLowerCase().includes("service unavailable")
-      ))
-    ) {
-      throw new Error(UI_TEXT.aiOverloaded);
-    }
-    throw new Error(`Помилка генерації варіацій вправ: ${error.message || 'Невідома помилка'}`);
-  }
+    const variations: any[] = JSON.parse(jsonStr);
+    
+    return variations.map((variation): Exercise => ({
+      id: uuidv4(),
+      name: variation.name || "Варіація вправи",
+      description: variation.description || "Опис відсутній",
+      sets: variation.sets || "3",
+      reps: variation.reps || "10-12",
+      rest: variation.rest || "60 секунд",
+      weightType: variation.weightType || 'total',
+      videoSearchQuery: variation.videoSearchQuery || null,
+      targetWeight: null,
+      targetReps: null,
+      recommendation: {
+        text: variation.reason || "Варіація для уникнення плато",
+        action: "variation"
+      },
+      isCompletedDuringSession: false,
+      sessionLoggedSets: [],
+      sessionSuccess: false,
+      notes: `Варіація: ${variation.variationType || 'alternative'} | Складність: ${variation.difficulty || 'intermediate'}`
+    }));
+  }, [], { priority: 'low', skipOnQuotaExceeded: true });
+};
+
+// Add quota status component
+export const getQuotaStatusMessage = (): string => {
+  return quotaManager.getStatusMessage();
+};
+
+export const canUseAIFeatures = (): boolean => {
+  return quotaManager.canMakeRequest();
 };
 
 export const shouldVaryExercise = (
