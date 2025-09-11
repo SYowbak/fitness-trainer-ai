@@ -15,6 +15,7 @@ interface WorkoutDisplayProps {
   onStartWorkout: (dayNumber: number) => void;
   onEndWorkout: () => void;
   onLogExercise: (exerciseIndex: number, loggedSets: LoggedSetWithAchieved[], success: boolean) => void;
+  onSkipExercise: (exerciseIndex: number) => void;
   workoutTimerDisplay: string;
   isApiKeyMissing: boolean;
   onSaveWorkoutPlan: (plan: DailyWorkoutPlan[]) => void;
@@ -36,6 +37,7 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
   onStartWorkout,
   onEndWorkout,
   onLogExercise,
+  onSkipExercise,
   workoutTimerDisplay,
   isApiKeyMissing,
   onSaveWorkoutPlan,
@@ -437,6 +439,7 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
                 };
                 onLogExercise(index, loggedSets, success);
               }}
+              onSkipExercise={() => onSkipExercise(index)}
               recommendations={exerciseRecommendations}
               variations={variations}
               onSelectVariation={async (variation) => {

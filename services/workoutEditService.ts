@@ -46,21 +46,23 @@ const constructExercisePrompt = (
     taskInstruction = `Твоя мета — надати повні та детальні дані (опис техніки, підходи, повторення, відпочинок, пошук відео) для наданої вправи. **Зроби це у стилі, який використовується в вже існуючому плані тренувань, і надавай інформацію, яка відповідає цілям користувача.** Відповідь має бути у форматі JSON-об'єкта.`;
     targetExerciseJson = JSON.stringify({
       name: exerciseToComplete.name,
-      description: "<дуже детальний покроковий опис техніки>",
-      sets: "<кількість підходів, '3-4' або 4>",
-      reps: "<діапазон повторень, '8-12'>",
-      rest: "<час відпочинку, '60-90 секунд'>",
-      videoSearchQuery: "<пошуковий запит для YouTube або null>"
+      description: exerciseToComplete.description || "<достатньо детальний, але без зайвої води (приблизно 5-7 речень) покроковий опис техніки>",
+      sets: exerciseToComplete.sets || "<кількість підходів, '3-4' або 4>",
+      reps: exerciseToComplete.reps || "<діапазон повторень, '8-12'>",
+      rest: exerciseToComplete.rest || "<час відпочинку, '60-90 секунд'>",
+      weightType: exerciseToComplete.weightType || "<'total' | 'single' | 'bodyweight' | 'none'>",
+      videoSearchQuery: exerciseToComplete.videoSearchQuery || "<пошуковий запит для YouTube або null>"
     }, null, 2);
   } else if (typeof targetExerciseIndex === 'number') {
     exerciseContext = `\n**Поточна вправа для перегенерації:**\n${JSON.stringify(currentExercises[targetExerciseIndex], null, 2)}`;
     taskInstruction = `Твоя мета — перегенерувати надану вправу, замінивши її на схожу за призначенням, але іншу вправу. **Зроби це у стилі, який використовується в вже існуючому плані тренувань, і надавай інформацію, яка відповідає цілям користувача.** Відповідь має бути у форматі JSON-об'єкта.`;
     targetExerciseJson = JSON.stringify({
       name: "<назва вправи>",
-      description: "<дуже детальний покроковий опис техніки>",
+      description: "<достатньо детальний, але без зайвої води (приблизно 5-7 речень) покроковий опис техніки>",
       sets: "<кількість підходів, '3-4' або 4>",
       reps: "<діапазон повторень, '8-12'>",
       rest: "<час відпочинку, '60-90 секунд'>",
+      weightType: "<'total' | 'single' | 'bodyweight' | 'none'>",
       videoSearchQuery: "<пошуковий запит для YouTube або null>"
     }, null, 2);
   } else {
@@ -68,10 +70,11 @@ const constructExercisePrompt = (
     taskInstruction = `Твоя мета — згенерувати нову вправу для поточного плану тренувань. **Зроби це у стилі, який використовується в вже існуючому плані тренувань, і надавай інформацію, яка відповідає цілям користувача.** Відповідь має бути у форматі JSON-об'єкта.`;
     targetExerciseJson = JSON.stringify({
       name: "<назва вправи>",
-      description: "<дуже детальний покроковий опис техніки>",
+      description: "<достатньо детальний, але без зайвої води (приблизно 5-7 речень) покроковий опис техніки>",
       sets: "<кількість підходів, '3-4' або 4>",
       reps: "<діапазон повторень, '8-12'>",
       rest: "<час відпочинку, '60-90 секунд'>",
+      weightType: "<'total' | 'single' | 'bodyweight' | 'none'>",
       videoSearchQuery: "<пошуковий запит для YouTube або null>"
     }, null, 2);
   }
@@ -110,8 +113,9 @@ ${planStyleContext}
 3.  **Кількість підходів:** Вкажи кількість робочих підходів (наприклад, "3-4" або число 4).
 4.  **Кількість повторень:** Вкажи діапазон повторень, оптимальний для цілі (наприклад, "8-12" для гіпертрофії, "12-15" для витривалості).
 5.  **Відпочинок:** Вкажи рекомендований час відпочинку між підходами в секундах (наприклад, "60-90 секунд").
-6.  **videoSearchQuery:** Надай точний пошуковий запит для YouTube українською або російською мовою (наприклад, "присідання зі штангою техніка виконання"). Якщо якісного запиту сформулювати не вдається, залиш null.
-
+6.  **weightType:** ОБОВ'ЯЗКОВО визнач тип ваги. Це критично важливо. Використовуй один із чотирьох варіантів: 'total', 'single', 'bodyweight', 'none'.
+7.  **videoSearchQuery:** Надай точний пошуковий запит для YouTube українською або російською мовою (наприклад, "присідання зі штангою техніка виконання"). Якщо якісного запиту сформулювати не вдається, залиш null.
+ 
 **Приклад структури JSON для однієї вправи:**
 ${targetExerciseJson}`;
 };
@@ -151,6 +155,7 @@ export const generateNewExercise = async (
       return {
         ...exercise,
         id: uuidv4(),
+        weightType: exercise.weightType || 'total', // Встановлюємо за замовчуванням
         targetWeight: null,
         targetReps: null,
         isCompletedDuringSession: false,
@@ -204,6 +209,7 @@ export const regenerateExercise = async (
       return {
         ...exercise,
         id: uuidv4(),
+        weightType: exercise.weightType || 'total', // Встановлюємо за замовчуванням
         targetWeight: null,
         targetReps: null,
         isCompletedDuringSession: false,
@@ -231,10 +237,12 @@ export const completeExerciseDetails = async (
     throw new Error("API ключ для Gemini не налаштовано");
   }
 
-  const prompt = constructExercisePrompt(profile, currentPlan, targetDay, undefined, exercise);
+  const modelName = "gemini-1.5-flash"; // Використовуємо gemini-1.5-flash для доповнення деталей
 
+  const prompt = constructExercisePrompt(profile, currentPlan, targetDay, undefined, exercise);
+ 
   try {
-    const model = ai.getGenerativeModel({ model: GEMINI_MODEL_TEXT });
+    const model = ai.getGenerativeModel({ model: modelName });
     const response = await model.generateContent(prompt);
     const result = await response.response;
     let jsonStr = result.text().trim();
@@ -257,6 +265,7 @@ export const completeExerciseDetails = async (
       return {
         ...exercise,
         id: exercise.id || uuidv4(),
+        weightType: exercise.weightType || 'total', // Встановлюємо за замовчуванням
         targetWeight: exercise.targetWeight !== undefined ? exercise.targetWeight : null,
         targetReps: exercise.targetReps !== undefined ? exercise.targetReps : null,
         isCompletedDuringSession: exercise.isCompletedDuringSession ?? false,

@@ -6,6 +6,7 @@ interface ExerciseCardProps {
   exercise: Exercise;
   isActive: boolean;
   onLogExercise: (loggedSets: LoggedSetWithAchieved[], success: boolean) => void;
+  onSkipExercise: () => void;
   recommendations?: {
     exerciseName: string;
     recommendation: string;
@@ -22,6 +23,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   exercise,
   isActive,
   onLogExercise,
+  onSkipExercise,
   recommendations = [],
   variations = [],
   onSelectVariation
@@ -349,6 +351,12 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
               >
                 <i className="fas fa-check-square mr-2"></i>{UI_TEXT.markAsDone}
               </button>
+              <button
+                onClick={onSkipExercise}
+                className="w-full sm:w-auto bg-yellow-600 hover:bg-yellow-700 text-white font-medium py-2 px-3 rounded-md shadow-sm transition duration-300 ease-in-out flex items-center justify-center text-xs sm:text-sm"
+              >
+                <i className="fas fa-forward mr-2"></i>Пропустити
+              </button>
             </div>
           )}
           {isCompleted && (
@@ -439,51 +447,41 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                       />
                     </div>
                     {exercise.weightType !== 'none' && (
-                      <div>
-                        <label htmlFor={`weight-${setIndex}`} className="block text-xs text-purple-200 mb-1">
-                          {getWeightLabel(exercise.weightType)}
-                        </label>
-                        <input
-                          type="number"
-                          id={`weight-${setIndex}`}
-                          min="0"
-                          step="0.5"
-                          placeholder={exercise.targetWeight?.toString() ?? ''}
-                          value={loggedSetsData[setIndex]?.weightUsed ?? ''}
-                          onChange={(e) => handleSetDataChange(setIndex, 'weightUsed', e.target.value)}
-                          className="w-full p-2 bg-gray-500 border border-gray-400 rounded-md text-gray-100 text-xs sm:text-sm"
-                          required={exercise.weightType !== 'bodyweight'}
-                          disabled={exercise.weightType === 'bodyweight'}
-                        />
-                        {exercise.weightType !== 'bodyweight' && (
-                          <div className="mt-1 flex items-center space-x-2 text-[11px] text-gray-200">
-                            {exercise.weightType === 'total' && (
-                              <label className="inline-flex items-center space-x-1 cursor-pointer">
-                                <input type="radio" name={`wctx-${setIndex}`} className="form-radio" checked={loggedSetsData[setIndex]?.weightContext === 'total'} onChange={() => handleWeightContextChange(setIndex, 'total')} />
-                                <span>загальна</span>
-                              </label>
-                            )}
-                            {exercise.weightType === 'single' && (
-                              <label className="inline-flex items-center space-x-1 cursor-pointer">
-                                <input type="radio" name={`wctx-${setIndex}`} className="form-radio" checked={loggedSetsData[setIndex]?.weightContext === 'per_dumbbell'} onChange={() => handleWeightContextChange(setIndex, 'per_dumbbell')} />
-                                <span>1 гантель</span>
-                              </label>
-                            )}
-                            {exercise.weightType === undefined && (
-                              <>
+                      <>
+                        <div>
+                          <label htmlFor={`weight-${setIndex}`} className="block text-xs text-purple-200 mb-1">
+                            {getWeightLabel(exercise.weightType)}
+                          </label>
+                          <input
+                            type="number"
+                            id={`weight-${setIndex}`}
+                            min="0"
+                            step="0.5"
+                            placeholder={exercise.targetWeight?.toString() ?? (exercise.weightType === 'bodyweight' ? '0' : '')}
+                            value={loggedSetsData[setIndex]?.weightUsed !== null ? loggedSetsData[setIndex]?.weightUsed : (exercise.weightType === 'bodyweight' ? 0 : '')}
+                            onChange={(e) => handleSetDataChange(setIndex, 'weightUsed', e.target.value)}
+                            className="w-full p-2 bg-gray-500 border border-gray-400 rounded-md text-gray-100 text-xs sm:text-sm"
+                            required={exercise.weightType !== 'bodyweight'}
+                            disabled={exercise.weightType === 'bodyweight'}
+                          />
+                          {(exercise.weightType === 'total' || exercise.weightType === 'single') && (
+                            <div className="mt-1 flex items-center space-x-2 text-[11px] text-gray-200">
+                              {exercise.weightType === 'total' && (
                                 <label className="inline-flex items-center space-x-1 cursor-pointer">
                                   <input type="radio" name={`wctx-${setIndex}`} className="form-radio" checked={loggedSetsData[setIndex]?.weightContext === 'total'} onChange={() => handleWeightContextChange(setIndex, 'total')} />
                                   <span>загальна</span>
                                 </label>
+                              )}
+                              {exercise.weightType === 'single' && (
                                 <label className="inline-flex items-center space-x-1 cursor-pointer">
                                   <input type="radio" name={`wctx-${setIndex}`} className="form-radio" checked={loggedSetsData[setIndex]?.weightContext === 'per_dumbbell'} onChange={() => handleWeightContextChange(setIndex, 'per_dumbbell')} />
                                   <span>1 гантель</span>
                                 </label>
-                              </>
-                            )}
-                          </div>
-                        )}
-                      </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </>
                     )}
                   </div>
                 </div>

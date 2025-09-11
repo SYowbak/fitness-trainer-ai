@@ -181,12 +181,14 @@ export const useWorkoutSync = (userId: string) => {
         reps: ex.reps,
         rest: ex.rest,
         videoSearchQuery: ex.videoSearchQuery ?? null,
+        weightType: ex.weightType, // Додаємо weightType
         targetWeight: ex.targetWeight ?? null,
         targetReps: ex.targetReps ?? null,
         recommendation: ex.recommendation ?? null,
         isCompletedDuringSession: false,
         sessionLoggedSets: [],
         sessionSuccess: false,
+        isSkipped: false, // Додаємо isSkipped
         notes: ex.notes ?? null,
       })),
       startTime: Date.now(),
@@ -209,7 +211,7 @@ export const useWorkoutSync = (userId: string) => {
     }
   };
 
-  const updateExercise = async (exerciseIndex: number, loggedSets: LoggedSetWithAchieved[], success: boolean) => {
+  const updateExercise = async (exerciseIndex: number, loggedSets: LoggedSetWithAchieved[], success: boolean, isSkipped: boolean = false) => {
     if (!userId) { console.error("updateExercise: userId відсутній."); return; }
     const sanitizedLoggedSets = loggedSets.map(set => ({
       repsAchieved: set.repsAchieved ?? null,
@@ -230,9 +232,10 @@ export const useWorkoutSync = (userId: string) => {
             targetWeight: ex.targetWeight ?? null,
             targetReps: ex.targetReps ?? null,
             recommendation: ex.recommendation ?? null,
-            isCompletedDuringSession: true,
+            isCompletedDuringSession: !isSkipped, // Якщо пропущено, то не завершено
             sessionLoggedSets: sanitizedLoggedSets,
             sessionSuccess: success,
+            isSkipped: isSkipped, // Додаємо поле isSkipped
             notes: ex.notes ?? null,
           }
         : ex
@@ -259,12 +262,14 @@ export const useWorkoutSync = (userId: string) => {
       reps: exercise.reps || '8-12',
       rest: exercise.rest || '60 секунд',
       videoSearchQuery: exercise.videoSearchQuery ?? null,
+      weightType: exercise.weightType, // Додаємо weightType
       targetWeight: exercise.targetWeight ?? null,
       targetReps: exercise.targetReps ?? null,
       recommendation: exercise.recommendation ?? null,
       isCompletedDuringSession: false,
       sessionLoggedSets: [],
       sessionSuccess: false,
+      isSkipped: false, // Додаємо isSkipped
       notes: exercise.notes ?? null,
     };
 

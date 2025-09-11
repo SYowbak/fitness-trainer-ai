@@ -253,6 +253,8 @@ export const generateWorkoutAnalysis = async ({
     throw new Error(UI_TEXT.apiKeyMissing);
   }
 
+  const modelName = "gemini-1.5-flash"; // Використовуємо gemini-1.5-flash для аналізу
+
   // Аналізуємо історію тренувань для виявлення патернів
   const workoutHistory = lastWorkoutLog ? [lastWorkoutLog, ...previousWorkoutLogs] : previousWorkoutLogs;
   const recentWorkouts = workoutHistory.slice(0, 5); // Останні 5 тренувань
@@ -385,7 +387,7 @@ ${JSON.stringify(Object.fromEntries(exerciseProgress), null, 2)}
 Проаналізуй надані дані та згенеруй JSON відповідь з оновленим планом на день, загальною рекомендацією та детальними рекомендаціями для кожної вправи.`;
 
   try {
-    const model = ai.getGenerativeModel({ model: GEMINI_MODEL_TEXT });
+    const model = ai.getGenerativeModel({ model: modelName });
     const response = await model.generateContent(analysisPrompt);
     const result = await response.response;
     let jsonStr = result.text().trim();
@@ -485,6 +487,8 @@ export const generateExerciseVariations = async (
     throw new Error(UI_TEXT.apiKeyMissing);
   }
 
+  const modelName = "gemini-1.5-flash"; // Використовуємо gemini-1.5-flash для варіацій
+
   // Аналізуємо частоту виконання вправи
   const exerciseFrequency = workoutHistory.filter(workout => 
     workout.loggedExercises.some(ex => ex.exerciseName === originalExercise.name)
@@ -528,7 +532,7 @@ ${JSON.stringify(originalExercise, null, 2)}
 ]`;
 
   try {
-    const model = ai.getGenerativeModel({ model: GEMINI_MODEL_TEXT });
+    const model = ai.getGenerativeModel({ model: modelName });
     const response = await model.generateContent(variationPrompt);
     const result = await response.response;
     let jsonStr = result.text().trim();
@@ -605,6 +609,8 @@ export const generateAdaptiveWorkout = async (
   if (!ai) {
     throw new Error(UI_TEXT.apiKeyMissing);
   }
+
+  const modelName = "gemini-1.5-flash"; // Використовуємо gemini-1.5-flash для адаптивного тренування
 
   const adaptivePrompt = `Ти - досвідчений персональний тренер, який адаптує тренування під поточний стан та самопочуття клієнта. Твоя задача - створити адаптивний план тренування, враховуючи самопочуття та історію тренувань.
 
@@ -704,7 +710,7 @@ ${JSON.stringify(workoutHistory.slice(0, 5), null, 2)}
 }`;
 
   try {
-    const model = ai.getGenerativeModel({ model: GEMINI_MODEL_TEXT });
+    const model = ai.getGenerativeModel({ model: modelName });
     const response = await model.generateContent(adaptivePrompt);
     const result = await response.response;
     let jsonStr = result.text().trim();

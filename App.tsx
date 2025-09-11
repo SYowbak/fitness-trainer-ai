@@ -242,6 +242,10 @@ const App: React.FC = () => {
   const handleLogSingleExercise = useCallback((exerciseIndex: number, loggedSets: LoggedSetWithAchieved[], success: boolean) => {
     updateExercise(exerciseIndex, loggedSets, success);
   }, [updateExercise]);
+
+  const handleSkipExercise = useCallback((exerciseIndex: number) => {
+    updateExercise(exerciseIndex, [], false, true); // Позначаємо як пропущену, без логування, isSkipped = true
+  }, [updateExercise]);
   
   const handleEndWorkout = useCallback(async () => {
     // Додаємо більше логів для відстеження
@@ -567,6 +571,7 @@ const App: React.FC = () => {
               workoutPlan={adaptiveWorkoutPlan ? [adaptiveWorkoutPlan] : (currentWorkoutPlan || null)}
               onStartWorkout={handleStartWorkoutWithWellnessCheck}
               onLogExercise={handleLogSingleExercise}
+              onSkipExercise={handleSkipExercise}
               onEndWorkout={handleEndWorkout}
               userProfile={userProfile}
               onGenerateNewPlan={handleGenerateNewPlan}
@@ -587,7 +592,7 @@ const App: React.FC = () => {
               } : null}
             />
             {session.activeDay !== null && (
-              <div className="fixed bottom-24 right-6 z-40">
+              <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-40">
                 <button
                   onClick={() => setIsAddExerciseOpen(true)}
                   className="bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg p-3 sm:p-4 text-lg sm:text-xl"

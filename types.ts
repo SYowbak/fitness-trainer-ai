@@ -81,9 +81,10 @@ export interface Exercise {
     text: string;
     action: string;
   } | null;
-  isCompletedDuringSession: boolean; 
+  isCompletedDuringSession: boolean;
   sessionLoggedSets: LoggedSetWithAchieved[];
   sessionSuccess: boolean | null;
+  isSkipped?: boolean; // Додаємо поле isSkipped
   notes?: string | null;
 }
 
