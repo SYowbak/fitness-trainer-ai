@@ -32,6 +32,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   const [isExpanded, setIsExpanded] = useState(false);
   const [showLogForm, setShowLogForm] = useState(false);
   const [isCompleted, setIsCompleted] = useState<boolean>(exercise.isCompletedDuringSession);
+  const [isSkipped, setIsSkipped] = useState<boolean>(exercise.isSkipped ?? false); // Додаємо стан для пропущеної вправи
   const [loggedSetsData, setLoggedSetsData] = useState<LoggedSetWithAchieved[]>([]);
   const [numSets, setNumSets] = useState(3);
   const [allSetsSuccessful, setAllSetsSuccessful] = useState<boolean>(true);
@@ -59,16 +60,17 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   const exerciseRecommendation = recommendations.find(rec => rec.exerciseName === exercise.name);
   const hasVariations = !variationsHidden && variations.length > 0;
 
-  // Ініціалізуємо або оновлюємо isCompleted та allSetsSuccessful, коли exercise змінюється
+  // Ініціалізуємо або оновлюємо isCompleted, isSkipped та allSetsSuccessful, коли exercise змінюється
   useEffect(() => {
-    // console.log(`ExerciseCard ${exercise.name}: useEffect [isCompletedDuringSession, sessionSuccess] triggered.`);
+    // console.log(`ExerciseCard ${exercise.name}: useEffect [isCompletedDuringSession, sessionSuccess, isSkipped] triggered.`);
     setIsCompleted(exercise.isCompletedDuringSession);
+    setIsSkipped(exercise.isSkipped ?? false); // Оновлюємо стан isSkipped
     setAllSetsSuccessful(exercise.sessionSuccess ?? true);
-    // Приховуємо форму логування, якщо вправу вже завершено
-    if (exercise.isCompletedDuringSession) {
+    // Приховуємо форму логування, якщо вправу вже завершено або пропущено
+    if (exercise.isCompletedDuringSession || (exercise.isSkipped ?? false)) {
       setShowLogForm(false);
     }
-  }, [exercise.isCompletedDuringSession, exercise.sessionSuccess, exercise.name]);
+  }, [exercise.isCompletedDuringSession, exercise.sessionSuccess, exercise.isSkipped, exercise.name]);
 
   useEffect(() => {
     // console.log(`ExerciseCard ${exercise.name}: loggedSetsData changed:`, loggedSetsData);
@@ -168,19 +170,19 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   };
   
   const cardBaseClasses = "p-3 sm:p-4 rounded-lg shadow-md transition-all duration-300";
-  const cardBgClasses = isCompleted ? "bg-green-800/50 hover:bg-green-700/60" : "bg-gray-700/60 hover:bg-gray-700/80";
-  const completedTextClasses = isCompleted ? "text-green-300" : "text-yellow-300";
+  const cardBgClasses = isCompleted ? "bg-green-800/50 hover:bg-green-700/60" : (isSkipped ? "bg-yellow-800/50 hover:bg-yellow-700/60" : "bg-gray-700/60 hover:bg-gray-700/80");
+  const completedTextClasses = isCompleted ? "text-green-300" : (isSkipped ? "text-yellow-300" : "text-yellow-300");
 
   return (
-    <div className={`${cardBaseClasses} ${cardBgClasses} ${isCompleted ? 'border-l-4 border-green-500' : 'border-l-4 border-purple-600'}`}>
-      <button 
-        className="w-full flex justify-between items-center text-left focus:outline-none" 
+    <div className={`${cardBaseClasses} ${cardBgClasses} ${isCompleted ? 'border-l-4 border-green-500' : (isSkipped ? 'border-l-4 border-yellow-500' : 'border-l-4 border-purple-600')}`}>
+      <button
+        className="w-full flex justify-between items-center text-left focus:outline-none"
         onClick={() => setIsExpanded(!isExpanded)}
         aria-expanded={isExpanded}
         aria-controls={`exercise-details-${exercise.name.replace(/\s+/g, '-')}`}
       >
-        <h5 className={`text-md sm:text-lg font-semibold ${completedTextClasses} hover:text-yellow-200 ${isCompleted ? 'line-through' : ''}`}>
-          {exercise.name} {isCompleted && <i className="fas fa-check-circle text-green-300 ml-2"></i>}
+        <h5 className={`text-md sm:text-lg font-semibold ${completedTextClasses} hover:text-yellow-200 ${isCompleted ? 'line-through' : (isSkipped ? 'line-through' : '')}`}>
+          {exercise.name} {isCompleted && <i className="fas fa-check-circle text-green-300 ml-2"></i>} {isSkipped && <i className="fas fa-forward text-yellow-300 ml-2"></i>}
         </h5>
         <i className={`fas ${isExpanded ? 'fa-chevron-up' : 'fa-chevron-down'} text-purple-300 text-lg sm:text-xl transition-transform duration-200`}></i>
       </button>
@@ -311,7 +313,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                  </div>
             )}
 
-          {isActive && !isCompleted && (
+          {isActive && !isCompleted && !isSkipped && (
             <div className="mt-3 pt-3 border-t border-gray-500/50 space-y-2 sm:space-y-0 sm:flex sm:space-x-3">
               <button
                 onClick={handleStartRest}
@@ -359,10 +361,11 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
               </button>
             </div>
           )}
-          {isCompleted && (
+          {(isCompleted || isSkipped) && (
             <div className="mt-2 flex items-center justify-between">
-              <p className="text-xs sm:text-sm text-green-200 font-medium"><i className="fas fa-check-double mr-1"></i>Вправу успішно залоговано!</p>
-              {isActive && (
+              {isCompleted && <p className="text-xs sm:text-sm text-green-200 font-medium"><i className="fas fa-check-double mr-1"></i>Вправу успішно залоговано!</p>}
+              {isSkipped && <p className="text-xs sm:text-sm text-yellow-200 font-medium"><i className="fas fa-forward mr-1"></i>Вправу пропущено!</p>}
+              {isActive && !isSkipped && ( // Дозволяємо редагувати лише якщо не пропущено
                 <button
                   onClick={() => {
                     // Перевідкрити форму з уже внесеними даними
@@ -399,7 +402,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
         </div>
       )}
 
-      {showLogForm && !isCompleted && isActive && (
+      {showLogForm && !isCompleted && !isSkipped && isActive && (
         <div className="fixed inset-0 bg-gray-900/80 backdrop-blur-sm flex items-center justify-center p-3 z-[100]" onClick={() => setShowLogForm(false)}>
           <div className="bg-gray-700 p-3 sm:p-5 rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg sm:text-xl font-semibold text-purple-300 mb-3">{UI_TEXT.logExercise}: {exercise.name}</h3>
@@ -410,7 +413,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
               <div className="flex justify-between items-center mb-2">
                 <p className="text-xs sm:text-sm font-medium text-yellow-300">Кількість підходів: {numSets}</p>
                 <div className="flex space-x-2">
-                  <button 
+                  <button
                     type="button"
                     onClick={handleRemoveSet}
                     disabled={numSets <= 1}
@@ -418,7 +421,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                   >
                     <i className="fas fa-minus"></i>
                   </button>
-                  <button 
+                  <button
                     type="button"
                     onClick={handleAddSet}
                     className="px-2 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-xs sm:text-sm"
@@ -433,12 +436,12 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label htmlFor={`reps-${setIndex}`} className="block text-xs text-purple-200 mb-1">{UI_TEXT.repsAchieved}</label>
-                      <input 
-                        type="number" 
+                      <input
+                        type="number"
                         id={`reps-${setIndex}`}
                         min="0"
-                        placeholder={typeof (exercise.targetReps || exercise.reps) === 'string' 
-                          ? (exercise.targetReps || exercise.reps).toString().split('-')[0] 
+                        placeholder={typeof (exercise.targetReps || exercise.reps) === 'string'
+                          ? (exercise.targetReps || exercise.reps).toString().split('-')[0]
                           : (exercise.targetReps || exercise.reps)?.toString()}
                         value={loggedSetsData[setIndex]?.repsAchieved ?? ''}
                         onChange={(e) => handleSetDataChange(setIndex, 'repsAchieved', e.target.value)}
@@ -487,14 +490,14 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                 </div>
               ))}
               <div className="flex justify-end space-x-2 mt-4">
-                <button 
+                <button
                   type="button"
                   onClick={() => setShowLogForm(false)}
                   className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-xs sm:text-sm"
                 >
                   {UI_TEXT.cancel}
                 </button>
-                <button 
+                <button
                   type="submit"
                   className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-xs sm:text-sm"
                 >

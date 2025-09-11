@@ -590,18 +590,8 @@ const App: React.FC = () => {
                 ...session.adaptiveWorkoutPlan,
                 adaptations: session.adaptiveWorkoutPlan.adaptations || []
               } : null}
+              onAddExerciseClick={() => setIsAddExerciseOpen(true)}
             />
-            {session.activeDay !== null && (
-              <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-40">
-                <button
-                  onClick={() => setIsAddExerciseOpen(true)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg p-3 sm:p-4 text-lg sm:text-xl"
-                  aria-label="Додати вправу"
-                >
-                  <i className="fas fa-plus"></i>
-                </button>
-              </div>
-            )}
           </div>
         );
       case 'progress':

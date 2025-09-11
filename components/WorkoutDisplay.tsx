@@ -25,6 +25,7 @@ interface WorkoutDisplayProps {
   progressTrends?: any;
   wellnessCheck?: WellnessCheck | null;
   adaptiveWorkoutPlan?: AdaptiveWorkoutPlan | null;
+  onAddExerciseClick: () => void; // Додаємо пропс для відкриття модального вікна додавання вправи
 }
 
 const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
@@ -46,7 +47,8 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
   onSelectVariation,
   progressTrends,
   wellnessCheck,
-  adaptiveWorkoutPlan
+  adaptiveWorkoutPlan,
+  onAddExerciseClick // Отримуємо пропс
 }) => {
   const [selectedDayForView, setSelectedDayForView] = useState<number | null>(
     workoutPlan && workoutPlan.length > 0 ? workoutPlan[0].day : null
@@ -448,6 +450,15 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
             />
           );
         })}
+        {activeDay !== null && (
+          <button
+            onClick={onAddExerciseClick}
+            className="w-full mt-4 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-base font-semibold flex items-center justify-center"
+            aria-label="Додати вправу"
+          >
+            <i className="fas fa-plus mr-2"></i>Додати вправу
+          </button>
+        )}
       </div>
     </div>
   );
