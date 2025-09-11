@@ -599,9 +599,11 @@ export const generateAdaptiveWorkout = async (
 
   const adaptivePrompt = `Ти - досвідчений персональний тренер, який адаптує тренування під поточний стан та самопочуття клієнта. Твоя задача - створити адаптивний план тренування, враховуючи самопочуття та історію тренувань.
 
+Якщо у профілі є "healthConstraints" (травми/обмеження), обов'язково уникай рухів/амплітуд, що можуть загострити стан. Врахуй це у підборі вправ, підходів/повторень, відпочинку та можливих замінах.
+
 ВАЖЛИВО: Відповідь має бути ВИКЛЮЧНО у форматі JSON без жодних пояснень.
 
-Профіль користувача:
+Профіль користувача (з можливими обмеженнями здоров'я):
 ${JSON.stringify(userProfile, null, 2)}
 
 Оригінальний план тренування:
@@ -769,58 +771,39 @@ export const generateWellnessRecommendations = async (
     throw new Error(UI_TEXT.apiKeyMissing);
   }
 
-  const wellnessPrompt = `Ти - експерт з здорового способу життя та відновлення. Надай персоналізовані рекомендації для покращення самопочуття та продуктивності тренувань.
+  const wellnessPrompt = `Ти — експерт з відновлення. Зроби короткі, практичні поради на основі даних користувача. Пиши максимально стисло і по суті. Обов'язково враховуй травми/обмеження, якщо вони є у профілі ("healthConstraints") та/або у нотатках сьогоднішнього самопочуття.
 
-ВАЖЛИВО: Відповідь має бути ВИКЛЮЧНО у форматі JSON-масиву без жодних пояснень.
+Поверни ВИКЛЮЧНО JSON-масив довжиною 1-3 елементи. Без жодного тексту поза JSON. Кожен елемент має бути дуже коротким:
+{
+  "type": "energy|recovery|motivation|stress",
+  "title": "до 5 слів",
+  "description": "1 коротке речення (до 18 слів)",
+  "actions": ["до 3 дій, по 3-6 слів"],
+  "priority": "high|medium|low"
+}
 
-Профіль користувача:
-${JSON.stringify(userProfile, null, 2)}
+Вхідні дані:
+Профіль (з можливими обмеженнями здоров'я): ${JSON.stringify(userProfile, null, 0)}
+Самопочуття: ${JSON.stringify(wellnessCheck, null, 0)}
+Останні тренування (до 5): ${JSON.stringify(workoutHistory.slice(0, 5), null, 0)}
 
-Поточне самопочуття:
-${JSON.stringify(wellnessCheck, null, 2)}
-
-Історія тренувань:
-${JSON.stringify(workoutHistory.slice(0, 10), null, 2)}
-
-Створи рекомендації для покращення:
-
-1. Енергія (якщо енергія низька):
-   - Харчування
-   - Відпочинок
-   - Активність
-   - Додатки
-
-2. Відновлення (якщо втома висока):
-   - Сон
-   - Розтяжка
-   - Масаж
-   - Відпочинок
-
-3. Мотивація (якщо мотивація низька):
-   - Постановка цілей
-   - Відстеження прогресу
-   - Система нагород
-   - Підтримка
-
-4. Стрес (якщо стрес високий):
-   - Дихальні вправи
-   - Медитація
-   - Активність
-   - Розслаблення
-
-Формат JSON:
-[
-  {
-    "type": "energy|recovery|motivation|stress",
-    "title": "Заголовок рекомендації",
-    "description": "Детальний опис",
-    "actions": ["Дія 1", "Дія 2", "Дія 3"],
-    "priority": "high|medium|low"
-  }
-]`;
+Вказівки:
+- Формуй рекомендації тільки за потребою (напр. низька енергія, високий стрес).
+- Уникай загальних порад. Конкретні дії, які можна зробити сьогодні.
+- Уникай повторів та води.
+- Кожен елемент має різний type.`;
 
   try {
-    const model = ai.getGenerativeModel({ model: GEMINI_MODEL_TEXT });
+    const model = ai.getGenerativeModel({
+      model: GEMINI_MODEL_TEXT,
+      generationConfig: {
+        temperature: 0.2,
+        topK: 40,
+        topP: 0.8,
+        maxOutputTokens: 256,
+        responseMimeType: "application/json"
+      }
+    } as any);
     const response = await model.generateContent(wellnessPrompt);
     const result = await response.response;
     let jsonStr = result.text().trim();

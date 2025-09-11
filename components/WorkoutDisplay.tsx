@@ -439,7 +439,9 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
               }}
               recommendations={exerciseRecommendations}
               variations={variations}
-              onSelectVariation={(variation) => onSelectVariation?.(exercise.name, variation)}
+              onSelectVariation={async (variation) => {
+                await onSelectVariation?.(exercise.name, variation);
+              }}
             />
           );
         })}

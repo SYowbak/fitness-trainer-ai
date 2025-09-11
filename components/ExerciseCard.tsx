@@ -15,7 +15,7 @@ interface ExerciseCardProps {
     reason: string;
   }[];
   variations?: Exercise[];
-  onSelectVariation?: (variation: Exercise) => void;
+  onSelectVariation?: (variation: Exercise) => Promise<void> | void;
 }
 
 const ExerciseCard: React.FC<ExerciseCardProps> = ({
@@ -37,9 +37,11 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   const [isResting, setIsResting] = useState<boolean>(false);
   const [restStartTime, setRestStartTime] = useState<number | null>(null);
   const [audioElement] = useState(() => new Audio('/sounds/Yeah_buddy_Ronnie_Ccoleman.mp3'));
+  const [isSelectingVariation, setIsSelectingVariation] = useState<boolean>(false);
+  const [variationsHidden, setVariationsHidden] = useState<boolean>(false);
 
   const exerciseRecommendation = recommendations.find(rec => rec.exerciseName === exercise.name);
-  const hasVariations = variations.length > 0;
+  const hasVariations = !variationsHidden && variations.length > 0;
 
   // Ініціалізуємо або оновлюємо isCompleted та allSetsSuccessful, коли exercise змінюється
   useEffect(() => {
@@ -111,6 +113,12 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
     // console.log(`ExerciseCard ${exercise.name}: handleSetDataChange for set ${setIndex}, field ${field}, value ${value}`);
     const newLoggedSetsData = [...loggedSetsData];
     newLoggedSetsData[setIndex] = { ...newLoggedSetsData[setIndex], [field]: value === '' ? null : parseFloat(value) };
+    setLoggedSetsData(newLoggedSetsData);
+  };
+
+  const handleWeightContextChange = (setIndex: number, ctx: 'total' | 'per_dumbbell' | 'bodyweight') => {
+    const newLoggedSetsData = [...loggedSetsData];
+    newLoggedSetsData[setIndex] = { ...newLoggedSetsData[setIndex], weightContext: ctx };
     setLoggedSetsData(newLoggedSetsData);
   };
   
@@ -227,8 +235,19 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                     {variations.slice(0, 2).map((variation) => (
                       <button
                         key={variation.id}
-                        onClick={() => onSelectVariation?.(variation)}
-                        className="w-full text-left p-3 bg-purple-800/50 hover:bg-purple-700/50 rounded border border-purple-600/30 transition-colors"
+                        disabled={isSelectingVariation}
+                        onClick={async () => {
+                          if (isSelectingVariation) return;
+                          try {
+                            setIsSelectingVariation(true);
+                            await onSelectVariation?.(variation);
+                            setVariationsHidden(true); // сховати варіації після успішного вибору
+                            setIsExpanded(false); // згорнути картку для чіткої індикації
+                          } finally {
+                            setIsSelectingVariation(false);
+                          }
+                        }}
+                        className={`w-full text-left p-3 rounded border border-purple-600/30 transition-colors ${isSelectingVariation ? 'bg-purple-800/30 cursor-wait' : 'bg-purple-800/50 hover:bg-purple-700/50'}`}
                       >
                         <div className="flex justify-between items-start">
                           <div className="flex-1">
@@ -312,7 +331,32 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
               </button>
             </div>
           )}
-          {isCompleted && <p className="mt-2 text-xs sm:text-sm text-green-200 font-medium"><i className="fas fa-check-double mr-1"></i>Вправу успішно залоговано!</p>}
+          {isCompleted && (
+            <div className="mt-2 flex items-center justify-between">
+              <p className="text-xs sm:text-sm text-green-200 font-medium"><i className="fas fa-check-double mr-1"></i>Вправу успішно залоговано!</p>
+              {isActive && (
+                <button
+                  onClick={() => {
+                    // Перевідкрити форму з уже внесеними даними
+                    if (exercise.sessionLoggedSets && exercise.sessionLoggedSets.length > 0) {
+                      setLoggedSetsData(exercise.sessionLoggedSets.map(set => ({
+                        repsAchieved: set.repsAchieved !== undefined ? set.repsAchieved : null,
+                        weightUsed: set.weightUsed !== undefined ? set.weightUsed : null,
+                        completed: set.completed ?? false,
+                        weightContext: set.weightContext,
+                      })));
+                      setNumSets(exercise.sessionLoggedSets.length);
+                    }
+                    setIsCompleted(false);
+                    setShowLogForm(true);
+                  }}
+                  className="text-xs sm:text-sm px-2 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded"
+                >
+                  Редагувати
+                </button>
+              )}
+            </div>
+          )}
           </div>
         </div>
       )}
@@ -377,6 +421,20 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                         className="w-full p-2 bg-gray-500 border border-gray-400 rounded-md text-gray-100 text-xs sm:text-sm"
                         required
                       />
+                      <div className="mt-1 flex items-center space-x-2 text-[11px] text-gray-200">
+                        <label className="inline-flex items-center space-x-1 cursor-pointer">
+                          <input type="radio" name={`wctx-${setIndex}`} className="form-radio" checked={loggedSetsData[setIndex]?.weightContext === 'total'} onChange={() => handleWeightContextChange(setIndex, 'total')} />
+                          <span>загальна</span>
+                        </label>
+                        <label className="inline-flex items-center space-x-1 cursor-pointer">
+                          <input type="radio" name={`wctx-${setIndex}`} className="form-radio" checked={loggedSetsData[setIndex]?.weightContext === 'per_dumbbell'} onChange={() => handleWeightContextChange(setIndex, 'per_dumbbell')} />
+                          <span>1 гантель</span>
+                        </label>
+                        <label className="inline-flex items-center space-x-1 cursor-pointer">
+                          <input type="radio" name={`wctx-${setIndex}`} className="form-radio" checked={loggedSetsData[setIndex]?.weightContext === 'bodyweight'} onChange={() => handleWeightContextChange(setIndex, 'bodyweight')} />
+                          <span>вага тіла</span>
+                        </label>
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -30,11 +30,11 @@ service cloud.firestore {
     match /workoutLogs/{logId} {
       // Дозволяємо створювати та оновлювати логи, якщо userId в даних відповідає auth.uid
       allow create, update: if isAuthenticated() && 
-                          request.resource.data.userId == request.auth.uid;
+                   request.resource.data.userId == request.auth.uid;
       
       // Дозволяємо читати та видаляти, якщо це лог поточного користувача
       allow read, delete: if isAuthenticated() && 
-                         resource.data.userId == request.auth.uid;
+                           resource.data.userId == request.auth.uid;
     }
 
     // За замовчуванням забороняємо доступ до всіх інших документів

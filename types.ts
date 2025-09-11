@@ -61,6 +61,7 @@ export interface UserProfile {
   weight: number;            // Вага у кг
   age: number;               // Вік у роках
   experienceLevel: ExperienceLevel; // Рівень досвіду
+  healthConstraints?: string[]; // Стислі обмеження/травми (наприклад, "коліно", "спина")
 }
 
 export interface Exercise {
@@ -101,6 +102,7 @@ export interface LoggedSetWithAchieved {
   repsAchieved: number | null;
   weightUsed: number | null;
   completed?: boolean;
+  weightContext?: 'total' | 'per_dumbbell' | 'bodyweight';
 }
 
 export interface LoggedExercise {

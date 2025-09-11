@@ -86,7 +86,7 @@ const ProgressView: React.FC<ProgressViewProps> = ({
           locale="uk-UA"
           className="mx-auto"
         />
-      </div>
+                    </div>
       
       {modalLogs.length > 0 && (
         <WorkoutLogModal

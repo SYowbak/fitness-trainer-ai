@@ -21,13 +21,14 @@ import WellnessCheckModal from './components/WellnessCheckModal';
 import WellnessRecommendations from './components/WellnessRecommendations';
 import { WellnessCheck, AdaptiveWorkoutPlan, WellnessRecommendation } from './types';
 import WorkoutCompleteModal from './components/WorkoutCompleteModal';
+import AddExerciseModal from './components/AddExerciseModal';
 
 type View = 'profile' | 'workout' | 'progress';
 
 const App: React.FC = () => {
   const { user, loading, logout, setUser } = useAuth();
   const { workoutPlan, saveWorkoutPlan, profile: firestoreProfile, workoutLogs: firestoreWorkoutLogs, saveProfile, saveWorkoutLog } = useUserData();
-  const { session, startWorkout, updateExercise, endWorkout, updateTimer, updateWellnessCheck, updateAdaptiveWorkoutPlan, updateWellnessRecommendations } = useWorkoutSync(user?.uid || '');
+  const { session, startWorkout, updateExercise, addCustomExercise, endWorkout, updateTimer, updateWellnessCheck, updateAdaptiveWorkoutPlan, updateWellnessRecommendations } = useWorkoutSync(user?.uid || '');
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [currentWorkoutPlan, setCurrentWorkoutPlan] = useState<DailyWorkoutPlan[] | null>(null);
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
@@ -48,6 +49,35 @@ const App: React.FC = () => {
   const [isWorkoutCompleteModalOpen, setIsWorkoutCompleteModalOpen] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analyzingLogId, setAnalyzingLogId] = useState<string | null>(null);
+  const [isAddExerciseOpen, setIsAddExerciseOpen] = useState(false);
+
+  // Виділення обмежень здоров'я з нотаток самопочуття
+  const extractConstraintsFromNotes = useCallback((notes?: string): string[] => {
+    if (!notes) return [];
+    const text = notes.toLowerCase();
+    const keywords: { key: RegExp; label: string }[] = [
+      { key: /колін|коліно|коліна/, label: 'коліно' },
+      { key: /спин|поперек|хребт/, label: 'спина' },
+      { key: /плеч|дельт/, label: 'плече' },
+      { key: /лік(оть|ті)/, label: 'лікоть' },
+      { key: /зап\'?яст|кисть/, label: "зап'ястя" },
+      { key: /щиколот|гомілк|голеностоп/, label: 'щиколотка' },
+      { key: /ахіл|ахілл/, label: 'ахіллове сухожилля' },
+      { key: /шия|ший/, label: 'шия' },
+      { key: /таз|кульш|стегн/, label: 'таз/стегно' },
+      { key: /травм|розтяг|надрив|запаленн|біль|болить/, label: 'біль/травма' }
+    ];
+    const found = new Set<string>();
+    for (const { key, label } of keywords) {
+      if (key.test(text)) found.add(label);
+    }
+    // Якщо нічого не знайдено, спробуємо короткий конспект з перших слів
+    if (found.size === 0) {
+      const summary = notes.trim().split(/\s+/).slice(0, 5).join(' ');
+      if (summary) found.add(summary);
+    }
+    return Array.from(found).slice(0, 5);
+  }, []);
 
   useEffect(() => {
     if (typeof import.meta.env === 'undefined' || !import.meta.env.VITE_API_KEY) {
@@ -319,7 +349,7 @@ const App: React.FC = () => {
   }, [session, currentWorkoutPlan, userProfile, endWorkout, saveWorkoutLog, saveWorkoutPlan, workoutLogs, user]);
 
   // Обробка вибору варіації вправи
-  const handleSelectVariation = useCallback((exerciseName: string, variation: any) => {
+  const handleSelectVariation = useCallback(async (exerciseName: string, variation: any) => {
     if (!currentWorkoutPlan || !Array.isArray(currentWorkoutPlan)) return;
 
     const newWorkoutPlan = currentWorkoutPlan.map(dayPlan => ({
@@ -330,11 +360,15 @@ const App: React.FC = () => {
     }));
 
     setCurrentWorkoutPlan(newWorkoutPlan);
-    saveWorkoutPlan(newWorkoutPlan);
+    await saveWorkoutPlan(newWorkoutPlan);
     
-    // Оновлюємо варіації після зміни
-    loadExerciseVariations();
-  }, [currentWorkoutPlan, saveWorkoutPlan, loadExerciseVariations]);
+    // Після вибору прибираємо варіації для цієї вправи з мапи, щоб не клікатись повторно
+    setExerciseVariations(prev => {
+      const newMap = new Map(prev);
+      newMap.delete(exerciseName);
+      return newMap;
+    });
+  }, [currentWorkoutPlan, saveWorkoutPlan]);
 
   const handleDeleteAccount = async () => {
     if (!user) return;
@@ -430,23 +464,41 @@ const App: React.FC = () => {
     setIsLoading(true);
 
     try {
+      // Оновлюємо профіль з обмеженнями здоров'я (пам'ять травм) при наявності нотаток
+      if (userProfile && wellnessCheck.notes) {
+        const newConstraints = extractConstraintsFromNotes(wellnessCheck.notes);
+        if (newConstraints.length > 0) {
+          const merged = Array.from(new Set([...(userProfile.healthConstraints || []), ...newConstraints]));
+          const updatedProfile = { ...userProfile, healthConstraints: merged };
+          await saveProfile(updatedProfile);
+          setUserProfile(updatedProfile);
+        }
+      }
+
       // Генеруємо адаптивний план тренування
       const adaptivePlan = await generateAdaptiveWorkout(
-        userProfile,
+        userProfile!,
         currentWorkoutPlan.find(d => d.day === pendingWorkoutDay) || currentWorkoutPlan[0],
         wellnessCheck,
         workoutLogs
       );
       setAdaptiveWorkoutPlan(adaptivePlan);
 
-      // Генеруємо рекомендації по самопочуттю
-      const recommendations = await generateWellnessRecommendations(
-        userProfile,
-        wellnessCheck,
-        workoutLogs
-      );
-      setWellnessRecommendations(recommendations);
-      setWellnessRecommendationsModalOpen(true);
+      // Генеруємо рекомендації по самопочуттю НЕБЛОКУЮЧЕ (у фоні)
+      (async () => {
+        try {
+          const recs = await generateWellnessRecommendations(
+            userProfile,
+            wellnessCheck,
+            workoutLogs
+          );
+          setWellnessRecommendations(recs);
+          setWellnessRecommendationsModalOpen(true);
+          await updateWellnessRecommendations(recs);
+        } catch (e) {
+          console.error('Помилка генерації рекомендацій самопочуття (фон):', e);
+        }
+      })();
 
       // Оновлюємо план тренувань з адаптивним планом
       const updatedPlan = currentWorkoutPlan.map(dayPlan => 
@@ -461,7 +513,7 @@ const App: React.FC = () => {
       // ОНОВЛЮЄМО LIVE-СЕСІЮ з wellnessCheck, adaptiveWorkoutPlan та wellnessRecommendations
       await updateWellnessCheck(wellnessCheck);
       await updateAdaptiveWorkoutPlan(adaptivePlan);
-      await updateWellnessRecommendations(recommendations);
+      // Оновлення wellnessRecommendations відбудеться після фонового отримання
       
       setPendingWorkoutDay(null);
     } catch (error: any) {
@@ -534,6 +586,17 @@ const App: React.FC = () => {
                 adaptations: session.adaptiveWorkoutPlan.adaptations || []
               } : null}
             />
+            {session.activeDay !== null && (
+              <div className="fixed bottom-24 right-6 z-40">
+                <button
+                  onClick={() => setIsAddExerciseOpen(true)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg p-3 sm:p-4 text-lg sm:text-xl"
+                  aria-label="Додати вправу"
+                >
+                  <i className="fas fa-plus"></i>
+                </button>
+              </div>
+            )}
           </div>
         );
       case 'progress':
@@ -643,6 +706,29 @@ const App: React.FC = () => {
         onClose={() => {
           setIsWorkoutCompleteModalOpen(false);
           setCurrentView('progress');
+        }}
+      />
+
+      <AddExerciseModal
+        isOpen={isAddExerciseOpen}
+        onClose={() => setIsAddExerciseOpen(false)}
+        onAdd={async (exercise) => {
+          await addCustomExercise(exercise);
+          setIsAddExerciseOpen(false);
+          // Запитати користувача: чи зберегти вправу до плану дня на майбутнє
+          if (currentWorkoutPlan && session.activeDay !== null) {
+            const shouldPersist = window.confirm('Зберегти цю вправу до плану на цей день для майбутніх тренувань?');
+            if (shouldPersist) {
+              const newPlan = currentWorkoutPlan.map((day) => {
+                if (day.day !== session.activeDay) return day;
+                // Уникаємо дублювання за назвою
+                const exists = day.exercises.some((ex) => ex.name === exercise.name);
+                return exists ? day : { ...day, exercises: [...day.exercises, exercise] };
+              });
+              setCurrentWorkoutPlan(newPlan);
+              await saveWorkoutPlan(newPlan);
+            }
+          }
         }}
       />
     </div>

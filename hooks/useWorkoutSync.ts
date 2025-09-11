@@ -249,6 +249,36 @@ export const useWorkoutSync = (userId: string) => {
     }
   };
 
+  const addCustomExercise = async (exercise: Exercise) => {
+    if (!userId) { console.error("addCustomExercise: userId відсутній."); return; }
+    const newExercise: Exercise = {
+      id: exercise.id,
+      name: exercise.name,
+      description: exercise.description || 'Користувацька вправа',
+      sets: exercise.sets || '3',
+      reps: exercise.reps || '8-12',
+      rest: exercise.rest || '60 секунд',
+      videoSearchQuery: exercise.videoSearchQuery ?? null,
+      targetWeight: exercise.targetWeight ?? null,
+      targetReps: exercise.targetReps ?? null,
+      recommendation: exercise.recommendation ?? null,
+      isCompletedDuringSession: false,
+      sessionLoggedSets: [],
+      sessionSuccess: false,
+      notes: exercise.notes ?? null,
+    };
+
+    const updated = [...session.sessionExercises, newExercise];
+    const cleaned = removeUndefined(updated);
+    const sessionPath = `workoutSessions/${userId}/sessionExercises`;
+    try {
+      await set(ref(database, sessionPath), cleaned);
+    } catch (error) {
+      console.error('Помилка при додаванні користувацької вправи:', error);
+      throw error;
+    }
+  };
+
   const endWorkout = async () => {
     if (!userId) { console.error("endWorkout: userId відсутній."); return; }
     
@@ -336,6 +366,7 @@ export const useWorkoutSync = (userId: string) => {
     session,
     startWorkout,
     updateExercise,
+    addCustomExercise,
     endWorkout,
     updateTimer,
     updateWellnessCheck,
