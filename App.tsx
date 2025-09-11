@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { UserProfile, DailyWorkoutPlan, WorkoutLog, LoggedExercise, LoggedSetWithAchieved } from './types';
+import { UserProfile, DailyWorkoutPlan, WorkoutLog, LoggedExercise, LoggedSetWithAchieved, ExerciseRecommendation, Exercise } from './types';
 import { UI_TEXT, GEMINI_MODEL_TEXT, formatTime } from './constants';
 import Navbar from './components/Navbar';
 import UserProfileForm from './components/UserProfileForm';
@@ -36,9 +36,14 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<View>('workout');
   const [apiKeyMissing, setApiKeyMissing] = useState<boolean>(false);
-  const [exerciseRecommendations, setExerciseRecommendations] = useState<any[]>([]);
-  const [exerciseVariations, setExerciseVariations] = useState<Map<string, any[]>>(new Map());
-  const [progressTrends, setProgressTrends] = useState<any>(null);
+  const [exerciseRecommendations, setExerciseRecommendations] = useState<ExerciseRecommendation[]>([]);
+  const [exerciseVariations, setExerciseVariations] = useState<Map<string, Exercise[]>>(new Map());
+  const [progressTrends, setProgressTrends] = useState<{
+    overallProgress: 'improving' | 'plateau' | 'declining';
+    strengthProgress: number;
+    enduranceProgress: number;
+    consistencyScore: number;
+  } | null>(null);
   const [wellnessCheckModalOpen, setWellnessCheckModalOpen] = useState<boolean>(false);
   const [wellnessRecommendationsModalOpen, setWellnessRecommendationsModalOpen] = useState<boolean>(false);
   const [wellnessRecommendations, setWellnessRecommendations] = useState<WellnessRecommendation[]>([]);
@@ -248,11 +253,6 @@ const App: React.FC = () => {
   }, [updateExercise]);
   
   const handleEndWorkout = useCallback(async () => {
-    // Додаємо більше логів для відстеження
-    console.log('[handleEndWorkout] Початок. Сесія:', session);
-    console.log('[handleEndWorkout] user:', user);
-    console.log('[handleEndWorkout] userProfile:', userProfile);
-
     if (session.activeDay === null || !currentWorkoutPlan || !Array.isArray(currentWorkoutPlan) || !session.startTime || !userProfile || !user) {
       console.error("[handleEndWorkout] Відсутні необхідні дані для завершення тренування");
       alert("Помилка: Не вдалося завершити тренування. Перевірте, чи ви авторизовані.");
@@ -294,7 +294,7 @@ const App: React.FC = () => {
       userId: user.uid,
       date: new Date(),
       duration: Math.floor((Date.now() - session.startTime) / 1000),
-      dayCompleted: session.activeDay ?? null,
+      dayCompleted: session.activeDay,
       workoutDuration: formatTime(Math.floor((Date.now() - session.startTime) / 1000)) ?? null,
       loggedExercises: loggedExercisesForSession,
       wellnessCheck: session.wellnessCheck ?? null,
@@ -307,13 +307,9 @@ const App: React.FC = () => {
     };
 
     try {
-      // 1. Зберігаємо базовий лог і отримуємо його з ID
-      console.log('[App.tsx] Зберігаємо базовий лог (без рекомендацій)');
       const savedLog = await saveWorkoutLog(workoutLog);
       setWorkoutLogs(prev => [savedLog, ...prev]);
 
-      // 2. Аналізуємо тренування
-      console.log('[App.tsx] Починаємо аналіз тренування...');
       const analysisResult = await analyzeWorkout(
         userProfile,
         currentWorkoutPlan.find(p => p.day === session.activeDay)!,
@@ -321,14 +317,10 @@ const App: React.FC = () => {
         workoutLogs
       );
       
-      // 3. Оновлюємо лог з рекомендаціями
       if (analysisResult.recommendation) {
-        console.log('[App.tsx] Аналіз успішний, оновлюємо лог з рекомендаціями.');
         const finalLog = { ...savedLog, recommendation: analysisResult.recommendation };
         const updatedLog = await saveWorkoutLog(finalLog);
         setWorkoutLogs(prev => prev.map(l => (l.id === updatedLog.id ? updatedLog : l)));
-      } else {
-        console.log('[App.tsx] Аналіз завершено, але рекомендацій немає.');
       }
 
       // Оновлюємо план тренувань, якщо потрібно
@@ -420,14 +412,12 @@ const App: React.FC = () => {
         return;
       }
 
-      const analysis = await analyzeWorkout(
+      await analyzeWorkout(
         userProfile,
         currentDayPlan,
         logToAnalyze,
         workoutLogs.filter(log => log.id !== logToAnalyze.id)
       );
-      console.log('Workout analysis:', analysis);
-      // Тут можна додати логіку для оновлення плану тренувань
     } catch (error) {
       console.error("Помилка при повторному аналізі:", error);
       setError("Не вдалося проаналізувати тренування. Спробуйте ще раз.");
@@ -599,7 +589,6 @@ const App: React.FC = () => {
           <div className="container mx-auto px-4 py-8">
             <ProgressView
               workoutLogs={workoutLogs}
-              userProfile={userProfile}
               onAnalyzeWorkout={handleAnalyzeWorkoutFromLog}
               onDeleteLog={handleDeleteLog}
               isAnalyzing={isAnalyzing}

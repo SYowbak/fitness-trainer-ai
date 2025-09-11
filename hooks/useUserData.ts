@@ -200,12 +200,8 @@ export const useUserData = () => {
 
       const cleanedLog = removeUndefined({ ...finalLog, date: dateForFirestore });
       
-      console.log(`[saveWorkoutLog] Зберігаємо дані в Firestore за шляхом: ${logRef.path}`);
-      console.log('[saveWorkoutLog] Очищені дані для збереження:', cleanedLog);
-
       await setDoc(logRef, cleanedLog, { merge: true }); // Використовуємо merge: true для безпечного оновлення
       
-      console.log('[saveWorkoutLog] Лог успішно збережено в Firestore.');
       return cleanedLog as WorkoutLog;
 
     } catch (error) {

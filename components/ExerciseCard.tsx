@@ -46,14 +46,59 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   const getWeightLabel = (weightType: WeightType) => {
     switch (weightType) {
       case 'total':
-        return 'Загальна вага (кг)';
+        return 'Вага (кг)';
       case 'single':
-        return 'Вага 1 гантелі (кг)';
+        return 'Вага (кг)';
       case 'bodyweight':
-        return 'Вага тіла (кг)';
+        return 'Власна вага';
       case 'none':
       default:
         return 'Вага (кг)';
+    }
+  };
+
+  const getWeightDisplayHint = (weightType: WeightType, exerciseName: string) => {
+    const name = exerciseName.toLowerCase();
+    switch (weightType) {
+      case 'total':
+        if (name.includes('штанга')) return 'Вся штанга';
+        if (name.includes('тренажер')) return 'Налаштування';
+        return 'Загальна вага';
+      case 'single':
+        if (name.includes('гантел')) return 'Одна гантель';
+        if (name.includes('гир')) return 'Одна гиря';
+        return 'Один снаряд';
+      case 'bodyweight':
+        return 'Без ваги';
+      default:
+        return 'Вага';
+    }
+  };
+
+  const getSmartWeightSuggestion = (weightType: WeightType, targetWeight?: number | null, exerciseName?: string) => {
+    if (weightType === 'bodyweight') return 0;
+    if (targetWeight) return targetWeight;
+    
+    // Прості рекомендації на основі назви вправи
+    const name = exerciseName?.toLowerCase() || '';
+    if (name.includes('присідання') && weightType === 'total') return 60;
+    if (name.includes('жим') && name.includes('штанга') && weightType === 'total') return 50;
+    if (name.includes('гантел') && weightType === 'single') return 15;
+    if (name.includes('тяга') && weightType === 'total') return 70;
+    
+    return undefined;
+  };
+
+  const getAutomaticWeightContext = (weightType: WeightType): 'total' | 'per_dumbbell' | 'bodyweight' => {
+    switch (weightType) {
+      case 'total':
+        return 'total';
+      case 'single':
+        return 'per_dumbbell';
+      case 'bodyweight':
+        return 'bodyweight';
+      default:
+        return 'total';
     }
   };
 
@@ -64,11 +109,16 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   useEffect(() => {
     // console.log(`ExerciseCard ${exercise.name}: useEffect [isCompletedDuringSession, sessionSuccess, isSkipped] triggered.`);
     setIsCompleted(exercise.isCompletedDuringSession);
-    setIsSkipped(exercise.isSkipped ?? false); // Оновлюємо стан isSkipped
+    const newIsSkipped = exercise.isSkipped ?? false;
+    setIsSkipped(newIsSkipped);
     setAllSetsSuccessful(exercise.sessionSuccess ?? true);
     // Приховуємо форму логування, якщо вправу вже завершено або пропущено
-    if (exercise.isCompletedDuringSession || (exercise.isSkipped ?? false)) {
+    if (exercise.isCompletedDuringSession || newIsSkipped) {
       setShowLogForm(false);
+    }
+    // Згортаємо картку при завершенні або пропуску
+    if (exercise.isCompletedDuringSession || newIsSkipped) {
+      setIsExpanded(false);
     }
   }, [exercise.isCompletedDuringSession, exercise.sessionSuccess, exercise.isSkipped, exercise.name]);
 
@@ -130,16 +180,16 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   const handleSetDataChange = (setIndex: number, field: keyof LoggedSetWithAchieved, value: string) => {
     // console.log(`ExerciseCard ${exercise.name}: handleSetDataChange for set ${setIndex}, field ${field}, value ${value}`);
     const newLoggedSetsData = [...loggedSetsData];
-    newLoggedSetsData[setIndex] = { ...newLoggedSetsData[setIndex], [field]: value === '' ? null : parseFloat(value) };
+    newLoggedSetsData[setIndex] = { 
+      ...newLoggedSetsData[setIndex], 
+      [field]: value === '' ? null : parseFloat(value),
+      // Автоматично встановлюємо правильний weightContext
+      weightContext: newLoggedSetsData[setIndex]?.weightContext || getAutomaticWeightContext(exercise.weightType)
+    };
     setLoggedSetsData(newLoggedSetsData);
   };
 
-  const handleWeightContextChange = (setIndex: number, ctx: 'total' | 'per_dumbbell' | 'bodyweight') => {
-    const newLoggedSetsData = [...loggedSetsData];
-    newLoggedSetsData[setIndex] = { ...newLoggedSetsData[setIndex], weightContext: ctx };
-    setLoggedSetsData(newLoggedSetsData);
-  };
-  
+
   const handleLogFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // console.log(`ExerciseCard ${exercise.name}: handleLogFormSubmit. loggedSetsData:`, loggedSetsData);
@@ -159,7 +209,12 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
 
   const handleAddSet = () => {
     setNumSets(prev => prev + 1);
-    setLoggedSetsData(prev => [...prev, { repsAchieved: null, weightUsed: null, completed: false }]);
+    setLoggedSetsData(prev => [...prev, { 
+      repsAchieved: null, 
+      weightUsed: exercise.weightType === 'bodyweight' ? 0 : null, 
+      completed: false,
+      weightContext: getAutomaticWeightContext(exercise.weightType)
+    }]);
   };
 
   const handleRemoveSet = () => {
@@ -168,13 +223,32 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
       setLoggedSetsData(prev => prev.slice(0, -1));
     }
   };
+
+  const handleQuickFill = () => {
+    const targetRepsValue = typeof exercise.targetReps === 'number' 
+      ? exercise.targetReps 
+      : typeof exercise.reps === 'string' 
+        ? parseInt(exercise.reps.split('-')[0]) || 10
+        : 10;
+    
+    const suggestedWeight = getSmartWeightSuggestion(exercise.weightType, exercise.targetWeight, exercise.name) || 0;
+    
+    const filledSets = Array(numSets).fill(null).map(() => ({
+      repsAchieved: targetRepsValue,
+      weightUsed: exercise.weightType === 'bodyweight' ? 0 : suggestedWeight,
+      completed: false,
+      weightContext: getAutomaticWeightContext(exercise.weightType)
+    }));
+    
+    setLoggedSetsData(filledSets);
+  };
   
   const cardBaseClasses = "p-3 sm:p-4 rounded-lg shadow-md transition-all duration-300";
-  const cardBgClasses = isCompleted ? "bg-green-800/50 hover:bg-green-700/60" : (isSkipped ? "bg-yellow-800/50 hover:bg-yellow-700/60" : "bg-gray-700/60 hover:bg-gray-700/80");
-  const completedTextClasses = isCompleted ? "text-green-300" : (isSkipped ? "text-yellow-300" : "text-yellow-300");
+  const cardBgClasses = isCompleted ? "bg-green-800/50 hover:bg-green-700/60" : (isSkipped ? "bg-orange-800/50 hover:bg-orange-700/60" : "bg-gray-700/60 hover:bg-gray-700/80");
+  const completedTextClasses = isCompleted ? "text-green-300" : (isSkipped ? "text-orange-300" : "text-yellow-300");
 
   return (
-    <div className={`${cardBaseClasses} ${cardBgClasses} ${isCompleted ? 'border-l-4 border-green-500' : (isSkipped ? 'border-l-4 border-yellow-500' : 'border-l-4 border-purple-600')}`}>
+    <div className={`${cardBaseClasses} ${cardBgClasses} ${isCompleted ? 'border-l-4 border-green-500' : (isSkipped ? 'border-l-4 border-orange-500' : 'border-l-4 border-purple-600')}`}>
       <button
         className="w-full flex justify-between items-center text-left focus:outline-none"
         onClick={() => setIsExpanded(!isExpanded)}
@@ -182,7 +256,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
         aria-controls={`exercise-details-${exercise.name.replace(/\s+/g, '-')}`}
       >
         <h5 className={`text-md sm:text-lg font-semibold ${completedTextClasses} hover:text-yellow-200 ${isCompleted ? 'line-through' : (isSkipped ? 'line-through' : '')}`}>
-          {exercise.name} {isCompleted && <i className="fas fa-check-circle text-green-300 ml-2"></i>} {isSkipped && <i className="fas fa-forward text-yellow-300 ml-2"></i>}
+          {exercise.name} {isCompleted && <i className="fas fa-check-circle text-green-300 ml-2"></i>} {isSkipped && <i className="fas fa-forward text-orange-300 ml-2"></i>}
         </h5>
         <i className={`fas ${isExpanded ? 'fa-chevron-up' : 'fa-chevron-down'} text-purple-300 text-lg sm:text-xl transition-transform duration-200`}></i>
       </button>
@@ -333,16 +407,16 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                         repsAchieved: set.repsAchieved !== undefined ? set.repsAchieved : null,
                         weightUsed: set.weightUsed !== undefined ? set.weightUsed : null,
                         completed: set.completed ?? false,
-                        weightContext: set.weightContext || (exercise.weightType === 'single' ? 'per_dumbbell' : exercise.weightType === 'total' ? 'total' : exercise.weightType === 'bodyweight' ? 'bodyweight' : undefined),
+                        weightContext: set.weightContext || getAutomaticWeightContext(exercise.weightType),
                       })));
                       setNumSets(exercise.sessionLoggedSets.length);
                     } else {
                       const initialSets = parseInt(exercise.sets.toString()) || 3;
                       const initialLoggedSets = Array(initialSets).fill({
                         repsAchieved: null,
-                        weightUsed: exercise.weightType === 'bodyweight' ? 0 : null, // Вага тіла за замовчуванням 0
+                        weightUsed: exercise.weightType === 'bodyweight' ? 0 : null,
                         completed: false,
-                        weightContext: exercise.weightType === 'single' ? 'per_dumbbell' : exercise.weightType === 'total' ? 'total' : exercise.weightType === 'bodyweight' ? 'bodyweight' : undefined,
+                        weightContext: getAutomaticWeightContext(exercise.weightType),
                       });
                       setLoggedSetsData(initialLoggedSets);
                       setNumSets(initialSets);
@@ -355,7 +429,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
               </button>
               <button
                 onClick={onSkipExercise}
-                className="w-full sm:w-auto bg-yellow-600 hover:bg-yellow-700 text-white font-medium py-2 px-3 rounded-md shadow-sm transition duration-300 ease-in-out flex items-center justify-center text-xs sm:text-sm"
+                className="w-full sm:w-auto bg-orange-600 hover:bg-orange-700 text-white font-medium py-2 px-3 rounded-md shadow-sm transition duration-300 ease-in-out flex items-center justify-center text-xs sm:text-sm"
               >
                 <i className="fas fa-forward mr-2"></i>Пропустити
               </button>
@@ -364,7 +438,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
           {(isCompleted || isSkipped) && (
             <div className="mt-2 flex items-center justify-between">
               {isCompleted && <p className="text-xs sm:text-sm text-green-200 font-medium"><i className="fas fa-check-double mr-1"></i>Вправу успішно залоговано!</p>}
-              {isSkipped && <p className="text-xs sm:text-sm text-yellow-200 font-medium"><i className="fas fa-forward mr-1"></i>Вправу пропущено!</p>}
+              {isSkipped && <p className="text-xs sm:text-sm text-orange-200 font-medium"><i className="fas fa-forward mr-1"></i>Вправу пропущено!</p>}
               {isActive && !isSkipped && ( // Дозволяємо редагувати лише якщо не пропущено
                 <button
                   onClick={() => {
@@ -374,16 +448,16 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                         repsAchieved: set.repsAchieved !== undefined ? set.repsAchieved : null,
                         weightUsed: set.weightUsed !== undefined ? set.weightUsed : null,
                         completed: set.completed ?? false,
-                        weightContext: set.weightContext || (exercise.weightType === 'single' ? 'per_dumbbell' : exercise.weightType === 'total' ? 'total' : exercise.weightType === 'bodyweight' ? 'bodyweight' : undefined),
+                        weightContext: set.weightContext || getAutomaticWeightContext(exercise.weightType),
                       })));
                       setNumSets(exercise.sessionLoggedSets.length);
                     } else {
                       const initialSets = parseInt(exercise.sets.toString()) || 3;
                       const initialLoggedSets = Array(initialSets).fill({
                         repsAchieved: null,
-                        weightUsed: exercise.weightType === 'bodyweight' ? 0 : null, // Вага тіла за замовчуванням 0
+                        weightUsed: exercise.weightType === 'bodyweight' ? 0 : null,
                         completed: false,
-                        weightContext: exercise.weightType === 'single' ? 'per_dumbbell' : exercise.weightType === 'total' ? 'total' : exercise.weightType === 'bodyweight' ? 'bodyweight' : undefined,
+                        weightContext: getAutomaticWeightContext(exercise.weightType),
                       });
                       setLoggedSetsData(initialLoggedSets);
                       setNumSets(initialSets);
@@ -413,6 +487,14 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
               <div className="flex justify-between items-center mb-2">
                 <p className="text-xs sm:text-sm font-medium text-yellow-300">Кількість підходів: {numSets}</p>
                 <div className="flex space-x-2">
+                  <button
+                    type="button"
+                    onClick={handleQuickFill}
+                    className="px-2 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-xs"
+                    title="Швидко заповнити всі підходи"
+                  >
+                    <i className="fas fa-magic"></i>
+                  </button>
                   <button
                     type="button"
                     onClick={handleRemoveSet}
@@ -455,34 +537,31 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                           <label htmlFor={`weight-${setIndex}`} className="block text-xs text-purple-200 mb-1">
                             {getWeightLabel(exercise.weightType)}
                           </label>
-                          <input
-                            type="number"
-                            id={`weight-${setIndex}`}
-                            min="0"
-                            step="0.5"
-                            placeholder={exercise.targetWeight?.toString() ?? (exercise.weightType === 'bodyweight' ? '0' : '')}
-                            value={loggedSetsData[setIndex]?.weightUsed !== null ? loggedSetsData[setIndex]?.weightUsed : (exercise.weightType === 'bodyweight' ? 0 : '')}
-                            onChange={(e) => handleSetDataChange(setIndex, 'weightUsed', e.target.value)}
-                            className="w-full p-2 bg-gray-500 border border-gray-400 rounded-md text-gray-100 text-xs sm:text-sm"
-                            required={exercise.weightType !== 'bodyweight'}
-                            disabled={exercise.weightType === 'bodyweight'}
-                          />
-                          {(exercise.weightType === 'total' || exercise.weightType === 'single') && (
-                            <div className="mt-1 flex items-center space-x-2 text-[11px] text-gray-200">
-                              {exercise.weightType === 'total' && (
-                                <label className="inline-flex items-center space-x-1 cursor-pointer">
-                                  <input type="radio" name={`wctx-${setIndex}`} className="form-radio" checked={loggedSetsData[setIndex]?.weightContext === 'total'} onChange={() => handleWeightContextChange(setIndex, 'total')} />
-                                  <span>загальна</span>
-                                </label>
-                              )}
-                              {exercise.weightType === 'single' && (
-                                <label className="inline-flex items-center space-x-1 cursor-pointer">
-                                  <input type="radio" name={`wctx-${setIndex}`} className="form-radio" checked={loggedSetsData[setIndex]?.weightContext === 'per_dumbbell'} onChange={() => handleWeightContextChange(setIndex, 'per_dumbbell')} />
-                                  <span>1 гантель</span>
-                                </label>
-                              )}
+                          <div className="relative">
+                            <input
+                              type="number"
+                              id={`weight-${setIndex}`}
+                              min="0"
+                              step="0.5"
+                              placeholder={(() => {
+                                if (exercise.weightType === 'bodyweight') return 'Авто';
+                                const suggestion = getSmartWeightSuggestion(exercise.weightType, exercise.targetWeight, exercise.name);
+                                return suggestion ? suggestion.toString() : 'Введіть вагу';
+                              })()} 
+                              value={loggedSetsData[setIndex]?.weightUsed !== null ? loggedSetsData[setIndex]?.weightUsed : (exercise.weightType === 'bodyweight' ? 0 : '')}
+                              onChange={(e) => handleSetDataChange(setIndex, 'weightUsed', e.target.value)}
+                              className={`w-full p-2 pr-16 border border-gray-400 rounded-md text-xs sm:text-sm ${
+                                exercise.weightType === 'bodyweight' 
+                                  ? 'bg-gray-600 text-gray-400 cursor-not-allowed' 
+                                  : 'bg-gray-500 text-gray-100'
+                              }`}
+                              required={exercise.weightType !== 'bodyweight'}
+                              disabled={exercise.weightType === 'bodyweight'}
+                            />
+                            <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-[10px] text-gray-400 pointer-events-none font-medium">
+                              {getWeightDisplayHint(exercise.weightType, exercise.name)}
                             </div>
-                          )}
+                          </div>
                         </div>
                       </>
                     )}

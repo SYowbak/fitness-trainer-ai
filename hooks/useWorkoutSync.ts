@@ -54,11 +54,8 @@ export const useWorkoutSync = (userId: string) => {
     
     const unsubscribe = onValue(sessionRef, (snapshot) => {
       const data = snapshot.val();
-      // Додаємо детальне логування отриманих даних з Firebase
-      console.log("[Firebase] Отримано сирі дані:", data);
       if (data) {
         const cleanedData = removeUndefined(data);
-        console.log("[Firebase] Очищені дані:", cleanedData);
 
         setSession(prevSession => {
           const newSessionExercises = cleanedData.sessionExercises ?? [];
@@ -135,15 +132,6 @@ export const useWorkoutSync = (userId: string) => {
           };
           
           // Логуємо зміни для live-синхронізації
-          if (cleanedData.wellnessCheck !== prevSession.wellnessCheck) {
-            console.log("Отримано оновлений wellnessCheck з live-сесії:", cleanedData.wellnessCheck);
-          }
-          if (cleanedData.adaptiveWorkoutPlan !== prevSession.adaptiveWorkoutPlan) {
-            console.log("Отримано оновлений adaptiveWorkoutPlan з live-сесії:", cleanedData.adaptiveWorkoutPlan);
-          }
-          if (cleanedData.wellnessRecommendations !== prevSession.wellnessRecommendations) {
-            console.log("Отримано оновлені wellnessRecommendations з live-сесії:", cleanedData.wellnessRecommendations);
-          }
           
           return newSession;
         });
@@ -322,10 +310,8 @@ export const useWorkoutSync = (userId: string) => {
     if (!userId) { console.error("updateWellnessCheck: userId відсутній."); return; }
     const cleanedWellnessCheck = removeUndefined(wellnessCheck);
     const sessionPath = `workoutSessions/${userId}/wellnessCheck`;
-    console.log("Оновлюємо wellnessCheck у live-сесії:", cleanedWellnessCheck);
     try {
       await set(ref(database, sessionPath), cleanedWellnessCheck);
-      console.log("wellnessCheck успішно оновлено у live-сесії");
     } catch (error) {
       console.error("Помилка при оновленні wellnessCheck у Firebase:", error);
       throw error;
@@ -343,10 +329,8 @@ export const useWorkoutSync = (userId: string) => {
     
     const cleanedAdaptiveWorkoutPlan = removeUndefined(safeAdaptiveWorkoutPlan);
     const sessionPath = `workoutSessions/${userId}/adaptiveWorkoutPlan`;
-    console.log("Оновлюємо adaptiveWorkoutPlan у live-сесії:", cleanedAdaptiveWorkoutPlan);
     try {
       await set(ref(database, sessionPath), cleanedAdaptiveWorkoutPlan);
-      console.log("adaptiveWorkoutPlan успішно оновлено у live-сесії");
     } catch (error) {
       console.error("Помилка при оновленні adaptiveWorkoutPlan у Firebase:", error);
       throw error;
@@ -357,10 +341,8 @@ export const useWorkoutSync = (userId: string) => {
     if (!userId) { console.error("updateWellnessRecommendations: userId відсутній."); return; }
     const cleanedWellnessRecommendations = removeUndefined(wellnessRecommendations);
     const sessionPath = `workoutSessions/${userId}/wellnessRecommendations`;
-    console.log("Оновлюємо wellnessRecommendations у live-сесії:", cleanedWellnessRecommendations);
     try {
       await set(ref(database, sessionPath), cleanedWellnessRecommendations);
-      console.log("wellnessRecommendations успішно оновлено у live-сесії");
     } catch (error) {
       console.error("Помилка при оновленні wellnessRecommendations у Firebase:", error);
       throw error;

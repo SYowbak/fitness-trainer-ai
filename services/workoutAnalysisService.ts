@@ -1,4 +1,4 @@
-import { UserProfile, DailyWorkoutPlan, WorkoutLog, WorkoutAnalysisResult } from '../types';
+import { UserProfile, DailyWorkoutPlan, WorkoutLog, WorkoutAnalysisResult, Exercise } from '../types';
 import { generateWorkoutAnalysis, generateExerciseVariations, shouldVaryExercise } from './geminiService';
 
 export const analyzeWorkout = async (
@@ -31,10 +31,10 @@ export const analyzeWorkout = async (
 
 export const getExerciseVariations = async (
   userProfile: UserProfile,
-  exercise: any,
+  exercise: Exercise,
   workoutHistory: WorkoutLog[],
   targetMuscleGroup: string
-): Promise<any[]> => {
+): Promise<Exercise[]> => {
   try {
     // Перевіряємо чи потрібно варіювати вправу
     if (shouldVaryExercise(exercise.name, workoutHistory)) {
@@ -68,37 +68,92 @@ export const analyzeProgressTrends = (workoutHistory: WorkoutLog[]): {
     };
   }
 
-  const recentWorkouts = workoutHistory.slice(0, 5);
-  let totalWeight = 0;
-  let totalReps = 0;
-  let completedWorkouts = 0;
-
-  recentWorkouts.forEach(workout => {
-    if (workout.loggedExercises && Array.isArray(workout.loggedExercises)) {
-      workout.loggedExercises.forEach(exercise => {
-        if (exercise.loggedSets && Array.isArray(exercise.loggedSets)) {
-          exercise.loggedSets.forEach(set => {
-            if (set.weightUsed) totalWeight += set.weightUsed;
-            if (set.repsAchieved) totalReps += set.repsAchieved;
-          });
-        }
-      });
-      if (workout.loggedExercises.length > 0) completedWorkouts++;
-    }
+  // Сортуємо тренування від найновіших до найстаріших
+  const sortedWorkouts = [...workoutHistory].sort((a, b) => {
+    const dateA = a.date instanceof Date ? a.date : new Date(a.date.seconds * 1000);
+    const dateB = b.date instanceof Date ? b.date : new Date(b.date.seconds * 1000);
+    return dateB.getTime() - dateA.getTime();
   });
 
-  const avgWeight = totalWeight / Math.max(1, recentWorkouts.length);
-  const avgReps = totalReps / Math.max(1, recentWorkouts.length);
-  const consistencyScore = (completedWorkouts / recentWorkouts.length) * 100;
+  // Беремо останні 10 тренувань для аналізу
+  const recentWorkouts = sortedWorkouts.slice(0, 10);
+  
+  // Розділяємо на дві групи для порівняння
+  const newerHalf = recentWorkouts.slice(0, Math.ceil(recentWorkouts.length / 2));
+  const olderHalf = recentWorkouts.slice(Math.ceil(recentWorkouts.length / 2));
 
-  // Простий аналіз тренду (можна покращити)
-  const overallProgress = consistencyScore > 80 ? 'improving' : 
-                         consistencyScore > 60 ? 'plateau' : 'declining';
+  // Функція для розрахунку метрик групи
+  const calculateGroupMetrics = (workouts: WorkoutLog[]) => {
+    let totalWeight = 0;
+    let totalReps = 0;
+    let totalSets = 0;
+    let completedWorkouts = 0;
+    let totalVolume = 0; // вага × повторення для всіх підходів
+
+    workouts.forEach(workout => {
+      if (workout.loggedExercises && Array.isArray(workout.loggedExercises) && workout.loggedExercises.length > 0) {
+        completedWorkouts++;
+        workout.loggedExercises.forEach(exercise => {
+          if (exercise.loggedSets && Array.isArray(exercise.loggedSets)) {
+            exercise.loggedSets.forEach(set => {
+              if (set.weightUsed && set.repsAchieved && set.completed) {
+                totalWeight += set.weightUsed;
+                totalReps += set.repsAchieved;
+                totalSets++;
+                totalVolume += set.weightUsed * set.repsAchieved;
+              }
+            });
+          }
+        });
+      }
+    });
+
+    return {
+      avgWeightPerSet: totalSets > 0 ? totalWeight / totalSets : 0,
+      avgRepsPerSet: totalSets > 0 ? totalReps / totalSets : 0,
+      avgVolumePerSet: totalSets > 0 ? totalVolume / totalSets : 0,
+      completionRate: workouts.length > 0 ? (completedWorkouts / workouts.length) * 100 : 0,
+      totalSets
+    };
+  };
+
+  const newerMetrics = calculateGroupMetrics(newerHalf);
+  const olderMetrics = calculateGroupMetrics(olderHalf);
+
+  // Розраховуємо відсоток покращення
+  const weightImprovement = olderMetrics.avgWeightPerSet > 0 
+    ? ((newerMetrics.avgWeightPerSet - olderMetrics.avgWeightPerSet) / olderMetrics.avgWeightPerSet) * 100 
+    : 0;
+  
+  const repsImprovement = olderMetrics.avgRepsPerSet > 0 
+    ? ((newerMetrics.avgRepsPerSet - olderMetrics.avgRepsPerSet) / olderMetrics.avgRepsPerSet) * 100 
+    : 0;
+    
+  const volumeImprovement = olderMetrics.avgVolumePerSet > 0 
+    ? ((newerMetrics.avgVolumePerSet - olderMetrics.avgVolumePerSet) / olderMetrics.avgVolumePerSet) * 100 
+    : 0;
+
+  // Визначаємо загальний тренд на основі покращень
+  let overallProgress: 'improving' | 'plateau' | 'declining';
+  
+  // Комбінований показник прогресу (вага має більший вплив для силових тренувань)
+  const combinedProgress = (weightImprovement * 0.4) + (repsImprovement * 0.3) + (volumeImprovement * 0.3);
+  
+  if (combinedProgress > 5) {
+    overallProgress = 'improving';
+  } else if (combinedProgress < -5) {
+    overallProgress = 'declining';
+  } else {
+    overallProgress = 'plateau';
+  }
+
+  // Розраховуємо консистентність
+  const consistencyScore = Math.min(100, newerMetrics.completionRate);
 
   return {
     overallProgress,
-    strengthProgress: avgWeight,
-    enduranceProgress: avgReps,
-    consistencyScore
+    strengthProgress: Math.round(newerMetrics.avgWeightPerSet * 10) / 10, // Округлюємо до 1 знака після коми
+    enduranceProgress: Math.round(newerMetrics.avgRepsPerSet * 10) / 10,
+    consistencyScore: Math.round(consistencyScore)
   };
 }; 

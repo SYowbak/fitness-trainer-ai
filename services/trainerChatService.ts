@@ -25,14 +25,14 @@ export const generateTrainerResponse = async ({
 
 Профіль користувача:
 {
-  "gender": "${(userProfile as any).gender}",
-  "age": ${(userProfile as any).age},
-  "height": ${(userProfile as any).height},
-  "weight": ${(userProfile as any).weight},
-  "bodyType": "${(userProfile as any).bodyType}",
-  "experienceLevel": "${(userProfile as any).experienceLevel}",
-  "fitnessGoal": "${(userProfile as any).fitnessGoal}",
-  "targetMuscleGroups": ${JSON.stringify((userProfile as any).targetMuscleGroups)}
+  "gender": "${userProfile.gender}",
+  "age": ${userProfile.age},
+  "height": ${userProfile.height},
+  "weight": ${userProfile.weight},
+  "bodyType": "${userProfile.bodyType}",
+  "experienceLevel": "${userProfile.experienceLevel}",
+  "fitnessGoal": "${userProfile.goal}",
+  "targetMuscleGroups": ${JSON.stringify(userProfile.targetMuscleGroups)}
 }
 
 Останні тренування (від найновішого до старішого):
@@ -51,10 +51,10 @@ ${userMessage}
    - Вік: ${userProfile.age}
    - Зріст: ${userProfile.height} см
    - Вага: ${userProfile.weight} кг
-   - Тип статури: ${(userProfile as any).bodyType}
-   - Рівень досвіду: ${(userProfile as any).experienceLevel}
-   - Фітнес-ціль: ${(userProfile as any).fitnessGoal}
-   - Цільові групи м'язів: ${(userProfile as any).targetMuscleGroups.join(', ')}
+   - Тип статури: ${userProfile.bodyType}
+   - Рівень досвіду: ${userProfile.experienceLevel}
+   - Фітнес-ціль: ${userProfile.goal}
+   - Цільові групи м'язів: ${userProfile.targetMuscleGroups.join(', ')}
 
 2. Історія тренувань:
    - Аналіз попередніх логів

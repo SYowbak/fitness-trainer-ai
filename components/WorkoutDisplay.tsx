@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { DailyWorkoutPlan, UserProfile, Exercise as ExerciseType, LoggedSetWithAchieved, WellnessCheck, AdaptiveWorkoutPlan } from '../types';
 import { UI_TEXT } from '../constants';
 import ExerciseCard from './ExerciseCard';
@@ -56,11 +56,6 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
   const [isEditMode, setIsEditMode] = useState<boolean>(false);
 
   const isWorkoutPlanValid = workoutPlan && Array.isArray(workoutPlan);
-
-  useEffect(() => {
-    // The analysis logic has been moved to the workout completion flow (e.g., in the parent component)
-    // This useEffect is no longer needed for triggering analysis on day selection.
-  }, []); // Empty dependency array, runs only once on mount, but the analysis logic is removed.
 
   if (isLoading && (!isWorkoutPlanValid || workoutPlan.length === 0) && activeDay === null) {
     return <Spinner message={UI_TEXT.generatingWorkout} />;
@@ -160,22 +155,22 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
             <div className="text-2xl text-blue-400 mb-1">
               <i className="fas fa-dumbbell"></i>
             </div>
-            <p className="text-sm text-gray-300">Середня вага</p>
-            <p className="text-xs text-gray-400">{Math.round(progressTrends.strengthProgress)} кг</p>
+            <p className="text-sm text-gray-300">Середня вага на підхід</p>
+            <p className="text-xs text-gray-400">{progressTrends.strengthProgress} кг</p>
           </div>
           <div className="text-center">
             <div className="text-2xl text-green-400 mb-1">
               <i className="fas fa-running"></i>
             </div>
-            <p className="text-sm text-gray-300">Середні повторення</p>
-            <p className="text-xs text-gray-400">{Math.round(progressTrends.enduranceProgress)}</p>
+            <p className="text-sm text-gray-300">Середні повторення на підхід</p>
+            <p className="text-xs text-gray-400">{progressTrends.enduranceProgress}</p>
           </div>
           <div className="text-center">
             <div className="text-2xl text-purple-400 mb-1">
               <i className="fas fa-calendar-check"></i>
             </div>
             <p className="text-sm text-gray-300">Консистентність</p>
-            <p className="text-xs text-gray-400">{Math.round(progressTrends.consistencyScore)}%</p>
+            <p className="text-xs text-gray-400">{progressTrends.consistencyScore}%</p>
           </div>
         </div>
       </div>
