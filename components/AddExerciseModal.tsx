@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Exercise } from '../types';
+import { Exercise, WeightType } from '../types';
 
 interface AddExerciseModalProps {
   isOpen: boolean;
@@ -14,7 +14,26 @@ const AddExerciseModal: React.FC<AddExerciseModalProps> = ({ isOpen, onClose, on
   const [reps, setReps] = useState<string>('8-12');
   const [rest, setRest] = useState<string>('60 секунд');
   const [targetWeight, setTargetWeight] = useState<string>('');
+  const [weightType, setWeightType] = useState<WeightType>('total'); // Додаємо стан для weightType
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Функція для визначення weightType на основі назви вправи
+  const determineWeightType = (exerciseName: string): WeightType => {
+    const lowerCaseName = exerciseName.toLowerCase();
+    if (lowerCaseName.includes('штанга') || lowerCaseName.includes('жим') || lowerCaseName.includes('присід') || lowerCaseName.includes('тяга')) {
+      return 'total';
+    }
+    if (lowerCaseName.includes('гантел') || lowerCaseName.includes('гир')) {
+      return 'single';
+    }
+    if (lowerCaseName.includes('віджиман') || lowerCaseName.includes('підтягуван') || lowerCaseName.includes('планка') || lowerCaseName.includes('прес') || lowerCaseName.includes('своєю вагою')) {
+      return 'bodyweight';
+    }
+    if (lowerCaseName.includes('розтяжка') || lowerCaseName.includes('кардіо') || lowerCaseName.includes('біг')) {
+      return 'none';
+    }
+    return 'total'; // За замовчуванням
+  };
 
   useEffect(() => {
     if (!isOpen) {
@@ -24,9 +43,19 @@ const AddExerciseModal: React.FC<AddExerciseModalProps> = ({ isOpen, onClose, on
       setReps('8-12');
       setRest('60 секунд');
       setTargetWeight('');
+      setWeightType('total'); // Скидаємо weightType
       setIsSubmitting(false);
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    setWeightType(determineWeightType(name));
+    if (determineWeightType(name) === 'bodyweight') {
+      setTargetWeight('0'); // Для власної ваги встановлюємо 0
+    } else if (determineWeightType(name) === 'none') {
+      setTargetWeight(''); // Для без ваги очищаємо поле
+    }
+  }, [name]);
 
   if (!isOpen) return null;
 
@@ -44,7 +73,9 @@ const AddExerciseModal: React.FC<AddExerciseModalProps> = ({ isOpen, onClose, on
             <label className="block text-xs text-purple-200 mb-1">Назва*</label>
             <input
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                setName(e.target.value);
+              }}
               className="w-full p-2 bg-gray-600 border border-gray-500 rounded text-gray-100 text-sm"
               placeholder="Наприклад: Жим гантелей сидячи"
               required
@@ -90,17 +121,23 @@ const AddExerciseModal: React.FC<AddExerciseModalProps> = ({ isOpen, onClose, on
               />
             </div>
           </div>
-          <div>
-            <label className="block text-xs text-purple-200 mb-1">Цільова вага (необов’язково, кг)</label>
-            <input
-              type="number"
-              step="0.5"
-              min="0"
-              value={targetWeight}
-              onChange={(e) => setTargetWeight(e.target.value)}
-              className="w-full p-2 bg-gray-600 border border-gray-500 rounded text-gray-100 text-sm"
-            />
-          </div>
+          {weightType !== 'none' && (
+            <div>
+              <label className="block text-xs text-purple-200 mb-1">
+                Цільова вага (кг) {weightType === 'total' ? '(загальна)' : weightType === 'single' ? '(1 гантель)' : weightType === 'bodyweight' ? '(вага тіла)' : ''}
+              </label>
+              <input
+                type="number"
+                step="0.5"
+                min="0"
+                value={targetWeight}
+                onChange={(e) => setTargetWeight(e.target.value)}
+                className="w-full p-2 bg-gray-600 border border-gray-500 rounded text-gray-100 text-sm"
+                disabled={weightType === 'bodyweight'}
+                placeholder={weightType === 'bodyweight' ? '0' : ''}
+              />
+            </div>
+          )}
 
           <div className="flex justify-end space-x-2 pt-2">
             <button onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 text-sm">Скасувати</button>
@@ -117,6 +154,7 @@ const AddExerciseModal: React.FC<AddExerciseModalProps> = ({ isOpen, onClose, on
                   reps,
                   rest,
                   videoSearchQuery: null,
+                  weightType: weightType, // Додаємо weightType
                   targetWeight: targetWeight === '' ? null : parseFloat(targetWeight),
                   targetReps: null,
                   recommendation: null,

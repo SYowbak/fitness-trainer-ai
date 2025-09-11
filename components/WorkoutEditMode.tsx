@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { DailyWorkoutPlan, Exercise, UserProfile } from '../types';
+import { DailyWorkoutPlan, Exercise, UserProfile, WeightType } from '../types';
 import { generateNewExercise, regenerateExercise, completeExerciseDetails } from '../services/workoutEditService';
 import Spinner from './Spinner';
 import { UI_TEXT } from '../constants';
@@ -17,6 +17,23 @@ const WorkoutEditMode: React.FC<WorkoutEditModeProps> = ({
   onSavePlan,
   onCancel,
 }) => {
+  // Функція для визначення weightType на основі назви вправи
+  const determineWeightType = (exerciseName: string): WeightType => {
+    const lowerCaseName = exerciseName.toLowerCase();
+    if (lowerCaseName.includes('штанга') || lowerCaseName.includes('жим') || lowerCaseName.includes('присід') || lowerCaseName.includes('тяга')) {
+      return 'total';
+    }
+    if (lowerCaseName.includes('гантел') || lowerCaseName.includes('гир')) {
+      return 'single';
+    }
+    if (lowerCaseName.includes('віджиман') || lowerCaseName.includes('підтягуван') || lowerCaseName.includes('планка') || lowerCaseName.includes('прес') || lowerCaseName.includes('своєю вагою')) {
+      return 'bodyweight';
+    }
+    if (lowerCaseName.includes('розтяжка') || lowerCaseName.includes('кардіо') || lowerCaseName.includes('біг')) {
+      return 'none';
+    }
+    return 'total'; // За замовчуванням
+  };
   const [editedPlan, setEditedPlan] = useState<DailyWorkoutPlan[]>(workoutPlan);
   const [selectedDay, setSelectedDay] = useState<number>(workoutPlan[0]?.day || 1);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -97,6 +114,10 @@ const WorkoutEditMode: React.FC<WorkoutEditModeProps> = ({
             if (index === exerciseIndex) {
               if (field === 'name') {
                 setChangedExerciseNames(prev => new Set(prev).add(`${dayNumber}-${exerciseIndex}`));
+              }
+              if (field === 'name') {
+                const newWeightType = determineWeightType(value);
+                return { ...ex, [field]: value, weightType: newWeightType };
               }
               return { ...ex, [field]: value };
             }
@@ -233,6 +254,7 @@ const WorkoutEditMode: React.FC<WorkoutEditModeProps> = ({
                   onChange={(e) => handleUpdateExercise(selectedDay, index, 'name', e.target.value)}
                   className="w-full p-2 bg-gray-700 text-white rounded border border-gray-600"
                 />
+                <p className="text-xs text-gray-400 mt-1">Тип ваги: {exercise.weightType}</p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">

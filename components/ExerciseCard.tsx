@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Exercise, LoggedSetWithAchieved } from '../types';
+import { Exercise, LoggedSetWithAchieved, WeightType } from '../types';
 import { UI_TEXT, formatTime } from '../constants';
 
 interface ExerciseCardProps {
@@ -39,6 +39,20 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   const [audioElement] = useState(() => new Audio('/sounds/Yeah_buddy_Ronnie_Ccoleman.mp3'));
   const [isSelectingVariation, setIsSelectingVariation] = useState<boolean>(false);
   const [variationsHidden, setVariationsHidden] = useState<boolean>(false);
+
+  const getWeightLabel = (weightType: WeightType) => {
+    switch (weightType) {
+      case 'total':
+        return 'Загальна вага (кг)';
+      case 'single':
+        return 'Вага 1 гантелі (кг)';
+      case 'bodyweight':
+        return 'Вага тіла (кг)';
+      case 'none':
+      default:
+        return 'Вага (кг)';
+    }
+  };
 
   const exerciseRecommendation = recommendations.find(rec => rec.exerciseName === exercise.name);
   const hasVariations = !variationsHidden && variations.length > 0;
@@ -314,12 +328,18 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                       setLoggedSetsData(exercise.sessionLoggedSets.map(set => ({
                         repsAchieved: set.repsAchieved !== undefined ? set.repsAchieved : null,
                         weightUsed: set.weightUsed !== undefined ? set.weightUsed : null,
-                        completed: set.completed ?? false
+                        completed: set.completed ?? false,
+                        weightContext: set.weightContext || (exercise.weightType === 'single' ? 'per_dumbbell' : exercise.weightType === 'total' ? 'total' : exercise.weightType === 'bodyweight' ? 'bodyweight' : undefined),
                       })));
                       setNumSets(exercise.sessionLoggedSets.length);
                     } else {
                       const initialSets = parseInt(exercise.sets.toString()) || 3;
-                      const initialLoggedSets = Array(initialSets).fill({ repsAchieved: null, weightUsed: null, completed: false });
+                      const initialLoggedSets = Array(initialSets).fill({
+                        repsAchieved: null,
+                        weightUsed: exercise.weightType === 'bodyweight' ? 0 : null, // Вага тіла за замовчуванням 0
+                        completed: false,
+                        weightContext: exercise.weightType === 'single' ? 'per_dumbbell' : exercise.weightType === 'total' ? 'total' : exercise.weightType === 'bodyweight' ? 'bodyweight' : undefined,
+                      });
                       setLoggedSetsData(initialLoggedSets);
                       setNumSets(initialSets);
                     }
@@ -343,9 +363,19 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                         repsAchieved: set.repsAchieved !== undefined ? set.repsAchieved : null,
                         weightUsed: set.weightUsed !== undefined ? set.weightUsed : null,
                         completed: set.completed ?? false,
-                        weightContext: set.weightContext,
+                        weightContext: set.weightContext || (exercise.weightType === 'single' ? 'per_dumbbell' : exercise.weightType === 'total' ? 'total' : exercise.weightType === 'bodyweight' ? 'bodyweight' : undefined),
                       })));
                       setNumSets(exercise.sessionLoggedSets.length);
+                    } else {
+                      const initialSets = parseInt(exercise.sets.toString()) || 3;
+                      const initialLoggedSets = Array(initialSets).fill({
+                        repsAchieved: null,
+                        weightUsed: exercise.weightType === 'bodyweight' ? 0 : null, // Вага тіла за замовчуванням 0
+                        completed: false,
+                        weightContext: exercise.weightType === 'single' ? 'per_dumbbell' : exercise.weightType === 'total' ? 'total' : exercise.weightType === 'bodyweight' ? 'bodyweight' : undefined,
+                      });
+                      setLoggedSetsData(initialLoggedSets);
+                      setNumSets(initialSets);
                     }
                     setIsCompleted(false);
                     setShowLogForm(true);
@@ -408,34 +438,53 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                         required
                       />
                     </div>
-                    <div>
-                      <label htmlFor={`weight-${setIndex}`} className="block text-xs text-purple-200 mb-1">{UI_TEXT.weightUsed}</label>
-                      <input 
-                        type="number" 
-                        id={`weight-${setIndex}`}
-                        min="0"
-                        step="0.5"
-                        placeholder={exercise.targetWeight?.toString() ?? ''}
-                        value={loggedSetsData[setIndex]?.weightUsed ?? ''}
-                        onChange={(e) => handleSetDataChange(setIndex, 'weightUsed', e.target.value)}
-                        className="w-full p-2 bg-gray-500 border border-gray-400 rounded-md text-gray-100 text-xs sm:text-sm"
-                        required
-                      />
-                      <div className="mt-1 flex items-center space-x-2 text-[11px] text-gray-200">
-                        <label className="inline-flex items-center space-x-1 cursor-pointer">
-                          <input type="radio" name={`wctx-${setIndex}`} className="form-radio" checked={loggedSetsData[setIndex]?.weightContext === 'total'} onChange={() => handleWeightContextChange(setIndex, 'total')} />
-                          <span>загальна</span>
+                    {exercise.weightType !== 'none' && (
+                      <div>
+                        <label htmlFor={`weight-${setIndex}`} className="block text-xs text-purple-200 mb-1">
+                          {getWeightLabel(exercise.weightType)}
                         </label>
-                        <label className="inline-flex items-center space-x-1 cursor-pointer">
-                          <input type="radio" name={`wctx-${setIndex}`} className="form-radio" checked={loggedSetsData[setIndex]?.weightContext === 'per_dumbbell'} onChange={() => handleWeightContextChange(setIndex, 'per_dumbbell')} />
-                          <span>1 гантель</span>
-                        </label>
-                        <label className="inline-flex items-center space-x-1 cursor-pointer">
-                          <input type="radio" name={`wctx-${setIndex}`} className="form-radio" checked={loggedSetsData[setIndex]?.weightContext === 'bodyweight'} onChange={() => handleWeightContextChange(setIndex, 'bodyweight')} />
-                          <span>вага тіла</span>
-                        </label>
+                        <input
+                          type="number"
+                          id={`weight-${setIndex}`}
+                          min="0"
+                          step="0.5"
+                          placeholder={exercise.targetWeight?.toString() ?? ''}
+                          value={loggedSetsData[setIndex]?.weightUsed ?? ''}
+                          onChange={(e) => handleSetDataChange(setIndex, 'weightUsed', e.target.value)}
+                          className="w-full p-2 bg-gray-500 border border-gray-400 rounded-md text-gray-100 text-xs sm:text-sm"
+                          required={exercise.weightType !== 'bodyweight'}
+                          disabled={exercise.weightType === 'bodyweight'}
+                        />
+                        {exercise.weightType !== 'bodyweight' && (
+                          <div className="mt-1 flex items-center space-x-2 text-[11px] text-gray-200">
+                            {exercise.weightType === 'total' && (
+                              <label className="inline-flex items-center space-x-1 cursor-pointer">
+                                <input type="radio" name={`wctx-${setIndex}`} className="form-radio" checked={loggedSetsData[setIndex]?.weightContext === 'total'} onChange={() => handleWeightContextChange(setIndex, 'total')} />
+                                <span>загальна</span>
+                              </label>
+                            )}
+                            {exercise.weightType === 'single' && (
+                              <label className="inline-flex items-center space-x-1 cursor-pointer">
+                                <input type="radio" name={`wctx-${setIndex}`} className="form-radio" checked={loggedSetsData[setIndex]?.weightContext === 'per_dumbbell'} onChange={() => handleWeightContextChange(setIndex, 'per_dumbbell')} />
+                                <span>1 гантель</span>
+                              </label>
+                            )}
+                            {exercise.weightType === undefined && (
+                              <>
+                                <label className="inline-flex items-center space-x-1 cursor-pointer">
+                                  <input type="radio" name={`wctx-${setIndex}`} className="form-radio" checked={loggedSetsData[setIndex]?.weightContext === 'total'} onChange={() => handleWeightContextChange(setIndex, 'total')} />
+                                  <span>загальна</span>
+                                </label>
+                                <label className="inline-flex items-center space-x-1 cursor-pointer">
+                                  <input type="radio" name={`wctx-${setIndex}`} className="form-radio" checked={loggedSetsData[setIndex]?.weightContext === 'per_dumbbell'} onChange={() => handleWeightContextChange(setIndex, 'per_dumbbell')} />
+                                  <span>1 гантель</span>
+                                </label>
+                              </>
+                            )}
+                          </div>
+                        )}
                       </div>
-                    </div>
+                    )}
                   </div>
                 </div>
               ))}

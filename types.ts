@@ -64,6 +64,8 @@ export interface UserProfile {
   healthConstraints?: string[]; // Стислі обмеження/травми (наприклад, "коліно", "спина")
 }
 
+export type WeightType = 'total' | 'single' | 'bodyweight' | 'none';
+
 export interface Exercise {
   id: string;
   name: string;
@@ -72,6 +74,7 @@ export interface Exercise {
   reps: string;
   rest: string;
   videoSearchQuery: string | null;
+  weightType: WeightType; // <--- Додано це поле
   targetWeight?: number | null;
   targetReps?: number | null;
   recommendation?: {
