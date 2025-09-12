@@ -302,11 +302,12 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
           >
             {/* Compact mode overlay during dragging */}
             {compactMode && isDragging && !isDraggedItem && (
-              <div className="absolute inset-0 bg-gray-900/90 backdrop-blur-sm z-10 flex items-center justify-center rounded-lg border border-purple-400/50 min-h-0">
-                <div className="text-center px-4 py-3 max-w-full">
-                  <i className="fas fa-arrows-alt-v text-purple-400 text-lg mb-2"></i>
-                  <p className="text-purple-300 font-semibold text-sm leading-tight break-words">{exercise.name}</p>
-                  <p className="text-gray-400 text-xs mt-1">Drop here to reorder</p>
+              <div className="absolute inset-0 bg-gray-900/95 backdrop-blur-sm z-10 flex items-center justify-center rounded-lg border border-purple-400/50">
+                <div className="text-center px-3 py-2 max-w-full">
+                  <div className="flex items-center justify-center space-x-2">
+                    <i className="fas fa-arrows-alt-v text-purple-400 text-sm"></i>
+                    <p className="text-purple-300 font-medium text-sm leading-tight break-words">{exercise.name}</p>
+                  </div>
                 </div>
               </div>
             )}
@@ -333,10 +334,6 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
                     <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
                     <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
                     <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                  </div>
-                  {/* Mobile hint */}
-                  <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-xs text-gray-500 whitespace-nowrap opacity-60 sm:hidden pointer-events-none">
-                    Утримайте
                   </div>
                 </div>
               </div>
