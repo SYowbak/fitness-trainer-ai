@@ -298,6 +298,7 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
               ${!disabled ? 'hover:shadow-lg transition-shadow duration-200' : ''}
               ${isDraggedItem ? 'z-50' : ''}
               ${isDropTarget ? 'ring-2 ring-purple-400 ring-opacity-50' : ''}
+              ${compactMode && isDragging ? 'h-12' : ''}
             `}
           >
             {/* Compact mode overlay during dragging - show for ALL items when dragging */}
@@ -315,7 +316,7 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
             )}
             
             {!disabled && (
-              <div className="absolute left-2 top-1/2 transform -translate-y-1/2 z-20">
+              <div className={`absolute left-2 top-1/2 transform -translate-y-1/2 z-20 ${compactMode && isDragging ? 'opacity-0 pointer-events-none' : ''}`}>
                 <div 
                   {...getDragHandleTouchProps(index)}
                   className="flex flex-col items-center justify-center w-12 h-16 cursor-grab active:cursor-grabbing hover:bg-gray-600/30 rounded transition-colors select-none" 
@@ -340,7 +341,7 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
                 </div>
               </div>
             )}
-            <div className={!disabled ? 'ml-14 sm:ml-12' : ''}>
+            <div className={`${!disabled ? 'ml-14 sm:ml-12' : ''} ${compactMode && isDragging ? 'opacity-0 pointer-events-none' : ''}`}>
               {children(exercise, index, getDragHandleProps(index))}
             </div>
           </div>
