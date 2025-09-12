@@ -27,6 +27,7 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
   const [touchStartY, setTouchStartY] = useState<number>(0);
   const [touchCurrentY, setTouchCurrentY] = useState<number>(0);
   const touchItemRef = useRef<HTMLDivElement | null>(null);
+  const dragHandleRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
   const handleDragStart = useCallback((e: React.DragEvent, index: number) => {
     if (disabled) return;
@@ -95,122 +96,133 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
     setIsDragging(false); // Reset dragging state
   }, []);
 
-  // Touch event handlers with improved mobile support
-  const handleTouchStart = useCallback((e: React.TouchEvent, index: number) => {
-    if (disabled) return;
+  // Native touch event handlers to avoid passive listener issues
+  const attachTouchEvents = useCallback((element: HTMLDivElement, index: number) => {
+    if (!element || disabled) return;
     
-    // Prevent default to stop scrolling when starting drag
-    e.preventDefault();
-    e.stopPropagation();
-    
-    const touch = e.touches[0];
-    setTouchDraggedIndex(index);
-    setTouchStartY(touch.clientY);
-    setTouchCurrentY(touch.clientY);
-    setDragOverIndex(null); // Reset drag over state
-    setIsDragging(true); // Set dragging state for compact mode
-    
-    // Add haptic feedback on mobile
-    if ('vibrate' in navigator) {
-      navigator.vibrate(100); // Stronger initial vibration
-    }
-    
-    console.log('Touch start on index:', index, 'at Y:', touch.clientY);
-  }, [disabled]);
-
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (disabled || touchDraggedIndex === null) return;
-    
-    const touch = e.touches[0];
-    const deltaY = Math.abs(touch.clientY - touchStartY);
-    
-    // Only start dragging if moved more than 8px vertically (increased for mobile stability)
-    if (deltaY > 8) {
-      setTouchCurrentY(touch.clientY);
+    const handleTouchStart = (e: TouchEvent) => {
+      try {
+        e.preventDefault();
+        e.stopPropagation();
+      } catch (error) {
+        // Silently handle preventDefault errors
+      }
       
-      // Get the container bounds to prevent dragging outside
-      const container = document.querySelector('[data-exercise-index]')?.parentElement;
-      if (container) {
-        const containerRect = container.getBoundingClientRect();
+      const touch = e.touches[0];
+      setTouchDraggedIndex(index);
+      setTouchStartY(touch.clientY);
+      setTouchCurrentY(touch.clientY);
+      setDragOverIndex(null);
+      setIsDragging(true);
+      
+      if ('vibrate' in navigator) {
+        navigator.vibrate(100);
+      }
+      
+      console.log('Touch start on index:', index, 'at Y:', touch.clientY);
+    };
+    
+    const handleTouchMove = (e: TouchEvent) => {
+      if (touchDraggedIndex === null) return;
+      
+      try {
+        e.preventDefault();
+        e.stopPropagation();
+      } catch (error) {
+        // Silently handle preventDefault errors
+      }
+      
+      const touch = e.touches[0];
+      const deltaY = Math.abs(touch.clientY - touchStartY);
+      
+      if (deltaY > 8) {
+        setTouchCurrentY(touch.clientY);
         
-        // Only proceed if touch is within container bounds
-        if (touch.clientX >= containerRect.left && 
-            touch.clientX <= containerRect.right &&
-            touch.clientY >= containerRect.top && 
-            touch.clientY <= containerRect.bottom) {
+        const container = document.querySelector('[data-exercise-index]')?.parentElement;
+        if (container) {
+          const containerRect = container.getBoundingClientRect();
           
-          // Find which element we're over using more reliable method
-          const elements = document.elementsFromPoint(touch.clientX, touch.clientY);
-          let exerciseElement = null;
-          
-          for (const element of elements) {
-            const exerciseEl = element.closest('[data-exercise-index]') as HTMLElement;
-            if (exerciseEl && exerciseEl.dataset.exerciseIndex) {
-              exerciseElement = exerciseEl;
-              break;
+          if (touch.clientX >= containerRect.left && 
+              touch.clientX <= containerRect.right &&
+              touch.clientY >= containerRect.top && 
+              touch.clientY <= containerRect.bottom) {
+            
+            const elements = document.elementsFromPoint(touch.clientX, touch.clientY);
+            let exerciseElement = null;
+            
+            for (const element of elements) {
+              const exerciseEl = element.closest('[data-exercise-index]') as HTMLElement;
+              if (exerciseEl && exerciseEl.dataset.exerciseIndex) {
+                exerciseElement = exerciseEl;
+                break;
+              }
             }
-          }
-          
-          if (exerciseElement) {
-            const overIndex = parseInt(exerciseElement.dataset.exerciseIndex || '-1');
-            if (overIndex !== -1 && overIndex !== touchDraggedIndex) {
-              setDragOverIndex(overIndex);
-              console.log('Touch drag over index:', overIndex);
-              
-              // Add haptic feedback when hovering over drop target
-              if ('vibrate' in navigator) {
-                navigator.vibrate(20);
+            
+            if (exerciseElement) {
+              const overIndex = parseInt(exerciseElement.dataset.exerciseIndex || '-1');
+              if (overIndex !== -1 && overIndex !== touchDraggedIndex) {
+                setDragOverIndex(overIndex);
+                
+                if ('vibrate' in navigator) {
+                  navigator.vibrate(20);
+                }
               }
             }
           }
         }
       }
-      
-      // Prevent scrolling when actively dragging
-      e.preventDefault();
-      e.stopPropagation();
-    }
-  }, [disabled, touchDraggedIndex, touchStartY]);
-
-  const handleTouchEnd = useCallback((_e: React.TouchEvent) => {
-    if (disabled || touchDraggedIndex === null) return;
+    };
     
-    console.log('Touch end - draggedIndex:', touchDraggedIndex, 'dragOverIndex:', dragOverIndex);
-    
-    // Only reorder if we actually moved and have a valid drop target
-    if (dragOverIndex !== null && dragOverIndex !== touchDraggedIndex) {
-      const deltaY = Math.abs(touchCurrentY - touchStartY);
+    const handleTouchEnd = () => {
+      if (touchDraggedIndex === null) return;
       
-      // Only reorder if we moved significantly (more than 8px for stability)
-      if (deltaY > 8) {
-        console.log('Reordering from', touchDraggedIndex, 'to', dragOverIndex);
-        const newExercises = [...exercises];
-        const draggedExercise = newExercises[touchDraggedIndex];
+      console.log('Touch end - draggedIndex:', touchDraggedIndex, 'dragOverIndex:', dragOverIndex);
+      
+      if (dragOverIndex !== null && dragOverIndex !== touchDraggedIndex) {
+        const deltaY = Math.abs(touchCurrentY - touchStartY);
         
-        // Remove the dragged exercise
-        newExercises.splice(touchDraggedIndex, 1);
-        
-        // Insert it at the new position
-        newExercises.splice(dragOverIndex, 0, draggedExercise);
-        
-        onReorder(newExercises);
-        console.log('Reorder completed');
-        
-        // Success haptic feedback
-        if ('vibrate' in navigator) {
-          navigator.vibrate([50, 50, 50]);
+        if (deltaY > 8) {
+          const newExercises = [...exercises];
+          const draggedExercise = newExercises[touchDraggedIndex];
+          
+          newExercises.splice(touchDraggedIndex, 1);
+          newExercises.splice(dragOverIndex, 0, draggedExercise);
+          
+          onReorder(newExercises);
+          
+          if ('vibrate' in navigator) {
+            navigator.vibrate([50, 50, 50]);
+          }
         }
       }
+      
+      setTouchDraggedIndex(null);
+      setDragOverIndex(null);
+      setTouchStartY(0);
+      setTouchCurrentY(0);
+      setIsDragging(false);
+      touchItemRef.current = null;
+    };
+    
+    // Add non-passive event listeners with error handling
+    try {
+      element.addEventListener('touchstart', handleTouchStart, { passive: false });
+      element.addEventListener('touchmove', handleTouchMove, { passive: false });
+      element.addEventListener('touchend', handleTouchEnd, { passive: false });
+    } catch (error) {
+      // Fallback to passive listeners if non-passive fails
+      element.addEventListener('touchstart', handleTouchStart);
+      element.addEventListener('touchmove', handleTouchMove);
+      element.addEventListener('touchend', handleTouchEnd);
     }
     
-    // Reset all touch state
-    setTouchDraggedIndex(null);
-    setDragOverIndex(null);
-    setTouchStartY(0);
-    setTouchCurrentY(0);
-    setIsDragging(false); // Reset dragging state
-    touchItemRef.current = null;
-  }, [disabled, touchDraggedIndex, dragOverIndex, exercises, onReorder, touchCurrentY, touchStartY]);
+    // Store cleanup function
+    return () => {
+      element.removeEventListener('touchstart', handleTouchStart);
+      element.removeEventListener('touchmove', handleTouchMove);
+      element.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [disabled, touchDraggedIndex, touchStartY, touchCurrentY, dragOverIndex, exercises, onReorder]);
 
   const getDragHandleProps = useCallback((index: number) => {
     if (disabled) return {};
@@ -242,18 +254,23 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
     if (disabled) return {};
     
     return {
-      onTouchStart: (e: React.TouchEvent) => {
-        // Only start drag from the handle area
-        e.stopPropagation();
-        handleTouchStart(e, index);
-      },
-      onTouchMove: (e: React.TouchEvent) => {
-        e.stopPropagation();
-        handleTouchMove(e);
-      },
-      onTouchEnd: (e: React.TouchEvent) => {
-        e.stopPropagation();
-        handleTouchEnd(e);
+      ref: (element: HTMLDivElement | null) => {
+        if (element) {
+          dragHandleRefs.current.set(index, element);
+          
+          // Clean up old listeners
+          const existingCleanup = element.dataset.cleanup;
+          if (existingCleanup) {
+            // Remove old listeners if they exist
+            dragHandleRefs.current.delete(index);
+          }
+          
+          // Attach new listeners
+          const cleanup = attachTouchEvents(element, index);
+          if (cleanup) {
+            element.dataset.cleanup = 'true';
+          }
+        }
       },
       style: {
         touchAction: 'none' as const,
@@ -263,7 +280,7 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
         MozUserSelect: 'none' as const
       }
     };
-  }, [disabled, handleTouchStart, handleTouchMove, handleTouchEnd]);
+  }, [disabled, attachTouchEvents]);
 
   return (
     <div className={`space-y-4 ${className}`} style={{ touchAction: disabled ? 'auto' : 'pan-y' }}>
