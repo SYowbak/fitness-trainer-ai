@@ -138,37 +138,38 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
       if (deltaY > 8) {
         setTouchCurrentY(touch.clientY);
         
-        const container = document.querySelector('[data-exercise-index]')?.parentElement;
-        if (container) {
-          const containerRect = container.getBoundingClientRect();
+        // Find all exercise elements in the page
+        const allExerciseElements = document.querySelectorAll('[data-exercise-index]');
+        let targetIndex = null;
+        
+        // Check which exercise element the touch is over
+        for (const exerciseEl of allExerciseElements) {
+          const rect = exerciseEl.getBoundingClientRect();
           
-          if (touch.clientX >= containerRect.left && 
-              touch.clientX <= containerRect.right &&
-              touch.clientY >= containerRect.top && 
-              touch.clientY <= containerRect.bottom) {
+          if (touch.clientX >= rect.left && 
+              touch.clientX <= rect.right &&
+              touch.clientY >= rect.top && 
+              touch.clientY <= rect.bottom) {
             
-            const elements = document.elementsFromPoint(touch.clientX, touch.clientY);
-            let exerciseElement = null;
-            
-            for (const element of elements) {
-              const exerciseEl = element.closest('[data-exercise-index]') as HTMLElement;
-              if (exerciseEl && exerciseEl.dataset.exerciseIndex) {
-                exerciseElement = exerciseEl;
-                break;
-              }
-            }
-            
-            if (exerciseElement) {
-              const overIndex = parseInt(exerciseElement.dataset.exerciseIndex || '-1');
-              if (overIndex !== -1 && overIndex !== touchDraggedIndex) {
-                setDragOverIndex(overIndex);
-                
-                if ('vibrate' in navigator) {
-                  navigator.vibrate(20);
-                }
-              }
+            const elementIndex = parseInt((exerciseEl as HTMLElement).dataset.exerciseIndex || '-1');
+            if (elementIndex !== -1 && elementIndex !== touchDraggedIndex) {
+              targetIndex = elementIndex;
+              break;
             }
           }
+        }
+        
+        // Update drag over index if changed
+        if (targetIndex !== null && targetIndex !== dragOverIndex) {
+          setDragOverIndex(targetIndex);
+          console.log('Touch drag over index:', targetIndex);
+          
+          if ('vibrate' in navigator) {
+            navigator.vibrate(20);
+          }
+        } else if (targetIndex === null && dragOverIndex !== null) {
+          // Clear drag over when not over any exercise
+          setDragOverIndex(null);
         }
       }
     };
