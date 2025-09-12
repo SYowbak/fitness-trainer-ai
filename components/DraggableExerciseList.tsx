@@ -300,13 +300,15 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
               ${isDropTarget ? 'ring-2 ring-purple-400 ring-opacity-50' : ''}
             `}
           >
-            {/* Compact mode overlay during dragging */}
-            {compactMode && isDragging && !isDraggedItem && (
-              <div className="absolute inset-0 bg-gray-900/95 backdrop-blur-sm z-10 flex items-center justify-center rounded-lg border border-purple-400/50">
+            {/* Compact mode overlay during dragging - show for ALL items when dragging */}
+            {compactMode && isDragging && (
+              <div className={`absolute inset-0 bg-gray-900/95 backdrop-blur-sm z-10 flex items-center justify-center rounded-lg ${
+                isDropTarget ? 'border-2 border-purple-400' : 'border border-purple-400/50'
+              }`}>
                 <div className="text-center px-3 py-2 max-w-full">
                   <div className="flex items-center justify-center space-x-2">
-                    <i className="fas fa-arrows-alt-v text-purple-400 text-sm"></i>
-                    <p className="text-purple-300 font-medium text-sm leading-tight break-words">{exercise.name}</p>
+                    <i className={`fas fa-arrows-alt-v text-sm ${isDraggedItem ? 'text-purple-300' : 'text-purple-400'}`}></i>
+                    <p className={`font-medium text-sm leading-tight break-words ${isDraggedItem ? 'text-white' : 'text-purple-300'}`}>{exercise.name}</p>
                   </div>
                 </div>
               </div>
