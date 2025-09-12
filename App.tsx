@@ -28,7 +28,7 @@ type View = 'profile' | 'workout' | 'progress';
 const App: React.FC = () => {
   const { user, loading, logout, setUser } = useAuth();
   const { workoutPlan, saveWorkoutPlan, profile: firestoreProfile, workoutLogs: firestoreWorkoutLogs, saveProfile, saveWorkoutLog } = useUserData();
-  const { session, startWorkout, updateExercise, addCustomExercise, endWorkout, updateTimer, updateWellnessCheck, updateAdaptiveWorkoutPlan, updateWellnessRecommendations } = useWorkoutSync(user?.uid || '');
+  const { session, startWorkout, updateExercise, addCustomExercise, endWorkout, updateTimer, updateWellnessCheck, updateAdaptiveWorkoutPlan, updateWellnessRecommendations, updateExerciseOrder } = useWorkoutSync(user?.uid || '');
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [currentWorkoutPlan, setCurrentWorkoutPlan] = useState<DailyWorkoutPlan[] | null>(null);
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
@@ -401,6 +401,33 @@ const App: React.FC = () => {
     }
   }, [saveWorkoutPlan]);
 
+  // Handler for reordering exercises during active workout
+  const handleReorderExercises = useCallback((newExercises: Exercise[]) => {
+    if (session.activeDay !== null) {
+      // Update session exercises order immediately for UI responsiveness
+      updateExerciseOrder(newExercises);
+    }
+  }, [session.activeDay, updateExerciseOrder]);
+
+  // Handler for saving exercise order permanently
+  const handleSaveExerciseOrder = useCallback(async (dayNumber: number, exercises: Exercise[]) => {
+    if (!currentWorkoutPlan) return;
+    
+    try {
+      const updatedPlan = currentWorkoutPlan.map(dayPlan => 
+        dayPlan.day === dayNumber 
+          ? { ...dayPlan, exercises }
+          : dayPlan
+      );
+      
+      await saveWorkoutPlan(updatedPlan);
+      setCurrentWorkoutPlan(updatedPlan);
+    } catch (error) {
+      console.error('Error saving exercise order:', error);
+      setError('Не вдалося зберегти новий порядок вправ');
+    }
+  }, [currentWorkoutPlan, saveWorkoutPlan]);
+
   const handleAnalyzeWorkoutFromLog = useCallback(async (logToAnalyze: WorkoutLog) => {
     if (!userProfile || !currentWorkoutPlan || !logToAnalyze.id) return;
     setIsAnalyzing(true);
@@ -581,6 +608,8 @@ const App: React.FC = () => {
                 adaptations: session.adaptiveWorkoutPlan.adaptations || []
               } : null}
               onAddExerciseClick={() => setIsAddExerciseOpen(true)}
+              onReorderExercises={handleReorderExercises}
+              onSaveExerciseOrder={handleSaveExerciseOrder}
             />
           </div>
         );
