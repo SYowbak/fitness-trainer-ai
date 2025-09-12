@@ -28,6 +28,7 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
   const [touchCurrentY, setTouchCurrentY] = useState<number>(0);
   const touchItemRef = useRef<HTMLDivElement | null>(null);
   const dragHandleRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  const autoScrollInterval = useRef<NodeJS.Timeout | null>(null);
 
   const handleDragStart = useCallback((e: React.DragEvent, index: number) => {
     if (disabled) return;
@@ -109,6 +110,7 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
       }
       
       const touch = e.touches[0];
+      
       setTouchDraggedIndex(index);
       setTouchStartY(touch.clientY);
       setTouchCurrentY(touch.clientY);
@@ -137,6 +139,30 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
       
       if (deltaY > 8) {
         setTouchCurrentY(touch.clientY);
+        
+        // Auto-scroll functionality
+        const scrollThreshold = 100; // pixels from edge
+        const scrollSpeed = 10; // pixels per scroll
+        const viewportHeight = window.innerHeight;
+        
+        // Clear existing auto-scroll
+        if (autoScrollInterval.current) {
+          clearInterval(autoScrollInterval.current);
+          autoScrollInterval.current = null;
+        }
+        
+        // Check if we need to scroll up
+        if (touch.clientY < scrollThreshold) {
+          autoScrollInterval.current = setInterval(() => {
+            window.scrollBy(0, -scrollSpeed);
+          }, 16); // ~60fps
+        }
+        // Check if we need to scroll down
+        else if (touch.clientY > viewportHeight - scrollThreshold) {
+          autoScrollInterval.current = setInterval(() => {
+            window.scrollBy(0, scrollSpeed);
+          }, 16);
+        }
         
         // Find all exercise elements in the page
         const allExerciseElements = document.querySelectorAll('[data-exercise-index]');
@@ -176,6 +202,12 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
     
     const handleTouchEnd = () => {
       if (touchDraggedIndex === null) return;
+      
+      // Clear auto-scroll
+      if (autoScrollInterval.current) {
+        clearInterval(autoScrollInterval.current);
+        autoScrollInterval.current = null;
+      }
       
       console.log('Touch end - draggedIndex:', touchDraggedIndex, 'dragOverIndex:', dragOverIndex);
       
@@ -245,7 +277,8 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
         transform: isOver ? `translateY(${(draggedIndex !== null || touchDraggedIndex !== null) && (draggedIndex || touchDraggedIndex)! < index ? '-4px' : '4px'})` : 
                    (touchDraggedIndex === index ? `translateY(${touchCurrentY - touchStartY}px)` : 'translateY(0)'),
         transition: touchDraggedIndex === index ? 'none' : 'transform 0.2s ease, opacity 0.2s ease',
-        touchAction: disabled ? 'auto' : 'manipulation' // Better touch handling
+        touchAction: disabled ? 'auto' : 'manipulation', // Better touch handling
+        zIndex: touchDraggedIndex === index ? 1000 : 'auto' // Bring dragged item to front
       }
     };
   }, [disabled, draggedIndex, dragOverIndex, touchDraggedIndex, touchStartY, touchCurrentY, handleDragStart, handleDragOver, handleDragLeave, handleDrop, handleDragEnd]);
@@ -316,10 +349,10 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
             )}
             
             {!disabled && (
-              <div className={`absolute left-2 top-1/2 transform -translate-y-1/2 z-20 ${compactMode && isDragging ? 'opacity-0 pointer-events-none' : ''}`}>
+              <div className={`absolute left-1 top-1/2 transform -translate-y-1/2 z-20 ${compactMode && isDragging ? 'opacity-0 pointer-events-none' : ''}`}>
                 <div 
                   {...getDragHandleTouchProps(index)}
-                  className="flex flex-col items-center justify-center w-12 h-16 cursor-grab active:cursor-grabbing hover:bg-gray-600/30 rounded transition-colors select-none" 
+                  className="flex flex-col items-center justify-center w-8 h-12 cursor-grab active:cursor-grabbing hover:bg-gray-600/30 rounded transition-colors select-none" 
                   title="Перетягніть для зміни порядку"
                   style={{
                     touchAction: 'none',
@@ -330,18 +363,16 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
                     MozUserSelect: 'none'
                   }}
                 >
-                  <div className="flex flex-col space-y-1 pointer-events-none">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                  <div className="flex flex-col space-y-0.5 pointer-events-none">
+                    <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
+                    <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
+                    <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
+                    <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
                   </div>
                 </div>
               </div>
             )}
-            <div className={`${!disabled ? 'ml-14 sm:ml-12' : ''} ${compactMode && isDragging ? 'opacity-0 pointer-events-none' : ''}`}>
+            <div className={`${!disabled ? 'ml-10' : ''} ${compactMode && isDragging ? 'opacity-0 pointer-events-none' : ''}`}>
               {children(exercise, index, getDragHandleProps(index))}
             </div>
           </div>
