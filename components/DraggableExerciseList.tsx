@@ -112,10 +112,10 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
     
     // Add haptic feedback on mobile
     if ('vibrate' in navigator) {
-      navigator.vibrate(50);
+      navigator.vibrate(100); // Stronger initial vibration
     }
     
-    console.log('Touch start on index:', index);
+    console.log('Touch start on index:', index, 'at Y:', touch.clientY);
   }, [disabled]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
@@ -124,31 +124,44 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
     const touch = e.touches[0];
     const deltaY = Math.abs(touch.clientY - touchStartY);
     
-    // Only start dragging if moved more than 3px vertically (further reduced threshold)
-    if (deltaY > 3) {
+    // Only start dragging if moved more than 8px vertically (increased for mobile stability)
+    if (deltaY > 8) {
       setTouchCurrentY(touch.clientY);
       
-      // Find which element we're over using more reliable method
-      const elements = document.elementsFromPoint(touch.clientX, touch.clientY);
-      let exerciseElement = null;
-      
-      for (const element of elements) {
-        const exerciseEl = element.closest('[data-exercise-index]') as HTMLElement;
-        if (exerciseEl && exerciseEl.dataset.exerciseIndex) {
-          exerciseElement = exerciseEl;
-          break;
-        }
-      }
-      
-      if (exerciseElement) {
-        const overIndex = parseInt(exerciseElement.dataset.exerciseIndex || '-1');
-        if (overIndex !== -1 && overIndex !== touchDraggedIndex) {
-          setDragOverIndex(overIndex);
-          console.log('Touch drag over index:', overIndex);
+      // Get the container bounds to prevent dragging outside
+      const container = document.querySelector('[data-exercise-index]')?.parentElement;
+      if (container) {
+        const containerRect = container.getBoundingClientRect();
+        
+        // Only proceed if touch is within container bounds
+        if (touch.clientX >= containerRect.left && 
+            touch.clientX <= containerRect.right &&
+            touch.clientY >= containerRect.top && 
+            touch.clientY <= containerRect.bottom) {
           
-          // Add haptic feedback when hovering over drop target
-          if ('vibrate' in navigator) {
-            navigator.vibrate(20);
+          // Find which element we're over using more reliable method
+          const elements = document.elementsFromPoint(touch.clientX, touch.clientY);
+          let exerciseElement = null;
+          
+          for (const element of elements) {
+            const exerciseEl = element.closest('[data-exercise-index]') as HTMLElement;
+            if (exerciseEl && exerciseEl.dataset.exerciseIndex) {
+              exerciseElement = exerciseEl;
+              break;
+            }
+          }
+          
+          if (exerciseElement) {
+            const overIndex = parseInt(exerciseElement.dataset.exerciseIndex || '-1');
+            if (overIndex !== -1 && overIndex !== touchDraggedIndex) {
+              setDragOverIndex(overIndex);
+              console.log('Touch drag over index:', overIndex);
+              
+              // Add haptic feedback when hovering over drop target
+              if ('vibrate' in navigator) {
+                navigator.vibrate(20);
+              }
+            }
           }
         }
       }
@@ -168,8 +181,8 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
     if (dragOverIndex !== null && dragOverIndex !== touchDraggedIndex) {
       const deltaY = Math.abs(touchCurrentY - touchStartY);
       
-      // Only reorder if we moved significantly (more than 3px, further reduced threshold)
-      if (deltaY > 3) {
+      // Only reorder if we moved significantly (more than 8px for stability)
+      if (deltaY > 8) {
         console.log('Reordering from', touchDraggedIndex, 'to', dragOverIndex);
         const newExercises = [...exercises];
         const draggedExercise = newExercises[touchDraggedIndex];
@@ -284,44 +297,34 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
               <div className="absolute left-2 top-1/2 transform -translate-y-1/2 z-20">
                 <div 
                   {...getDragHandleTouchProps(index)}
-                  className="flex flex-col items-center justify-center w-10 h-12 cursor-grab active:cursor-grabbing hover:bg-gray-600/30 rounded transition-colors select-none" 
+                  className="flex flex-col items-center justify-center w-12 h-16 cursor-grab active:cursor-grabbing hover:bg-gray-600/30 rounded transition-colors select-none" 
                   title="Перетягніть для зміни порядку"
+                  style={{
+                    touchAction: 'none',
+                    userSelect: 'none',
+                    WebkitTouchCallout: 'none',
+                    WebkitUserSelect: 'none',
+                    msUserSelect: 'none',
+                    MozUserSelect: 'none'
+                  }}
                 >
                   <div className="flex flex-col space-y-1 pointer-events-none">
-                    <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
-                    <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
-                    <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
-                    <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
-                    <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
-                    <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
                   </div>
                   {/* Mobile hint */}
-                  <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-xs text-gray-500 whitespace-nowrap opacity-60 sm:hidden pointer-events-none">
+                  <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-xs text-gray-500 whitespace-nowrap opacity-60 sm:hidden pointer-events-none">
                     Утримайте
                   </div>
                 </div>
               </div>
             )}
-            <div className={!disabled ? 'ml-12 sm:ml-10' : ''}>
-              <div
-                {...(disabled ? {} : {
-                  onTouchStart: (e: React.TouchEvent) => {
-                    // Add touch events to entire card for better mobile support
-                    if (e.touches.length === 1) {
-                      handleTouchStart(e, index);
-                    }
-                  },
-                  onTouchMove: handleTouchMove,
-                  onTouchEnd: handleTouchEnd
-                })}
-                style={disabled ? {} : {
-                  touchAction: 'pan-y',
-                  userSelect: 'none' as const,
-                  WebkitUserSelect: 'none' as const
-                }}
-              >
-                {children(exercise, index, getDragHandleProps(index))}
-              </div>
+            <div className={!disabled ? 'ml-14 sm:ml-12' : ''}>
+              {children(exercise, index, getDragHandleProps(index))}
             </div>
           </div>
         );
