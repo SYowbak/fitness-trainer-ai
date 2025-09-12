@@ -230,6 +230,7 @@ const WorkoutEditMode: React.FC<WorkoutEditModeProps> = ({
             exercises={currentDayPlan?.exercises || []}
             onReorder={(newExercises) => handleReorderExercises(selectedDay, newExercises)}
             disabled={false}
+            compactMode={true} // Enable compact mode for better dragging experience in edit mode
           >
             {(exercise, index) => (
               <div className="p-4 bg-gray-700/50 rounded-lg">

@@ -9,6 +9,8 @@ interface QuotaStatus {
   dailyLimit: number;
   isExceeded: boolean;
   retryAfter?: number;
+  serviceOverloaded?: boolean;
+  lastOverloadTime?: number;
 }
 
 interface RetryInfo {
@@ -86,29 +88,67 @@ class ApiQuotaManager {
   }
 
   /**
-   * Get retry information for failed requests
+   * Record a service overload error (503)
    */
-  getRetryInfo(attempt: number = 1): RetryInfo {
+  recordServiceOverload(): void {
+    const status = this.getQuotaStatus();
+    status.serviceOverloaded = true;
+    status.lastOverloadTime = Date.now();
+    this.saveQuotaStatus(status);
+  }
+
+  /**
+   * Check if service is currently considered overloaded
+   */
+  isServiceOverloaded(): boolean {
     const status = this.getQuotaStatus();
     
-    if (!status.isExceeded) {
+    if (!status.serviceOverloaded || !status.lastOverloadTime) {
+      return false;
+    }
+    
+    // Consider service overloaded for 10 minutes after last 503 error (increased from 5)
+    const OVERLOAD_COOLDOWN = 10 * 60 * 1000; // 10 minutes
+    return Date.now() - status.lastOverloadTime < OVERLOAD_COOLDOWN;
+  }
+
+  /**
+   * Clear service overload status
+   */
+  clearServiceOverload(): void {
+    const status = this.getQuotaStatus();
+    status.serviceOverloaded = false;
+    status.lastOverloadTime = undefined;
+    this.saveQuotaStatus(status);
+  }
+
+  /**
+   * Get retry information for failed requests
+   */
+  getRetryInfo(attempt: number = 1, isServiceOverload: boolean = false): RetryInfo {
+    const status = this.getQuotaStatus();
+    
+    if (!status.isExceeded && !isServiceOverload) {
       return { shouldRetry: false, delayMs: 0, attemptsLeft: 0 };
     }
 
-    const maxAttempts = 3;
+    const maxAttempts = isServiceOverload ? 2 : 3; // Fewer retries for service overload
     const attemptsLeft = Math.max(0, maxAttempts - attempt);
     
     if (attemptsLeft === 0) {
       return { shouldRetry: false, delayMs: 0, attemptsLeft: 0 };
     }
 
-    // Calculate delay based on retry-after header or exponential backoff
+    // Calculate delay based on error type
     let delayMs = 60000; // Default 1 minute
     
-    if (status.retryAfter && status.retryAfter > Date.now()) {
+    if (isServiceOverload) {
+      // For service overload: 30s, 2min (shorter delays, fewer retries)
+      delayMs = attempt === 1 ? 30000 : 120000;
+    } else if (status.retryAfter && status.retryAfter > Date.now()) {
       delayMs = status.retryAfter - Date.now();
     } else {
-      // Exponential backoff: 1min, 5min, 15min
+      // Exponential backoff for quota errors: 1min, 5min, 15min
       delayMs = Math.min(60000 * Math.pow(3, attempt - 1), 900000);
     }
 
@@ -135,6 +175,10 @@ class ApiQuotaManager {
    */
   getStatusMessage(): string {
     const status = this.getQuotaStatus();
+    
+    if (this.isServiceOverloaded()) {
+      return 'AI service temporarily overloaded. Some features may be limited.';
+    }
     
     if (!status.isExceeded) {
       const remaining = status.dailyLimit - status.requestCount;
@@ -199,6 +243,19 @@ export async function withQuotaManagement<T>(
   const quotaManager = ApiQuotaManager.getInstance();
   const { skipOnQuotaExceeded = false } = options;
 
+  // Check if service is overloaded before making any request
+  if (quotaManager.isServiceOverloaded()) {
+    // For low/medium priority features, immediately return fallback during service overload
+    if ((options.priority === 'low' || options.priority === 'medium') && skipOnQuotaExceeded && fallbackValue !== undefined) {
+      console.warn('AI service overloaded, skipping non-critical feature');
+      return fallbackValue;
+    }
+    // For high priority features, allow one attempt but with longer delay
+    if (options.priority !== 'high') {
+      throw new Error('AI service is temporarily overloaded. Please try again in a few minutes.');
+    }
+  }
+
   // Check if we can make the request
   if (!quotaManager.canMakeRequest()) {
     if (skipOnQuotaExceeded && fallbackValue !== undefined) {
@@ -215,12 +272,24 @@ export async function withQuotaManagement<T>(
     try {
       const result = await apiCall();
       quotaManager.recordRequest();
+      
+      // Clear service overload status on successful request
+      if (quotaManager.isServiceOverloaded()) {
+        quotaManager.clearServiceOverload();
+      }
+      
       return result;
     } catch (error: any) {
       // Check if it's a quota error
       const isQuotaError = error.message?.includes('429') || 
                           error.message?.includes('quota') ||
                           error.message?.includes('Too Many Requests');
+      
+      // Check if it's a service overload error
+      const isServiceOverloadError = error.message?.includes('503') ||
+                                    error.message?.includes('Service Unavailable') ||
+                                    error.message?.includes('overload') ||
+                                    error.message?.includes('overloaded');
 
       if (isQuotaError) {
         // Extract retry-after from error message if available
@@ -234,14 +303,27 @@ export async function withQuotaManagement<T>(
           return fallbackValue;
         }
       }
+      
+      if (isServiceOverloadError) {
+        quotaManager.recordServiceOverload();
+        
+        // For any priority feature during service overload, use fallback immediately
+        if (skipOnQuotaExceeded && fallbackValue !== undefined) {
+          console.warn('AI service overloaded, using fallback instead of retrying');
+          return fallbackValue;
+        }
+        
+        // If no fallback available, don't retry on service overload - fail fast
+        throw new Error('AI service is temporarily overloaded. Please try again in a few minutes.');
+      }
 
-      const retryInfo = quotaManager.getRetryInfo(attempt);
+      const retryInfo = quotaManager.getRetryInfo(attempt, isServiceOverloadError);
       
       if (!retryInfo.shouldRetry || attempt >= maxAttempts) {
         throw error;
       }
 
-      console.warn(`API call failed (attempt ${attempt}/${maxAttempts}), retrying in ${retryInfo.delayMs}ms...`);
+      console.warn(`API call failed (attempt ${attempt}/${maxAttempts}), retrying in ${Math.round(retryInfo.delayMs/1000)}s...`);
       
       // Wait before retry
       await new Promise(resolve => setTimeout(resolve, retryInfo.delayMs));
@@ -258,6 +340,12 @@ export async function withQuotaManagement<T>(
 export function shouldEnableAIFeature(feature: 'variations' | 'analysis' | 'chat' | 'recommendations'): boolean {
   const quotaManager = ApiQuotaManager.getInstance();
   const status = quotaManager.getQuotaStatus();
+  
+  // If service is overloaded, disable all non-essential features
+  if (quotaManager.isServiceOverloaded()) {
+    const essentialFeatures: string[] = []; // No features are considered essential during overload
+    return essentialFeatures.includes(feature);
+  }
   
   if (!status.isExceeded) return true;
   

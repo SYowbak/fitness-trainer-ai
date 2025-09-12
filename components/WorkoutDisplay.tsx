@@ -73,10 +73,14 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
     if (activeDay !== null) {
       // Store original order if not already stored
       if (originalExerciseOrder.length === 0) {
-        setOriginalExerciseOrder(sessionExercises);
+        setOriginalExerciseOrder([...sessionExercises]); // Create a copy
       }
-      setTempReorderedExercises(newExercises);
+      setTempReorderedExercises([...newExercises]); // Create a copy
       onReorderExercises?.(newExercises);
+      
+      // Debug logging
+      console.log('Reordered exercises:', newExercises.map(e => e.name));
+      console.log('Original exercises:', originalExerciseOrder.map(e => e.name));
     }
   };
 
@@ -102,18 +106,29 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
 
   // Handler for when workout ends - check if order was changed
   const handleEndWorkoutWithOrderCheck = () => {
+    console.log('Checking order changes...');
+    console.log('tempReorderedExercises length:', tempReorderedExercises.length);
+    console.log('originalExerciseOrder length:', originalExerciseOrder.length);
+    
     if (tempReorderedExercises.length > 0 && originalExerciseOrder.length > 0) {
-      // Check if order actually changed
-      const orderChanged = tempReorderedExercises.some((exercise, index) => 
-        exercise.id !== originalExerciseOrder[index]?.id
-      );
+      // Check if order actually changed by comparing exercise IDs
+      const orderChanged = tempReorderedExercises.some((exercise, index) => {
+        const originalAtIndex = originalExerciseOrder[index];
+        const changed = !originalAtIndex || exercise.id !== originalAtIndex.id;
+        console.log(`Index ${index}: ${exercise.name} vs ${originalAtIndex?.name} - Changed: ${changed}`);
+        return changed;
+      });
+      
+      console.log('Order changed:', orderChanged);
       
       if (orderChanged) {
+        console.log('Showing save order modal');
         setShowSaveOrderModal(true);
         return;
       }
     }
     
+    console.log('No order changes, ending workout normally');
     // No order changes, proceed with normal workout end
     onEndWorkout();
   };
