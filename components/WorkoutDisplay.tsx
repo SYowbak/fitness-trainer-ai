@@ -115,7 +115,7 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
       const orderChanged = tempReorderedExercises.some((exercise, index) => {
         const originalAtIndex = originalExerciseOrder[index];
         const changed = !originalAtIndex || exercise.id !== originalAtIndex.id;
-        console.log(`Index ${index}: ${exercise.name} vs ${originalAtIndex?.name} - Changed: ${changed}`);
+        console.log(`Index ${index}: ${exercise.name} (ID: ${exercise.id}) vs ${originalAtIndex?.name} (ID: ${originalAtIndex?.id}) - Changed: ${changed}`);
         return changed;
       });
       
