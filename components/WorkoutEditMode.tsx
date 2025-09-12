@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { DailyWorkoutPlan, Exercise, UserProfile, WeightType } from '../types';
 import { generateNewExercise, regenerateExercise, completeExerciseDetails } from '../services/workoutEditService';
 import Spinner from './Spinner';
+import DraggableExerciseList from './DraggableExerciseList';
 import { UI_TEXT } from '../constants';
 
 interface WorkoutEditModeProps {
@@ -41,6 +42,19 @@ const WorkoutEditMode: React.FC<WorkoutEditModeProps> = ({
   const [loadingExerciseIndex, setLoadingExerciseIndex] = useState<number | null>(null);
   const [changedExerciseNames, setChangedExerciseNames] = useState<Set<string>>(new Set());
 
+  const handleReorderExercises = (dayNumber: number, newExercises: Exercise[]) => {
+    setEditedPlan(prevPlan => {
+      const newPlan = [...prevPlan];
+      const dayIndex = newPlan.findIndex(d => d.day === dayNumber);
+      if (dayIndex !== -1) {
+        newPlan[dayIndex] = {
+          ...newPlan[dayIndex],
+          exercises: newExercises
+        };
+      }
+      return newPlan;
+    });
+  };
   const handleDeleteExercise = (dayNumber: number, exerciseIndex: number) => {
     setEditedPlan(prevPlan => {
       const newPlan = [...prevPlan];
@@ -212,91 +226,97 @@ const WorkoutEditMode: React.FC<WorkoutEditModeProps> = ({
         <Spinner message="Генерація вправи..." />
       ) : (
         <div className="space-y-6">
-          {currentDayPlan?.exercises.map((exercise, index) => (
-            <div key={index} className="p-4 bg-gray-700/50 rounded-lg">
-              <div className="flex justify-end items-center space-x-1 mb-2">
-                {isLoading && loadingExerciseIndex === index ? (
-                  <Spinner message="" />
-                ) : (
+          <DraggableExerciseList
+            exercises={currentDayPlan?.exercises || []}
+            onReorder={(newExercises) => handleReorderExercises(selectedDay, newExercises)}
+            disabled={false}
+          >
+            {(exercise, index) => (
+              <div className="p-4 bg-gray-700/50 rounded-lg">
+                <div className="flex justify-end items-center space-x-1 mb-2">
+                  {isLoading && loadingExerciseIndex === index ? (
+                    <Spinner message="" />
+                  ) : (
+                    <button
+                      onClick={() => handleCompleteDetails(selectedDay, index)}
+                      className={`px-2 py-1 rounded transition-colors text-xs flex items-center justify-center min-w-[70px] h-[24px] ${
+                        changedExerciseNames.has(`${selectedDay}-${index}`)
+                          ? 'bg-green-600 hover:bg-green-700 text-white'
+                          : 'bg-gray-500 cursor-not-allowed text-gray-400'
+                      }`}
+                      title={UI_TEXT.completeExerciseDetails}
+                      disabled={!changedExerciseNames.has(`${selectedDay}-${index}`)}
+                    >
+                      {UI_TEXT.completeExerciseDetails}
+                    </button>
+                  )}
                   <button
-                    onClick={() => handleCompleteDetails(selectedDay, index)}
-                    className={`px-2 py-1 rounded transition-colors text-xs flex items-center justify-center min-w-[70px] h-[24px] ${
-                      changedExerciseNames.has(`${selectedDay}-${index}`)
-                        ? 'bg-green-600 hover:bg-green-700 text-white'
-                        : 'bg-gray-500 cursor-not-allowed text-gray-400'
-                    }`}
-                    title={UI_TEXT.completeExerciseDetails}
-                    disabled={!changedExerciseNames.has(`${selectedDay}-${index}`)}
+                    onClick={() => handleRegenerateExercise(selectedDay, index)}
+                    className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex-shrink-0 flex items-center justify-center min-w-[70px] h-[24px]"
+                    title="Перегенерувати вправу"
                   >
-                    {UI_TEXT.completeExerciseDetails}
+                    Перегенерувати
                   </button>
-                )}
-                <button
-                  onClick={() => handleRegenerateExercise(selectedDay, index)}
-                  className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex-shrink-0 flex items-center justify-center min-w-[70px] h-[24px]"
-                  title="Перегенерувати вправу"
-                >
-                  Перегенерувати
-                </button>
-                <button
-                  onClick={() => handleDeleteExercise(selectedDay, index)}
-                  className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 transition-colors flex-shrink-0 flex items-center justify-center min-w-[70px] h-[24px]"
-                  title="Видалити вправу"
-                >
-                  Видалити
-                </button>
-              </div>
+                  <button
+                    onClick={() => handleDeleteExercise(selectedDay, index)}
+                    className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 transition-colors flex-shrink-0 flex items-center justify-center min-w-[70px] h-[24px]"
+                    title="Видалити вправу"
+                  >
+                    Видалити
+                  </button>
+                </div>
 
-              <div className="mb-4">
-                <input
-                  type="text"
-                  value={exercise.name}
-                  onChange={(e) => handleUpdateExercise(selectedDay, index, 'name', e.target.value)}
-                  className="w-full p-2 bg-gray-700 text-white rounded border border-gray-600"
-                />
-                <p className="text-xs text-gray-400 mt-1">Тип ваги: {exercise.weightType}</p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                <div>
-                  <label className="block text-gray-300 mb-1">Підходи:</label>
+                <div className="mb-4">
                   <input
                     type="text"
-                    value={exercise.sets}
-                    onChange={(e) => handleUpdateExercise(selectedDay, index, 'sets', e.target.value)}
+                    value={exercise.name}
+                    onChange={(e) => handleUpdateExercise(selectedDay, index, 'name', e.target.value)}
                     className="w-full p-2 bg-gray-700 text-white rounded border border-gray-600"
                   />
+                  <p className="text-xs text-gray-400 mt-1">Тип ваги: {exercise.weightType}</p>
                 </div>
-                <div>
-                  <label className="block text-gray-300 mb-1">Повторення:</label>
-                  <input
-                    type="text"
-                    value={exercise.reps}
-                    onChange={(e) => handleUpdateExercise(selectedDay, index, 'reps', e.target.value)}
-                    className="w-full p-2 bg-gray-700 text-white rounded border border-gray-600"
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-300 mb-1">Відпочинок:</label>
-                  <input
-                    type="text"
-                    value={exercise.rest}
-                    onChange={(e) => handleUpdateExercise(selectedDay, index, 'rest', e.target.value)}
-                    className="w-full p-2 bg-gray-700 text-white rounded border border-gray-600"
-                  />
-                </div>
-              </div>
 
-              <div className="mb-4">
-                <label className="block text-gray-300 mb-1">Опис техніки:</label>
-                <textarea
-                  value={exercise.description}
-                  onChange={(e) => handleUpdateExercise(selectedDay, index, 'description', e.target.value)}
-                  className="w-full p-2 bg-gray-700 text-white rounded border border-gray-600 h-32"
-                />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                  <div>
+                    <label className="block text-gray-300 mb-1">Підходи:</label>
+                    <input
+                      type="text"
+                      value={exercise.sets}
+                      onChange={(e) => handleUpdateExercise(selectedDay, index, 'sets', e.target.value)}
+                      className="w-full p-2 bg-gray-700 text-white rounded border border-gray-600"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-300 mb-1">Повторення:</label>
+                    <input
+                      type="text"
+                      value={exercise.reps}
+                      onChange={(e) => handleUpdateExercise(selectedDay, index, 'reps', e.target.value)}
+                      className="w-full p-2 bg-gray-700 text-white rounded border border-gray-600"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-300 mb-1">Відпочинок:</label>
+                    <input
+                      type="text"
+                      value={exercise.rest}
+                      onChange={(e) => handleUpdateExercise(selectedDay, index, 'rest', e.target.value)}
+                      className="w-full p-2 bg-gray-700 text-white rounded border border-gray-600"
+                    />
+                  </div>
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-gray-300 mb-1">Опис техніки:</label>
+                  <textarea
+                    value={exercise.description}
+                    onChange={(e) => handleUpdateExercise(selectedDay, index, 'description', e.target.value)}
+                    className="w-full p-2 bg-gray-700 text-white rounded border border-gray-600 h-32"
+                  />
+                </div>
               </div>
-            </div>
-          ))}
+            )}
+          </DraggableExerciseList>
 
           <button
             onClick={() => handleAddExercise(selectedDay)}

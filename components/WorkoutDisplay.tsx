@@ -4,6 +4,8 @@ import { UI_TEXT } from '../constants';
 import ExerciseCard from './ExerciseCard';
 import Spinner from './Spinner';
 import WorkoutEditMode from './WorkoutEditMode';
+import DraggableExerciseList from './DraggableExerciseList';
+import SaveOrderModal from './SaveOrderModal';
 
 interface WorkoutDisplayProps {
   userProfile: UserProfile | null;
@@ -25,7 +27,9 @@ interface WorkoutDisplayProps {
   progressTrends?: any;
   wellnessCheck?: WellnessCheck | null;
   adaptiveWorkoutPlan?: AdaptiveWorkoutPlan | null;
-  onAddExerciseClick: () => void; // Додаємо пропс для відкриття модального вікна додавання вправи
+  onAddExerciseClick: () => void;
+  onReorderExercises?: (exercises: ExerciseType[]) => void; // Add new prop for exercise reordering
+  onSaveExerciseOrder?: (dayNumber: number, exercises: ExerciseType[]) => void; // Add new prop for saving order permanently
 }
 
 const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
@@ -48,14 +52,71 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
   progressTrends,
   wellnessCheck,
   adaptiveWorkoutPlan,
-  onAddExerciseClick // Отримуємо пропс
+  onAddExerciseClick, // Отримуємо пропс
+  onReorderExercises,
+  onSaveExerciseOrder
 }) => {
   const [selectedDayForView, setSelectedDayForView] = useState<number | null>(
     workoutPlan && workoutPlan.length > 0 ? workoutPlan[0].day : null
   );
   const [isEditMode, setIsEditMode] = useState<boolean>(false);
+  
+  // New state for drag-and-drop functionality in active workout
+  const [tempReorderedExercises, setTempReorderedExercises] = useState<ExerciseType[]>([]);
+  const [originalExerciseOrder, setOriginalExerciseOrder] = useState<ExerciseType[]>([]);
+  const [showSaveOrderModal, setShowSaveOrderModal] = useState<boolean>(false);
 
   const isWorkoutPlanValid = workoutPlan && Array.isArray(workoutPlan);
+
+  // Handler for temporary exercise reordering during active workout
+  const handleTempExerciseReorder = (newExercises: ExerciseType[]) => {
+    if (activeDay !== null) {
+      // Store original order if not already stored
+      if (originalExerciseOrder.length === 0) {
+        setOriginalExerciseOrder(sessionExercises);
+      }
+      setTempReorderedExercises(newExercises);
+      onReorderExercises?.(newExercises);
+    }
+  };
+
+  // Handler for saving exercise order permanently
+  const handleSaveOrder = () => {
+    if (activeDay !== null && onSaveExerciseOrder) {
+      onSaveExerciseOrder(activeDay, tempReorderedExercises);
+    }
+    setShowSaveOrderModal(false);
+    setTempReorderedExercises([]);
+    setOriginalExerciseOrder([]);
+  };
+
+  // Handler for discarding exercise order changes
+  const handleDiscardOrder = () => {
+    if (activeDay !== null && originalExerciseOrder.length > 0) {
+      onReorderExercises?.(originalExerciseOrder);
+    }
+    setShowSaveOrderModal(false);
+    setTempReorderedExercises([]);
+    setOriginalExerciseOrder([]);
+  };
+
+  // Handler for when workout ends - check if order was changed
+  const handleEndWorkoutWithOrderCheck = () => {
+    if (tempReorderedExercises.length > 0 && originalExerciseOrder.length > 0) {
+      // Check if order actually changed
+      const orderChanged = tempReorderedExercises.some((exercise, index) => 
+        exercise.id !== originalExerciseOrder[index]?.id
+      );
+      
+      if (orderChanged) {
+        setShowSaveOrderModal(true);
+        return;
+      }
+    }
+    
+    // No order changes, proceed with normal workout end
+    onEndWorkout();
+  };
 
   if (isLoading && (!isWorkoutPlanValid || workoutPlan.length === 0) && activeDay === null) {
     return <Spinner message={UI_TEXT.generatingWorkout} />;
@@ -407,7 +468,7 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
               {workoutTimerDisplay}
             </span>
             <button
-              onClick={onEndWorkout}
+              onClick={handleEndWorkoutWithOrderCheck}
               className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
             >
               {UI_TEXT.endWorkout}
@@ -417,34 +478,73 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
           )}
           
       <div className="space-y-4">
-        {exercisesToDisplay.map((exercise, index) => {
-          const variations = exerciseVariations.get(exercise.name) || [];
-          const adaptedExercise = getAdaptedExercise(exercise);
-          
-          return (
-            <ExerciseCard
-              key={adaptedExercise.id}
-              exercise={adaptedExercise}
-              isActive={activeDay !== null}
-              onLogExercise={(loggedSets, success) => {
-                const updatedExercises = [...exercisesToDisplay];
-                updatedExercises[index] = {
-                  ...adaptedExercise,
-                  isCompletedDuringSession: true,
-                  sessionLoggedSets: loggedSets,
-                  sessionSuccess: success
-                };
-                onLogExercise(index, loggedSets, success);
-              }}
-              onSkipExercise={() => onSkipExercise(index)}
-              recommendations={exerciseRecommendations}
-              variations={variations}
-              onSelectVariation={async (variation) => {
-                await onSelectVariation?.(exercise.name, variation);
-              }}
-            />
-          );
-        })}
+        {activeDay !== null ? (
+          /* Active workout mode with drag-and-drop */
+          <DraggableExerciseList
+            exercises={exercisesToDisplay}
+            onReorder={handleTempExerciseReorder}
+            disabled={false}
+          >
+            {(exercise, index) => {
+              const variations = exerciseVariations.get(exercise.name) || [];
+              const adaptedExercise = getAdaptedExercise(exercise);
+              
+              return (
+                <ExerciseCard
+                  key={adaptedExercise.id}
+                  exercise={adaptedExercise}
+                  isActive={activeDay !== null}
+                  onLogExercise={(loggedSets, success) => {
+                    const updatedExercises = [...exercisesToDisplay];
+                    updatedExercises[index] = {
+                      ...adaptedExercise,
+                      isCompletedDuringSession: true,
+                      sessionLoggedSets: loggedSets,
+                      sessionSuccess: success
+                    };
+                    onLogExercise(index, loggedSets, success);
+                  }}
+                  onSkipExercise={() => onSkipExercise(index)}
+                  recommendations={exerciseRecommendations}
+                  variations={variations}
+                  onSelectVariation={async (variation) => {
+                    await onSelectVariation?.(exercise.name, variation);
+                  }}
+                />
+              );
+            }}
+          </DraggableExerciseList>
+        ) : (
+          /* Normal view mode without drag-and-drop */
+          exercisesToDisplay.map((exercise, index) => {
+            const variations = exerciseVariations.get(exercise.name) || [];
+            const adaptedExercise = getAdaptedExercise(exercise);
+            
+            return (
+              <ExerciseCard
+                key={adaptedExercise.id}
+                exercise={adaptedExercise}
+                isActive={activeDay !== null}
+                onLogExercise={(loggedSets, success) => {
+                  const updatedExercises = [...exercisesToDisplay];
+                  updatedExercises[index] = {
+                    ...adaptedExercise,
+                    isCompletedDuringSession: true,
+                    sessionLoggedSets: loggedSets,
+                    sessionSuccess: success
+                  };
+                  onLogExercise(index, loggedSets, success);
+                }}
+                onSkipExercise={() => onSkipExercise(index)}
+                recommendations={exerciseRecommendations}
+                variations={variations}
+                onSelectVariation={async (variation) => {
+                  await onSelectVariation?.(exercise.name, variation);
+                }}
+              />
+            );
+          })
+        )}
         {activeDay !== null && (
           <button
             onClick={onAddExerciseClick}
@@ -455,6 +555,22 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
           </button>
         )}
       </div>
+      
+      {/* Save Order Modal */}
+      <SaveOrderModal
+        isOpen={showSaveOrderModal}
+        onClose={() => setShowSaveOrderModal(false)}
+        onSave={() => {
+          handleSaveOrder();
+          onEndWorkout();
+        }}
+        onDiscard={() => {
+          handleDiscardOrder();
+          onEndWorkout();
+        }}
+        reorderedExercises={tempReorderedExercises}
+        originalExercises={originalExerciseOrder}
+      />
     </div>
   );
 };

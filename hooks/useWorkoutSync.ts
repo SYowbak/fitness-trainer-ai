@@ -33,7 +33,6 @@ interface WorkoutSession {
 }
 
 export const useWorkoutSync = (userId: string) => {
-  // console.log("useWorkoutSync ініціалізовано з userId:", userId); // Лог для userId
   const [session, setSession] = useState<WorkoutSession>({
     activeDay: null,
     sessionExercises: [],
@@ -47,7 +46,6 @@ export const useWorkoutSync = (userId: string) => {
   // Підписуємось на зміни в базі даних
   useEffect(() => {
     if (!userId) {
-      // console.log("useWorkoutSync: userId відсутній, не підписуємось на Firebase Realtime Database.");
       return;
     }
     const sessionRef = ref(database, `workoutSessions/${userId}`);
@@ -131,12 +129,9 @@ export const useWorkoutSync = (userId: string) => {
             wellnessRecommendations: safeWellnessRecommendations,
           };
           
-          // Логуємо зміни для live-синхронізації
-          
           return newSession;
         });
       } else {
-        // console.log("Дані з Firebase Realtime Database порожні.");
         setSession({
           activeDay: null,
           sessionExercises: [],
@@ -158,7 +153,6 @@ export const useWorkoutSync = (userId: string) => {
 
   const startWorkout = async (dayNumber: number, exercises: Exercise[]) => {
     if (!userId) { console.error("startWorkout: userId відсутній."); return; }
-    // console.log("startWorkout викликано. День:", dayNumber, "Вправи:", exercises);
     const newSession: WorkoutSession = {
       activeDay: dayNumber,
       sessionExercises: exercises.map(ex => ({
@@ -169,14 +163,14 @@ export const useWorkoutSync = (userId: string) => {
         reps: ex.reps,
         rest: ex.rest,
         videoSearchQuery: ex.videoSearchQuery ?? null,
-        weightType: ex.weightType, // Додаємо weightType
+        weightType: ex.weightType,
         targetWeight: ex.targetWeight ?? null,
         targetReps: ex.targetReps ?? null,
         recommendation: ex.recommendation ?? null,
         isCompletedDuringSession: false,
         sessionLoggedSets: [],
         sessionSuccess: false,
-        isSkipped: false, // Додаємо isSkipped
+        isSkipped: false,
         notes: ex.notes ?? null,
       })),
       startTime: Date.now(),
@@ -187,15 +181,12 @@ export const useWorkoutSync = (userId: string) => {
     };
 
     const cleanedSession = removeUndefined(newSession);
-    // console.log("Очищений об'єкт сесії для Firebase:", cleanedSession);
-    const sessionPath = `workoutSessions/${userId}`; // Лог для шляху
-    // console.log("startWorkout: Спроба зберегти сесію за шляхом:", sessionPath, "з userId:", userId);
+    const sessionPath = `workoutSessions/${userId}`;
     try {
       await set(ref(database, sessionPath), cleanedSession);
-      // console.log("Дані сесії успішно збережено у Firebase.");
     } catch (error) {
       console.error("Помилка при збереженні сесії у Firebase:", error);
-      throw error; // Перевикидаємо помилку, щоб вона була оброблена вище
+      throw error;
     }
   };
 
@@ -204,34 +195,24 @@ export const useWorkoutSync = (userId: string) => {
     const sanitizedLoggedSets = loggedSets.map(set => ({
       repsAchieved: set.repsAchieved ?? null,
       weightUsed: set.weightUsed ?? null,
-      completed: set.completed ?? false
+      completed: set.completed ?? false,
+      weightContext: set.weightContext
     }));
 
     const updatedExercises = session.sessionExercises.map((ex, idx) =>
       idx === exerciseIndex
         ? {
-            id: ex.id,
-            name: ex.name,
-            description: ex.description,
-            sets: ex.sets,
-            reps: ex.reps,
-            rest: ex.rest,
-            videoSearchQuery: ex.videoSearchQuery ?? null,
-            targetWeight: ex.targetWeight ?? null,
-            targetReps: ex.targetReps ?? null,
-            recommendation: ex.recommendation ?? null,
-            isCompletedDuringSession: !isSkipped, // Якщо пропущено, то не завершено
+            ...ex,
+            isCompletedDuringSession: !isSkipped,
             sessionLoggedSets: sanitizedLoggedSets,
             sessionSuccess: success,
-            isSkipped: isSkipped, // Додаємо поле isSkipped
-            notes: ex.notes ?? null,
+            isSkipped: isSkipped,
           }
         : ex
     );
 
     const cleanedExercises = removeUndefined(updatedExercises);
-    const sessionPath = `workoutSessions/${userId}/sessionExercises`; // Лог для шляху
-    // console.log("updateExercise: Спроба оновити вправу за шляхом:", sessionPath, "з userId:", userId);
+    const sessionPath = `workoutSessions/${userId}/sessionExercises`;
     try {
       await set(ref(database, sessionPath), cleanedExercises);
     } catch (error) {
@@ -250,14 +231,14 @@ export const useWorkoutSync = (userId: string) => {
       reps: exercise.reps || '8-12',
       rest: exercise.rest || '60 секунд',
       videoSearchQuery: exercise.videoSearchQuery ?? null,
-      weightType: exercise.weightType, // Додаємо weightType
+      weightType: exercise.weightType,
       targetWeight: exercise.targetWeight ?? null,
       targetReps: exercise.targetReps ?? null,
       recommendation: exercise.recommendation ?? null,
       isCompletedDuringSession: false,
       sessionLoggedSets: [],
       sessionSuccess: false,
-      isSkipped: false, // Додаємо isSkipped
+      isSkipped: false,
       notes: exercise.notes ?? null,
     };
 
@@ -275,7 +256,6 @@ export const useWorkoutSync = (userId: string) => {
   const endWorkout = async () => {
     if (!userId) { console.error("endWorkout: userId відсутній."); return; }
     
-    // Перевіряємо, чи існує активна сесія перед видаленням
     const sessionRef = ref(database, `workoutSessions/${userId}`);
     const snapshot = await get(sessionRef);
     
@@ -296,8 +276,7 @@ export const useWorkoutSync = (userId: string) => {
   const updateTimer = async (time: number) => {
     if (!userId) { console.error("updateTimer: userId відсутній."); return; }
     const cleanedTime = removeUndefined(time);
-    const sessionPath = `workoutSessions/${userId}/workoutTimer`; // Лог для шляху
-    // console.log("updateTimer: Спроба оновити таймер за шляхом:", sessionPath, "з userId:", userId);
+    const sessionPath = `workoutSessions/${userId}/workoutTimer`;
     try {
       await set(ref(database, sessionPath), cleanedTime);
     } catch (error) {
@@ -321,7 +300,6 @@ export const useWorkoutSync = (userId: string) => {
   const updateAdaptiveWorkoutPlan = async (adaptiveWorkoutPlan: AdaptiveWorkoutPlan) => {
     if (!userId) { console.error("updateAdaptiveWorkoutPlan: userId відсутній."); return; }
     
-    // Перекоюємося, що adaptations завжди є масивом
     const safeAdaptiveWorkoutPlan = {
       ...adaptiveWorkoutPlan,
       adaptations: adaptiveWorkoutPlan.adaptations || []
@@ -349,6 +327,18 @@ export const useWorkoutSync = (userId: string) => {
     }
   };
 
+  const updateExerciseOrder = async (reorderedExercises: Exercise[]) => {
+    if (!userId) { console.error("updateExerciseOrder: userId відсутній."); return; }
+    const cleanedExercises = removeUndefined(reorderedExercises);
+    const sessionPath = `workoutSessions/${userId}/sessionExercises`;
+    try {
+      await set(ref(database, sessionPath), cleanedExercises);
+    } catch (error) {
+      console.error("Помилка при оновленні порядку вправ у Firebase:", error);
+      throw error;
+    }
+  };
+
   return {
     session,
     startWorkout,
@@ -358,6 +348,7 @@ export const useWorkoutSync = (userId: string) => {
     updateTimer,
     updateWellnessCheck,
     updateAdaptiveWorkoutPlan,
-    updateWellnessRecommendations
+    updateWellnessRecommendations,
+    updateExerciseOrder
   };
-}; 
+};
