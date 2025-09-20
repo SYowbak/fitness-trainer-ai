@@ -243,8 +243,10 @@ const App: React.FC = () => {
   }, [userProfile, apiKeyMissing, session.activeDay, endWorkout, saveWorkoutPlan]);
 
   const handleStartWorkoutWithWellnessCheck = useCallback(async (dayNumber: number) => {
+    console.log('🚀 [APP] handleStartWorkoutWithWellnessCheck called with dayNumber:', dayNumber);
     setPendingWorkoutDay(dayNumber);
     setWellnessCheckModalOpen(true);
+    console.log('💫 [APP] Wellness check modal should now open');
   }, []);
 
   const handleLogSingleExercise = useCallback((exerciseIndex: number, loggedSets: LoggedSetWithAchieved[], success: boolean) => {
@@ -511,17 +513,21 @@ const App: React.FC = () => {
     try {
       // Оновлюємо профіль з обмеженнями здоров'я (пам'ять травм) при наявності нотаток
       if (userProfile && wellnessCheck.notes) {
+        console.log('🏥 [APP] Processing health constraints from notes...');
         setWellnessProcessingStep('Оновлюємо профіль здоров\'я...');
         const newConstraints = extractConstraintsFromNotes(wellnessCheck.notes);
         if (newConstraints.length > 0) {
+          console.log('📝 [APP] Found health constraints:', newConstraints);
           const merged = Array.from(new Set([...(userProfile.healthConstraints || []), ...newConstraints]));
           const updatedProfile = { ...userProfile, healthConstraints: merged };
           await saveProfile(updatedProfile);
           setUserProfile(updatedProfile);
+          console.log('✅ [APP] Profile updated with health constraints');
         }
       }
 
       // Генеруємо адаптивний план тренування
+      console.log('🎯 [APP] Starting adaptive workout generation...');
       setWellnessProcessingStep('Адаптуємо план тренування...');
       console.log('📺 [APP] Starting adaptive workout generation with data:', {
         userProfile: userProfile ? {
@@ -545,19 +551,28 @@ const App: React.FC = () => {
         workoutLogsCount: workoutLogs.length
       });
       
+      console.log('🚀 [APP] Calling generateAdaptiveWorkout...');
       const adaptivePlan = await generateAdaptiveWorkout(
         userProfile!,
         currentWorkoutPlan.find(d => d.day === pendingWorkoutDay) || currentWorkoutPlan[0],
         wellnessCheck,
         workoutLogs
       );
-      console.log('✅ [APP] Successfully generated adaptive plan:', {
-        day: adaptivePlan.day,
-        exerciseCount: adaptivePlan.exercises.length,
-        hasAdaptations: !!adaptivePlan.adaptations,
-        adaptationsCount: adaptivePlan.adaptations?.length || 0
+      console.log('✅ [APP] generateAdaptiveWorkout completed successfully');
+      console.log('📋 [APP] Adaptive plan result:', {
+        day: adaptivePlan?.day,
+        exerciseCount: adaptivePlan?.exercises?.length,
+        hasAdaptations: !!adaptivePlan?.adaptations,
+        adaptationsCount: adaptivePlan?.adaptations?.length || 0
       });
+      
+      if (!adaptivePlan) {
+        console.error('❌ [APP] generateAdaptiveWorkout returned null/undefined');
+        throw new Error('Не вдалося згенерувати адаптивний план');
+      }
+      
       setAdaptiveWorkoutPlan(adaptivePlan);
+      console.log('✅ [APP] Adaptive plan set in state');
 
       // Генеруємо рекомендації по самопочуттю НЕБЛОКУЮЧЕ (у фоні)
       setWellnessProcessingStep('Готуємо рекомендації...');
@@ -596,23 +611,30 @@ const App: React.FC = () => {
       })();
 
       // Оновлюємо план тренувань з адаптивним планом
+      console.log('💾 [APP] Updating workout plan with adaptive plan...');
       setWellnessProcessingStep('Зберігаємо план...');
       const updatedPlan = currentWorkoutPlan.map(dayPlan => 
         dayPlan.day === adaptivePlan.day ? adaptivePlan : dayPlan
       );
       setCurrentWorkoutPlan(updatedPlan);
       await saveWorkoutPlan(updatedPlan);
+      console.log('✅ [APP] Workout plan saved successfully');
 
       // АВТОМАТИЧНО СТАРТУЄМО ТРЕНУВАННЯ
+      console.log('🏃 [APP] Starting workout automatically...');
       setWellnessProcessingStep('Запускаємо тренування...');
       await startWorkout(adaptivePlan.day, adaptivePlan.exercises);
+      console.log('✅ [APP] Workout started successfully');
       
       // ОНОВЛЮЄМО LIVE-СЕСІЮ з wellnessCheck, adaptiveWorkoutPlan та wellnessRecommendations
+      console.log('🔄 [APP] Updating live session data...');
       await updateWellnessCheck(wellnessCheck);
       await updateAdaptiveWorkoutPlan(adaptivePlan);
+      console.log('✅ [APP] Live session updated successfully');
       // Оновлення wellnessRecommendations відбудеться після фонового отримання
       
       setPendingWorkoutDay(null);
+      console.log('🎉 [APP] Wellness check process completed successfully!');
     } catch (error: any) {
       console.error('❌ [APP] Error in handleWellnessCheckSubmit:', error);
       console.error('🔍 [APP] Full error details:', {
@@ -621,9 +643,11 @@ const App: React.FC = () => {
         type: typeof error,
         errorObject: error
       });
+      console.error('📍 [APP] Error occurred at processing step:', wellnessProcessingStep);
       setError(error.message || 'Помилка при адаптації тренування');
       setPendingWorkoutDay(null);
     } finally {
+      console.log('🏁 [APP] Wellness check process finished, cleaning up...');
       setIsLoading(false);
       setIsProcessingWellness(false);
       setWellnessProcessingStep('');
