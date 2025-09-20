@@ -26,6 +26,7 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
   const [touchDraggedIndex, setTouchDraggedIndex] = useState<number | null>(null);
   const [touchStartY, setTouchStartY] = useState<number>(0);
   const [touchCurrentY, setTouchCurrentY] = useState<number>(0);
+  const [lastVibrationIndex, setLastVibrationIndex] = useState<number | null>(null);
   const touchItemRef = useRef<HTMLDivElement | null>(null);
   const dragHandleRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const autoScrollInterval = useRef<NodeJS.Timeout | null>(null);
@@ -115,6 +116,7 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
       setTouchStartY(touch.clientY);
       setTouchCurrentY(touch.clientY);
       setDragOverIndex(null);
+      setLastVibrationIndex(null);
       setIsDragging(true);
       
       if ('vibrate' in navigator) {
@@ -190,8 +192,10 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
           setDragOverIndex(targetIndex);
           console.log('Touch drag over index:', targetIndex);
           
-          if ('vibrate' in navigator) {
+          // Only vibrate when moving to a NEW exercise position
+          if (targetIndex !== lastVibrationIndex && 'vibrate' in navigator) {
             navigator.vibrate(20);
+            setLastVibrationIndex(targetIndex);
           }
         } else if (targetIndex === null && dragOverIndex !== null) {
           // Clear drag over when not over any exercise
@@ -233,6 +237,7 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
       setDragOverIndex(null);
       setTouchStartY(0);
       setTouchCurrentY(0);
+      setLastVibrationIndex(null);
       setIsDragging(false);
       touchItemRef.current = null;
     };

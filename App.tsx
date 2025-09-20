@@ -656,8 +656,8 @@ const App: React.FC = () => {
       <main className="flex-grow container mx-auto p-3 sm:p-4 md:p-6">
         {error && !isLoading && <ErrorMessage message={error} onClear={() => setError(null)} />}
          {renderView()}
-        {/* Плаваюча кнопка чату (видима на всіх вкладках крім профілю) */}
-        {currentView !== 'profile' && (
+        {/* Плаваюча кнопка чату (видима лише авторизованим користувачам на всіх вкладках крім профілю) */}
+        {user && currentView !== 'profile' && (
           <button
             className="fixed bottom-6 right-6 z-50 bg-purple-600 hover:bg-purple-700 text-white rounded-full shadow-lg p-4 flex items-center justify-center text-2xl transition-colors"
             style={{ boxShadow: '0 4px 24px rgba(80,0,120,0.25)' }}
@@ -667,8 +667,8 @@ const App: React.FC = () => {
             <i className="fas fa-comments"></i>
           </button>
         )}
-        {/* Overlay чат з тренером */}
-        {isTrainerChatOpen && (
+        {/* Overlay чат з тренером (доступний лише авторизованим користувачам) */}
+        {user && isTrainerChatOpen && (
           <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 sm:p-6">
             {/* Backdrop */}
             <div 

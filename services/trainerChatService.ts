@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { UserProfile, WorkoutLog } from '../types';
 import { UI_TEXT, GEMINI_MODEL_TEXT } from '../constants';
+import { withQuotaManagement, shouldEnableAIFeature } from '../utils/apiQuotaManager';
 
 const ai = new GoogleGenerativeAI(import.meta.env.VITE_API_KEY || '');
 
@@ -19,6 +20,11 @@ export const generateTrainerResponse = async ({
 }): Promise<string> => {
   if (!ai) {
     throw new Error(UI_TEXT.apiKeyMissing);
+  }
+
+  // Check if chat feature is enabled based on quota
+  if (!shouldEnableAIFeature('chat')) {
+    throw new Error(UI_TEXT.aiOverloaded);
   }
 
   const chatPrompt = `Ти - персональний фітнес-тренер. Твоя задача - надавати персоналізовані рекомендації та  коротко і зрозуміло по суті, як людина відповідати на питання користувача, враховуючи його профіль та історію тренувань.
@@ -101,22 +107,10 @@ ${userMessage}
 
 Відповідай на повідомлення користувача, враховуючи всі надані дані та контекст діалогу.`;
 
-  try {
-    const model = ai.getGenerativeModel({ model: GEMINI_MODEL_TEXT });
+  return withQuotaManagement(async () => {
+    const model = ai!.getGenerativeModel({ model: GEMINI_MODEL_TEXT });
     const response = await model.generateContent(chatPrompt);
     const result = await response.response;
     return result.text();
-  } catch (error: any) {
-    console.error("Error during trainer chat:", error);
-    if (error.message && (error.message.includes("API_KEY_INVALID") || (error.response && error.response.status === 400))) {
-      throw new Error("Наданий API ключ недійсний або не має дозволів. Будь ласка, перевірте ваш API ключ.");
-    }
-    if (error.message && error.message.toLowerCase().includes("candidate.safetyratings")) {
-      throw new Error("Відповідь від AI була заблокована через налаштування безпеки. Спробуйте змінити запит.");
-    }
-    if (error.message && error.message.toLowerCase().includes("fetch")) {
-      throw new Error("Помилка мережі при зверненні до AI сервісу. Перевірте ваше інтернет-з'єднання та спробуйте пізніше.");
-    }
-    throw new Error(`Помилка чату з тренером: ${error.message || 'Невідома помилка сервісу AI'}`);
-  }
+  }, undefined, { priority: 'high' });
 }; 
