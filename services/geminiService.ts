@@ -80,10 +80,10 @@ const constructPlanPrompt = (profile: UserProfile): string => {
 *   Бажаний акцент: ${targetMuscleGroupsText}
 
 **Вимоги до плану:**
-1.  **Структура:** Розбий план тоно на ${trainingFrequency} тренувальних дні(в), ні більше ні менше. Кожен день повинен мати чітку мету і, якщо вказано, фокусуватися на цільовій групі м'язів, забезпечуючи при цьому достатній час для відновлення цієї групи.
+1.  **Структура:** Розбий план тоно на ${trainingFrequency} тренувальних дні(в), ні більше ні менше. Кожен день повинен мати чітку мету і, якщо вказано, фокусуватися на цільовій групи м'язів, забезпечуючи при цьому достатній час для відновлення цієї групи.
 2.  **Розминка та Заминка:** Для кожного тренувального дня надай конкретні рекомендації щодо розминки (5-10 хвилин, наприклад, легке кардіо, динамічна розтяжка основних робочих груп) та заминки (5-10 хвилин, наприклад, статична розтяжка пропрацьованих м'язів).
 3.  **Вправи:**
-    *   **Підбір:** Ретельно підбери вправи, що відповідають статі, типу статури, цілі та бажаному акценту користувача. Включи оптимальне поєднання базових та ізолюючих вправ.
+    *   **Підбір:** Ретельно підбери вправи, що відповідають статі, типу статури, цілі та бажаному акценту користувача. Включаю ключові моменти руху, правильне дихання та типові помилки. Опис має бути приблизно однакової довжини для всіх вправ.
     *   **Назва:** Вкажи точну українську назву кожної вправи.
     *   **Опис Техніки:** Надай достатньо детальний, але без зайвої води (приблизно 5-7 речень) покроковий опис правильної техніки виконання кожної вправи. Включаю ключові моменти руху, правильне дихання та типові помилки. Опис має бути приблизно однакової довжини для всіх вправ.
     *   **Кількість підходів:** Вкажи кількість робочих підходів (наприклад, "3-4" або число 4 , вказуєш скільки насправді потрібно зробити підходів залежно від цілі користувача).
@@ -268,15 +268,38 @@ export const generateWorkoutAnalysis = async ({
     reason: string;
   }[];
 }> => {
+  console.log('📊 [ANALYSIS] Starting workout analysis with:', {
+    userProfile: {
+      name: userProfile.name,
+      goal: userProfile.goal,
+      experienceLevel: userProfile.experienceLevel
+    },
+    dayPlan: {
+      day: dayPlan.day,
+      exerciseCount: dayPlan.exercises.length,
+      exercises: dayPlan.exercises.map(ex => ex.name)
+    },
+    hasLastWorkout: !!lastWorkoutLog,
+    previousWorkoutsCount: previousWorkoutLogs.length
+  });
   if (!ai) {
+    console.error('❌ [ANALYSIS] AI not initialized');
     throw new Error(UI_TEXT.apiKeyMissing);
   }
+
+  console.log('🤖 [ANALYSIS] AI initialized successfully');
 
   const modelName = GEMINI_MODELS.LIGHT_TASKS; // Змінюємо на швидшу модель для надійності
 
   // Аналізуємо історію тренувань для виявлення патернів
   const workoutHistory = lastWorkoutLog ? [lastWorkoutLog, ...previousWorkoutLogs] : previousWorkoutLogs;
   const recentWorkouts = workoutHistory.slice(0, 5); // Останні 5 тренувань
+  
+  console.log('📊 [ANALYSIS] Processing workout history:', {
+    totalWorkouts: workoutHistory.length,
+    recentWorkouts: recentWorkouts.length,
+    exercisesInPlan: dayPlan.exercises.map(ex => ex.name)
+  });
   
   // Аналізуємо прогрес по кожній вправі
   const exerciseProgress = new Map<string, {
@@ -301,6 +324,11 @@ export const generateWorkoutAnalysis = async ({
         if (set.completed !== undefined) progress.success.push(set.completed);
       });
     });
+  });
+
+  console.log('🔍 [ANALYSIS] Exercise progress analysis:', {
+    trackedExercises: exerciseProgress.size,
+    exerciseNames: Array.from(exerciseProgress.keys())
   });
 
   const analysisPrompt = `Ти - елітний фітнес-аналітик з 15-річним досвідом роботи з професійними спортсменами та любителями. Твоя задача - надати детальний аналіз тренування та персоналізовані рекомендації для прогресу.
@@ -405,6 +433,13 @@ ${JSON.stringify(Object.fromEntries(exerciseProgress), null, 2)}
 
 Проаналізуй надані дані та згенеруй JSON відповідь з оновленим планом на день, загальною рекомендацією та детальними рекомендаціями для кожної вправи.`;
 
+  console.log('📝 [ANALYSIS] Sending prompt to AI:', {
+    promptLength: analysisPrompt.length,
+    model: modelName,
+    userProfileKeys: Object.keys(userProfile),
+    exerciseProgressSize: exerciseProgress.size
+  });
+
   return withQuotaManagement(async () => {
     const model = ai!.getGenerativeModel({
       model: modelName,
@@ -417,22 +452,36 @@ ${JSON.stringify(Object.fromEntries(exerciseProgress), null, 2)}
       }
     } as any);
     
+    console.log('🚀 [ANALYSIS] Making API call...');
     const response = await model.generateContent(analysisPrompt);
     const result = await response.response;
     let jsonStr = result.text().trim();
+    
+    console.log('✅ [ANALYSIS] Received response:', {
+      responseLength: jsonStr.length,
+      firstChars: jsonStr.substring(0, 100)
+    });
     
     // Видаляємо можливі markdown-розмітки
     const fenceRegex = /^```(?:json)?\s*\n?(.*?)\n?\s*```$/s;
     const match = jsonStr.match(fenceRegex);
     if (match && match[1]) {
       jsonStr = match[1].trim();
+      console.log('🧹 [ANALYSIS] Cleaned markdown from response');
     }
 
     try {
       const parsedResult: any = JSON.parse(jsonStr);
       
+      console.log('🔍 [ANALYSIS] Parsed JSON successfully:', {
+        hasUpdatedPlan: !!parsedResult.updatedPlan,
+        hasRecommendation: !!parsedResult.recommendation,
+        hasDailyRecommendations: !!parsedResult.dailyRecommendations,
+        dailyRecommendationsCount: parsedResult.dailyRecommendations?.length
+      });
+      
       if (!parsedResult || !parsedResult.updatedPlan || !parsedResult.recommendation) {
-        console.error("Неправильна базова структура відповіді від AI аналізу:", parsedResult);
+        console.error("❌ [ANALYSIS] Неправильна базова структура відповіді від AI аналізу:", parsedResult);
         throw new Error("Неправильна базова структура відповіді від AI аналізу");
       }
 
@@ -441,7 +490,7 @@ ${JSON.stringify(Object.fromEntries(exerciseProgress), null, 2)}
       const dailyRecommendations = parsedResult.dailyRecommendations || [];
 
       if (typeof updatedPlan.day !== 'number' || !Array.isArray(updatedPlan.exercises)) {
-        console.error("Неправильна структура updatedPlan у відповіді від AI аналізу:", updatedPlan);
+        console.error("❌ [ANALYSIS] Неправильна структура updatedPlan у відповіді від AI аналізу:", updatedPlan);
         throw new Error("Неправильна структура updatedPlan у відповіді від AI аналізу");
       }
 
@@ -467,17 +516,23 @@ ${JSON.stringify(Object.fromEntries(exerciseProgress), null, 2)}
         }))
       };
 
+      console.log('✅ [ANALYSIS] Successfully created analysis result:', {
+        updatedPlanExercises: mappedUpdatedPlan.exercises.length,
+        dailyRecommendationsCount: dailyRecommendations.length,
+        recommendationAction: generalRecommendation.action
+      });
+
       return {
         updatedPlan: mappedUpdatedPlan,
         recommendation: generalRecommendation,
         dailyRecommendations: dailyRecommendations
       };
     } catch (e) {
-      console.error("Error parsing JSON from AI analysis response:", e);
-      console.error("Received string (after processing):", jsonStr);
-      console.error("Original AI response text:", result.text());
+      console.error("❌ [ANALYSIS] Error parsing JSON from AI analysis response:", e);
+      console.error("🔍 [ANALYSIS] Received string (after processing):", jsonStr);
+      console.error("🔍 [ANALYSIS] Original AI response text:", result.text());
       
-      console.warn('⚠️ Creating fallback analysis response due to parsing error');
+      console.warn('⚠️ [ANALYSIS] Creating fallback analysis response due to parsing error');
       
       const fallbackAnalysis = {
         updatedPlan: {
@@ -657,9 +712,32 @@ export const generateAdaptiveWorkout = async (
   wellnessCheck: WellnessCheck,
   workoutHistory: WorkoutLog[]
 ): Promise<AdaptiveWorkoutPlan> => {
+  console.log('🏥 [ADAPTIVE WORKOUT] Starting generation with:', {
+    userProfile: {
+      name: userProfile.name,
+      goal: userProfile.goal,
+      experienceLevel: userProfile.experienceLevel
+    },
+    originalPlan: {
+      day: originalPlan.day,
+      exerciseCount: originalPlan.exercises.length,
+      exercises: originalPlan.exercises.map(ex => ex.name)
+    },
+    wellnessCheck: {
+      energyLevel: wellnessCheck.energyLevel,
+      sleepQuality: wellnessCheck.sleepQuality,
+      stressLevel: wellnessCheck.stressLevel,
+      motivation: wellnessCheck.motivation,
+      fatigue: wellnessCheck.fatigue
+    },
+    historyCount: workoutHistory.length
+  });
   if (!ai) {
+    console.error('❌ [ADAPTIVE WORKOUT] AI not initialized');
     throw new Error(UI_TEXT.apiKeyMissing);
   }
+
+  console.log('🤖 [ADAPTIVE WORKOUT] AI initialized successfully');
 
   const modelName = GEMINI_MODELS.WORKOUT_GENERATION; // Основна модель дль адаптивного тренування
 
@@ -668,7 +746,7 @@ export const generateAdaptiveWorkout = async (
   const isComplexPlan = exerciseCount > 6;
   const selectedModel = isComplexPlan ? GEMINI_MODELS.WORKOUT_GENERATION : GEMINI_MODELS.LIGHT_TASKS;
   
-  console.log(`🤖 Selected model for adaptive workout: ${selectedModel} (${exerciseCount} exercises, complex: ${isComplexPlan})`);
+  console.log(`🤖 [ADAPTIVE WORKOUT] Selected model: ${selectedModel} (${exerciseCount} exercises, complex: ${isComplexPlan})`);
 
   const adaptivePrompt = `Ти - досвідчений персональний тренер, який адаптує тренування під поточний стан та самопочуття клієнта. Твоя задача - створити адаптивний план тренування, враховуючи самопочуття та історію тренувань.
 
@@ -767,6 +845,13 @@ ${JSON.stringify(workoutHistory.slice(0, 5), null, 2)}
   }
 }`;
 
+  console.log('📝 [ADAPTIVE WORKOUT] Sending prompt to AI:', {
+    promptLength: adaptivePrompt.length,
+    model: selectedModel,
+    userProfileKeys: Object.keys(userProfile),
+    wellnessKeys: Object.keys(wellnessCheck)
+  });
+
   try {
     // Оптимізовані налаштування для швидшої обробки
     const model = ai.getGenerativeModel({
@@ -779,22 +864,37 @@ ${JSON.stringify(workoutHistory.slice(0, 5), null, 2)}
         responseMimeType: "application/json"
       }
     } as any);
+    
+    console.log('🚀 [ADAPTIVE WORKOUT] Making API call...');
     const response = await model.generateContent(adaptivePrompt);
     const result = await response.response;
     let jsonStr = result.text().trim();
+    
+    console.log('✅ [ADAPTIVE WORKOUT] Received response:', {
+      responseLength: jsonStr.length,
+      firstChars: jsonStr.substring(0, 100)
+    });
     
     // Видаляємо можливі markdown-розмітки
     const fenceRegex = /^```(?:json)?\s*\n?(.*?)\n?\s*```$/s;
     const match = jsonStr.match(fenceRegex);
     if (match && match[1]) {
       jsonStr = match[1].trim();
+      console.log('🧹 [ADAPTIVE WORKOUT] Cleaned markdown from response');
     }
 
     try {
       const parsedResult: any = JSON.parse(jsonStr);
+      console.log('🔍 [ADAPTIVE WORKOUT] Parsed JSON successfully:', {
+        hasExercises: !!parsedResult.exercises,
+        exerciseCount: parsedResult.exercises?.length,
+        hasAdaptations: !!parsedResult.adaptations,
+        hasOverallAdaptation: !!parsedResult.overallAdaptation
+      });
       
       // Перевіряємо структуру
       if (!parsedResult || !parsedResult.exercises || !Array.isArray(parsedResult.exercises)) {
+        console.error('❌ [ADAPTIVE WORKOUT] Invalid structure:', parsedResult);
         throw new Error("Неправильна структура адаптивного плану");
       }
       
@@ -802,7 +902,7 @@ ${JSON.stringify(workoutHistory.slice(0, 5), null, 2)}
       const originalExerciseCount = originalPlan.exercises.length;
       const adaptedExerciseCount = parsedResult.exercises.length;
       
-      console.log(`🔍 Exercise count check: Original=${originalExerciseCount}, Adapted=${adaptedExerciseCount}`);
+      console.log(`🔍 [ADAPTIVE WORKOUT] Exercise count check: Original=${originalExerciseCount}, Adapted=${adaptedExerciseCount}`);
       
       // Якщо модель обробила менше вправ, дозаповнюємо з оригінального плану
       let finalExercises = parsedResult.exercises;
@@ -859,13 +959,20 @@ ${JSON.stringify(workoutHistory.slice(0, 5), null, 2)}
         }
       };
 
+      console.log('✅ [ADAPTIVE WORKOUT] Successfully created adaptive plan:', {
+        finalExerciseCount: adaptivePlan.exercises.length,
+        adaptationsCount: adaptivePlan.adaptations?.length || 0,
+        overallAdaptation: adaptivePlan.overallAdaptation
+      });
+
       return adaptivePlan;
     } catch (e) {
-      console.error("Error parsing adaptive workout:", e);
+      console.error('❌ [ADAPTIVE WORKOUT] Error parsing JSON:', e);
+      console.error('🔍 [ADAPTIVE WORKOUT] Problematic JSON string:', jsonStr);
       throw new Error("Не вдалося розібрати адаптивний план від AI");
     }
   } catch (error: any) {
-    console.error("Error generating adaptive workout:", error);
+    console.error('❌ [ADAPTIVE WORKOUT] Error generating adaptive workout:', error);
     if (
       (error.response && error.response.status === 503) ||
       (error.message && (
@@ -885,9 +992,28 @@ export const generateWellnessRecommendations = async (
   wellnessCheck: WellnessCheck,
   workoutHistory: WorkoutLog[]
 ): Promise<WellnessRecommendation[]> => {
+  console.log('📊 [WELLNESS] Starting wellness recommendations generation:', {
+    userProfile: {
+      name: userProfile.name,
+      goal: userProfile.goal,
+      healthConstraints: userProfile.healthConstraints
+    },
+    wellnessCheck: {
+      energyLevel: wellnessCheck.energyLevel,
+      sleepQuality: wellnessCheck.sleepQuality,
+      stressLevel: wellnessCheck.stressLevel,
+      motivation: wellnessCheck.motivation,
+      fatigue: wellnessCheck.fatigue,
+      notes: wellnessCheck.notes?.substring(0, 50) + '...'
+    },
+    historyCount: workoutHistory.length
+  });
   if (!ai) {
+    console.error('❌ [WELLNESS] AI not initialized');
     throw new Error(UI_TEXT.apiKeyMissing);
   }
+
+  console.log('🤖 [WELLNESS] AI initialized successfully');
 
   const wellnessPrompt = `Ти — експерт з відновлення. Зроби короткі, практичні поради на основі даних користувача. Пиши максимально стисло і по суті. Обов'язково враховуй травми/обмеження, якщо вони є у профілі ("healthConstraints") та/або у нотатках сьогоднішнього самопочуття.
 
@@ -911,6 +1037,12 @@ export const generateWellnessRecommendations = async (
 - Уникай повторів та води.
 - Кожен елемент має різний type.`;
 
+  console.log('📝 [WELLNESS] Sending prompt to AI:', {
+    promptLength: wellnessPrompt.length,
+    userProfileKeys: Object.keys(userProfile),
+    wellnessKeys: Object.keys(wellnessCheck)
+  });
+
   try {
     const model = ai.getGenerativeModel({
       model: GEMINI_MODELS.LIGHT_TASKS,
@@ -922,18 +1054,26 @@ export const generateWellnessRecommendations = async (
         responseMimeType: "application/json"
       }
     } as any);
+    
+    console.log('🚀 [WELLNESS] Making API call...');
     const response = await model.generateContent(wellnessPrompt);
     const result = await response.response;
     let jsonStr = result.text().trim();
     
+    console.log('✅ [WELLNESS] Received response:', {
+      responseLength: jsonStr.length,
+      firstChars: jsonStr.substring(0, 100)
+    });
+    
     // Логування для діагностики
-    console.log('🔍 Raw AI response for wellness:', jsonStr);
+    console.log('🔍 [WELLNESS] Raw AI response:', jsonStr);
     
     // Видаляємо можливі markdown-розмітки
     const fenceRegex = /^```(?:json)?\s*\n?(.*?)\n?\s*```$/s;
     const match = jsonStr.match(fenceRegex);
     if (match && match[1]) {
       jsonStr = match[1].trim();
+      console.log('🧹 [WELLNESS] Cleaned markdown from response');
     }
     
     // Додаткове очищення JSON
@@ -941,7 +1081,7 @@ export const generateWellnessRecommendations = async (
     
     // Перевіряємо, чи JSON починається і закінчується правильно
     if (!jsonStr.startsWith('[') || !jsonStr.endsWith(']')) {
-      console.warn('⚠️ JSON не має правильного формату масиву, спробуємо виправити');
+      console.warn('⚠️ [WELLNESS] JSON не має правильного формату масиву, спробуємо виправити');
       
       // Спробуємо знайти останню закриваючу дужку
       const lastBracket = jsonStr.lastIndexOf(']');
@@ -957,10 +1097,15 @@ export const generateWellnessRecommendations = async (
       }
     }
     
-    console.log('🔧 Cleaned JSON for wellness:', jsonStr);
+    console.log('🔧 [WELLNESS] Cleaned JSON:', jsonStr);
 
     try {
       const recommendations: WellnessRecommendation[] = JSON.parse(jsonStr);
+      
+      console.log('🔍 [WELLNESS] Parsed recommendations:', {
+        count: recommendations.length,
+        types: recommendations.map(r => r.type)
+      });
       
       // Валідуємо структуру кожної рекомендації
       const validRecommendations = recommendations.filter(rec => 
@@ -973,26 +1118,29 @@ export const generateWellnessRecommendations = async (
       );
       
       if (validRecommendations.length === 0) {
-        console.warn('⚠️ Немає валідних рекомендацій, повертаємо порожній масив');
+        console.warn('⚠️ [WELLNESS] Немає валідних рекомендацій, повертаємо порожній масив');
         return [];
       }
       
-      console.log('✅ Successfully parsed wellness recommendations:', validRecommendations.length);
+      console.log('✅ [WELLNESS] Successfully validated recommendations:', {
+        validCount: validRecommendations.length,
+        invalidCount: recommendations.length - validRecommendations.length
+      });
       return validRecommendations;
     } catch (e) {
-      console.error("Error parsing wellness recommendations:", e);
-      console.error("Problematic JSON string:", jsonStr);
+      console.error("❌ [WELLNESS] Error parsing recommendations:", e);
+      console.error("🔍 [WELLNESS] Problematic JSON string:", jsonStr);
       
       // Якщо не вдалося парсити, повертаємо порожній масив замість помилки
-      console.warn('🚫 Returning empty recommendations due to parsing error');
+      console.warn('🚫 [WELLNESS] Returning empty recommendations due to parsing error');
       return [];
     }
   } catch (error: any) {
-    console.error("Error generating wellness recommendations:", error);
+    console.error("❌ [WELLNESS] Error generating wellness recommendations:", error);
     
     // Якщо це помилка парсингу JSON, повертаємо порожній масив замість викидання помилки
     if (error.message && error.message.includes('розібрати рекомендації')) {
-      console.warn('🔄 Returning empty recommendations due to parsing issues');
+      console.warn('🔄 [WELLNESS] Returning empty recommendations due to parsing issues');
       return [];
     }
     
@@ -1008,7 +1156,7 @@ export const generateWellnessRecommendations = async (
     }
     
     // Для інших помилок також повертаємо порожній масив замість викидання помилки
-    console.warn('🔄 Returning empty recommendations due to service error:', error.message);
+    console.warn('🔄 [WELLNESS] Returning empty recommendations due to service error:', error.message);
     return [];
   }
 };
