@@ -503,23 +503,56 @@ const App: React.FC = () => {
 
       // Генеруємо адаптивний план тренування
       setWellnessProcessingStep('Адаптуємо план тренування...');
+      console.log('📺 [APP] Starting adaptive workout generation with data:', {
+        userProfile: userProfile ? {
+          name: userProfile.name,
+          goal: userProfile.goal,
+          experienceLevel: userProfile.experienceLevel,
+          healthConstraints: userProfile.healthConstraints
+        } : null,
+        currentWorkoutPlan: currentWorkoutPlan ? {
+          daysCount: currentWorkoutPlan.length,
+          targetDay: pendingWorkoutDay
+        } : null,
+        wellnessCheck: {
+          energyLevel: wellnessCheck.energyLevel,
+          sleepQuality: wellnessCheck.sleepQuality,
+          stressLevel: wellnessCheck.stressLevel,
+          motivation: wellnessCheck.motivation,
+          fatigue: wellnessCheck.fatigue,
+          notes: wellnessCheck.notes?.substring(0, 50)
+        },
+        workoutLogsCount: workoutLogs.length
+      });
+      
       const adaptivePlan = await generateAdaptiveWorkout(
         userProfile!,
         currentWorkoutPlan.find(d => d.day === pendingWorkoutDay) || currentWorkoutPlan[0],
         wellnessCheck,
         workoutLogs
       );
+      console.log('✅ [APP] Successfully generated adaptive plan:', {
+        day: adaptivePlan.day,
+        exerciseCount: adaptivePlan.exercises.length,
+        hasAdaptations: !!adaptivePlan.adaptations,
+        adaptationsCount: adaptivePlan.adaptations?.length || 0
+      });
       setAdaptiveWorkoutPlan(adaptivePlan);
 
       // Генеруємо рекомендації по самопочуттю НЕБЛОКУЮЧЕ (у фоні)
       setWellnessProcessingStep('Готуємо рекомендації...');
       (async () => {
+        console.log('📊 [APP] Starting wellness recommendations generation in background');
         try {
           const recs = await generateWellnessRecommendations(
             userProfile,
             wellnessCheck,
             workoutLogs
           );
+          console.log('✅ [APP] Successfully generated wellness recommendations:', {
+            count: recs.length,
+            types: recs.map(r => r.type)
+          });
           setWellnessRecommendations(recs);
           
           // Показуємо модальне вікно тільки якщо є рекомендації
@@ -530,8 +563,13 @@ const App: React.FC = () => {
           }
           
           await updateWellnessRecommendations(recs);
-        } catch (e) {
-          console.error('Помилка генерації рекомендацій самопочуття (фон):', e);
+        } catch (e: any) {
+          console.error('❌ [APP] Помилка генерації рекомендацій самопочуття (фон):', e);
+          console.error('🔍 [APP] Повні деталі помилки wellness:', {
+            message: e.message,
+            stack: e.stack,
+            type: typeof e
+          });
           // Встановлюємо порожній масив у випадку помилки
           setWellnessRecommendations([]);
         }
@@ -556,7 +594,13 @@ const App: React.FC = () => {
       
       setPendingWorkoutDay(null);
     } catch (error: any) {
-      console.error('Error generating adaptive workout:', error);
+      console.error('❌ [APP] Error in handleWellnessCheckSubmit:', error);
+      console.error('🔍 [APP] Full error details:', {
+        message: error.message,
+        stack: error.stack,
+        type: typeof error,
+        errorObject: error
+      });
       setError(error.message || 'Помилка при адаптації тренування');
       setPendingWorkoutDay(null);
     } finally {
