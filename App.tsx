@@ -477,11 +477,31 @@ const App: React.FC = () => {
 
   // Обробка перевірки самопочуття
   const handleWellnessCheckSubmit = useCallback(async (wellnessCheck: WellnessCheck) => {
+    console.log('🎬 [APP] handleWellnessCheckSubmit called with:', {
+      wellnessCheck: {
+        energyLevel: wellnessCheck.energyLevel,
+        sleepQuality: wellnessCheck.sleepQuality,
+        stressLevel: wellnessCheck.stressLevel,
+        motivation: wellnessCheck.motivation,
+        fatigue: wellnessCheck.fatigue
+      },
+      userProfile: !!userProfile,
+      currentWorkoutPlan: !!currentWorkoutPlan,
+      pendingWorkoutDay
+    });
+    
     if (!userProfile || !currentWorkoutPlan || pendingWorkoutDay === null) {
+      console.error('❌ [APP] Early validation failed:', {
+        hasUserProfile: !!userProfile,
+        hasCurrentWorkoutPlan: !!currentWorkoutPlan,
+        pendingWorkoutDay
+      });
       setError('Не вдалося знайти профіль користувача, план тренувань або день.');
       setWellnessCheckModalOpen(false);
       return;
     }
+
+    console.log('✅ [APP] Validation passed, starting processing...');
 
     setWellnessCheckModalOpen(false);
     setIsLoading(true);
@@ -799,8 +819,14 @@ const App: React.FC = () => {
       {/* Модальні вікна */}
       <WellnessCheckModal
         isOpen={wellnessCheckModalOpen}
-        onClose={() => setWellnessCheckModalOpen(false)}
-        onSubmit={handleWellnessCheckSubmit}
+        onClose={() => {
+          console.log('🚪 [APP] WellnessCheckModal onClose called');
+          setWellnessCheckModalOpen(false);
+        }}
+        onSubmit={(wellnessCheck) => {
+          console.log('🎯 [APP] onSubmit wrapper called, about to call handleWellnessCheckSubmit');
+          handleWellnessCheckSubmit(wellnessCheck);
+        }}
         onSkip={handleWellnessCheckSkip}
       />
 

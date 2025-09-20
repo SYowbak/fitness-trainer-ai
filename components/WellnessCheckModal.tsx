@@ -26,10 +26,14 @@ const WellnessCheckModal: React.FC<WellnessCheckModalProps> = ({
   });
 
   const handleSubmit = () => {
+    console.log('🔘 [MODAL] handleSubmit called in WellnessCheckModal');
+    console.log('📋 [MODAL] wellnessCheck data:', wellnessCheck);
+    console.log('🎆 [MODAL] About to call onSubmit. onSubmit type:', typeof onSubmit);
     onSubmit({
       ...wellnessCheck,
       timestamp: new Date()
     });
+    console.log('✅ [MODAL] onSubmit called successfully');
   };
 
   const getEnergyLevelText = (level: EnergyLevel) => {
