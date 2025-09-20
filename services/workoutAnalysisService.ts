@@ -8,6 +8,12 @@ export const analyzeWorkout = async (
   previousWorkoutLogs: WorkoutLog[] = []
 ): Promise<WorkoutAnalysisResult> => {
   try {
+    console.log('🔍 Starting workout analysis...', {
+      dayNumber: dayPlan.day,
+      exerciseCount: dayPlan.exercises.length,
+      hasLastLog: !!lastWorkoutLog
+    });
+    
     const analysis = await generateWorkoutAnalysis({
       userProfile,
       dayPlan,
@@ -15,6 +21,8 @@ export const analyzeWorkout = async (
       previousWorkoutLogs
     });
 
+    console.log('✅ Workout analysis completed successfully');
+    
     return {
       updatedPlan: analysis.updatedPlan,
       recommendation: analysis.recommendation,
@@ -24,8 +32,28 @@ export const analyzeWorkout = async (
       }))
     };
   } catch (error) {
-    console.error('Помилка при аналізі тренування:', error);
-    throw new Error('Не вдалося проаналізувати тренування');
+    console.error('⚠️ Error during workout analysis:', error);
+    
+    // Створюємо fallback відповідь замість викидання помилки
+    const fallbackResult: WorkoutAnalysisResult = {
+      updatedPlan: {
+        ...dayPlan,
+        notes: dayPlan.notes || 'План залишено без змін'
+      },
+      recommendation: {
+        text: 'Не вдалося провести аналіз тренування. Продовжуйте за попереднім планом.',
+        action: 'maintain'
+      },
+      dailyRecommendations: dayPlan.exercises.map(ex => ({
+        exerciseName: ex.name,
+        recommendation: 'Продовжуйте виконання за попереднім планом',
+        action: 'maintain' as const,
+        reason: 'Аналіз недоступний'
+      }))
+    };
+    
+    console.log('🔄 Returning fallback analysis result');
+    return fallbackResult;
   }
 };
 

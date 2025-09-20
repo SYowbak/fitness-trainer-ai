@@ -251,7 +251,7 @@ export const generateWorkoutAnalysis = async ({
     throw new Error(UI_TEXT.apiKeyMissing);
   }
 
-  const modelName = GEMINI_MODELS.ANALYSIS; // Використовуємо Pro для складного аналізу з багатьма даними
+  const modelName = GEMINI_MODELS.LIGHT_TASKS; // Змінюємо на швидшу модель для надійності
 
   // Аналізуємо історію тренувань для виявлення патернів
   const workoutHistory = lastWorkoutLog ? [lastWorkoutLog, ...previousWorkoutLogs] : previousWorkoutLogs;
@@ -385,7 +385,17 @@ ${JSON.stringify(Object.fromEntries(exerciseProgress), null, 2)}
 Проаналізуй надані дані та згенеруй JSON відповідь з оновленим планом на день, загальною рекомендацією та детальними рекомендаціями для кожної вправи.`;
 
   try {
-    const model = ai.getGenerativeModel({ model: modelName });
+    // Оптимізовані налаштування для аналізу
+    const model = ai.getGenerativeModel({
+      model: modelName,
+      generationConfig: {
+        temperature: 0.2, // Нижча температура для більш предсказуваних результатів
+        topK: 40,
+        topP: 0.8,
+        maxOutputTokens: 1500, // Обмежуємо для стабільності
+        responseMimeType: "application/json"
+      }
+    } as any);
     const response = await model.generateContent(analysisPrompt);
     const result = await response.response;
     let jsonStr = result.text().trim();
@@ -447,20 +457,52 @@ ${JSON.stringify(Object.fromEntries(exerciseProgress), null, 2)}
       console.error("Error parsing JSON from AI analysis response:", e);
       console.error("Received string (after processing):", jsonStr);
       console.error("Original AI response text:", result.text());
-      throw new Error("Не вдалося розібрати результат аналізу від AI. Можливо, формат відповіді змінився, або сталася помилка на стороні AI.");
+      
+      // Спробуємо створити fallback відповідь
+      console.warn('⚠️ Creating fallback analysis response due to parsing error');
+      
+      const fallbackAnalysis = {
+        updatedPlan: {
+          day: dayPlan.day,
+          notes: dayPlan.notes || 'План залишено без змін через помилку аналізу',
+          exercises: dayPlan.exercises.map(ex => ({
+            ...ex,
+            recommendation: {
+              text: 'Вправа залишена без змін',
+              action: 'maintain'
+            }
+          }))
+        },
+        recommendation: {
+          text: 'Не вдалося провести повний аналіз тренування. Продовжуйте за попереднім планом.',
+          action: 'maintain'
+        },
+        dailyRecommendations: dayPlan.exercises.map(ex => ({
+          exerciseName: ex.name,
+          recommendation: 'Продовжуйте за попереднім планом',
+          reason: 'Аналіз недоступний'
+        }))
+      };
+      
+      return fallbackAnalysis;
     }
 
   } catch (error: any) {
     console.error("Error during workout analysis via Gemini API:", error);
-     if (error.message && (error.message.includes("API_KEY_INVALID") || (error.response && error.response.status === 400))) {
-         throw new Error("Наданий API ключ недійсний або не має дозволів для використання аналізу. Будь ласка, перевірте ваш API ключ.");
+    
+    // Спеціальна обробка ключових помилок
+    if (error.message && (error.message.includes("API_KEY_INVALID") || (error.response && error.response.status === 400))) {
+      throw new Error("Наданий API ключ недійсний або не має дозволів для використання аналізу. Будь ласка, перевірте ваш API ключ.");
     }
+    
     if (error.message && error.message.toLowerCase().includes("candidate.safetyetyratings")) {
-        throw new Error("Відповідь від AI була заблокована через налаштування безпеки при аналізі. Спробуйте змінити дані або запит.");
+      throw new Error("Відповідь від AI була заблокована через налаштування безпеки при аналізі. Спробуйте змінити дані або запит.");
     }
-     if (error.message && error.message.toLowerCase().includes("fetch")) { 
-        throw new Error("Помилка мережі при зверненні до AI сервісу аналізу. Перевірте ваше інтернет-з'єднання та спробуйте пізніше.");
+    
+    if (error.message && error.message.toLowerCase().includes("fetch")) { 
+      throw new Error("Помилка мережі при зверненні до AI сервісу аналізу. Перевірте ваше інтернет-з'єднання та спробуйте пізніше.");
     }
+    
     if (
       (error.response && error.response.status === 503) ||
       (error.message && (
@@ -471,7 +513,32 @@ ${JSON.stringify(Object.fromEntries(exerciseProgress), null, 2)}
     ) {
       throw new Error(UI_TEXT.aiOverloaded);
     }
-    throw new Error(`Помилка аналізу тренування: ${error.message || 'Невідома помилка сервісу AI'}`);
+    
+    // Основний fallback - повертаємо мінімальну валідну відповідь
+    console.warn('⚠️ Creating fallback analysis response due to service error:', error.message);
+    
+    return {
+      updatedPlan: {
+        day: dayPlan.day,
+        notes: dayPlan.notes || 'План залишено без змін через помилку сервісу',
+        exercises: dayPlan.exercises.map(ex => ({
+          ...ex,
+          recommendation: {
+            text: 'Вправа залишена без змін',
+            action: 'maintain'
+          }
+        }))
+      },
+      recommendation: {
+        text: 'Сервіс аналізу тимчасово недоступний. Продовжуйте тренування за попереднім планом.',
+        action: 'maintain'
+      },
+      dailyRecommendations: dayPlan.exercises.map(ex => ({
+        exerciseName: ex.name,
+        recommendation: 'Продовжуйте за попереднім планом',
+        reason: 'Аналіз тимчасово недоступний'
+      }))
+    };
   }
 };
 
@@ -607,7 +674,14 @@ export const generateAdaptiveWorkout = async (
     throw new Error(UI_TEXT.apiKeyMissing);
   }
 
-  const modelName = GEMINI_MODELS.WORKOUT_GENERATION; // Швидка модель для адаптивного тренування
+  const modelName = GEMINI_MODELS.WORKOUT_GENERATION; // Основна модель дль адаптивного тренування
+
+  // Перевіряємо складність плану для вибору моделі
+  const exerciseCount = originalPlan.exercises.length;
+  const isComplexPlan = exerciseCount > 6;
+  const selectedModel = isComplexPlan ? GEMINI_MODELS.WORKOUT_GENERATION : GEMINI_MODELS.LIGHT_TASKS;
+  
+  console.log(`🤖 Selected model for adaptive workout: ${selectedModel} (${exerciseCount} exercises, complex: ${isComplexPlan})`);
 
   const adaptivePrompt = `Ти - досвідчений персональний тренер, який адаптує тренування під поточний стан та самопочуття клієнта. Твоя задача - створити адаптивний план тренування, враховуючи самопочуття та історію тренувань.
 
@@ -707,7 +781,17 @@ ${JSON.stringify(workoutHistory.slice(0, 5), null, 2)}
 }`;
 
   try {
-    const model = ai.getGenerativeModel({ model: modelName });
+    // Оптимізовані налаштування для швидшої обробки
+    const model = ai.getGenerativeModel({
+      model: selectedModel, // Динамічний вибір моделі
+      generationConfig: {
+        temperature: 0.3,
+        topK: 30,
+        topP: 0.8,
+        maxOutputTokens: isComplexPlan ? 2500 : 2000, // Більше токенів для складних планів
+        responseMimeType: "application/json"
+      }
+    } as any);
     const response = await model.generateContent(adaptivePrompt);
     const result = await response.response;
     let jsonStr = result.text().trim();
@@ -726,10 +810,39 @@ ${JSON.stringify(workoutHistory.slice(0, 5), null, 2)}
       if (!parsedResult || !parsedResult.exercises || !Array.isArray(parsedResult.exercises)) {
         throw new Error("Неправильна структура адаптивного плану");
       }
+      
+      // Перевіряємо чи всі вправи з оригінального плану були оброблені
+      const originalExerciseCount = originalPlan.exercises.length;
+      const adaptedExerciseCount = parsedResult.exercises.length;
+      
+      console.log(`🔍 Exercise count check: Original=${originalExerciseCount}, Adapted=${adaptedExerciseCount}`);
+      
+      // Якщо модель обробила менше вправ, дозаповнюємо з оригінального плану
+      let finalExercises = parsedResult.exercises;
+      if (adaptedExerciseCount < originalExerciseCount) {
+        console.warn(`⚠️ Model processed only ${adaptedExerciseCount}/${originalExerciseCount} exercises. Adding missing ones.`);
+        
+        // Знаходимо оброблені вправи по назвах
+        const adaptedNames = new Set(parsedResult.exercises.map((ex: any) => ex.name?.toLowerCase()));
+        
+        // Додаємо відсутні вправи з оригінального плану
+        const missingExercises = originalPlan.exercises
+          .filter(origEx => !adaptedNames.has(origEx.name.toLowerCase()))
+          .map(origEx => ({
+            ...origEx,
+            recommendation: {
+              text: "Залишено без змін через обмеження обробки",
+              action: "maintained"
+            }
+          }));
+        
+        finalExercises = [...parsedResult.exercises, ...missingExercises];
+        console.log(`✅ Added ${missingExercises.length} missing exercises`);
+      }
 
       const adaptivePlan: AdaptiveWorkoutPlan = {
         day: parsedResult.day || originalPlan.day,
-        exercises: parsedResult.exercises.map((ex: any): Exercise => ({
+        exercises: finalExercises.map((ex: any): Exercise => ({
           id: uuidv4(),
           name: ex.name || "Невідома вправа",
           description: ex.description || "Опис відсутній",
@@ -752,7 +865,9 @@ ${JSON.stringify(workoutHistory.slice(0, 5), null, 2)}
           intensity: 'maintained',
           duration: 'normal',
           focus: 'maintenance',
-          reason: 'План адаптовано'
+          reason: adaptedExerciseCount < originalExerciseCount 
+            ? `План частково адаптовано (${adaptedExerciseCount}/${originalExerciseCount} вправ)`
+            : 'План адаптовано'
         }
       };
 

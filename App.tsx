@@ -55,6 +55,8 @@ const App: React.FC = () => {
   const [isWorkoutCompleteModalOpen, setIsWorkoutCompleteModalOpen] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analyzingLogId, setAnalyzingLogId] = useState<string | null>(null);
+  const [isProcessingWellness, setIsProcessingWellness] = useState(false);
+  const [wellnessProcessingStep, setWellnessProcessingStep] = useState<string>('');
   const [isAddExerciseOpen, setIsAddExerciseOpen] = useState(false);
 
   // Виділення обмежень здоров'я з нотаток самопочуття
@@ -481,13 +483,15 @@ const App: React.FC = () => {
       return;
     }
 
-
     setWellnessCheckModalOpen(false);
     setIsLoading(true);
+    setIsProcessingWellness(true);
+    setWellnessProcessingStep('Аналізуємо ваше самопочуття...');
 
     try {
       // Оновлюємо профіль з обмеженнями здоров'я (пам'ять травм) при наявності нотаток
       if (userProfile && wellnessCheck.notes) {
+        setWellnessProcessingStep('Оновлюємо профіль здоров\'я...');
         const newConstraints = extractConstraintsFromNotes(wellnessCheck.notes);
         if (newConstraints.length > 0) {
           const merged = Array.from(new Set([...(userProfile.healthConstraints || []), ...newConstraints]));
@@ -498,6 +502,7 @@ const App: React.FC = () => {
       }
 
       // Генеруємо адаптивний план тренування
+      setWellnessProcessingStep('Адаптуємо план тренування...');
       const adaptivePlan = await generateAdaptiveWorkout(
         userProfile!,
         currentWorkoutPlan.find(d => d.day === pendingWorkoutDay) || currentWorkoutPlan[0],
@@ -507,6 +512,7 @@ const App: React.FC = () => {
       setAdaptiveWorkoutPlan(adaptivePlan);
 
       // Генеруємо рекомендації по самопочуттю НЕБЛОКУЮЧЕ (у фоні)
+      setWellnessProcessingStep('Готуємо рекомендації...');
       (async () => {
         try {
           const recs = await generateWellnessRecommendations(
@@ -532,6 +538,7 @@ const App: React.FC = () => {
       })();
 
       // Оновлюємо план тренувань з адаптивним планом
+      setWellnessProcessingStep('Зберігаємо план...');
       const updatedPlan = currentWorkoutPlan.map(dayPlan => 
         dayPlan.day === adaptivePlan.day ? adaptivePlan : dayPlan
       );
@@ -539,6 +546,7 @@ const App: React.FC = () => {
       await saveWorkoutPlan(updatedPlan);
 
       // АВТОМАТИЧНО СТАРТУЄМО ТРЕНУВАННЯ
+      setWellnessProcessingStep('Запускаємо тренування...');
       await startWorkout(adaptivePlan.day, adaptivePlan.exercises);
       
       // ОНОВЛЮЄМО LIVE-СЕСІЮ з wellnessCheck, adaptiveWorkoutPlan та wellnessRecommendations
@@ -553,6 +561,8 @@ const App: React.FC = () => {
       setPendingWorkoutDay(null);
     } finally {
       setIsLoading(false);
+      setIsProcessingWellness(false);
+      setWellnessProcessingStep('');
     }
   }, [userProfile, currentWorkoutPlan, workoutLogs, saveWorkoutPlan, pendingWorkoutDay, startWorkout, updateWellnessCheck, updateAdaptiveWorkoutPlan, updateWellnessRecommendations]);
 
@@ -574,7 +584,13 @@ const App: React.FC = () => {
     }
 
     if (isLoading) {
-      return <Spinner />;
+      return (
+        <Spinner 
+          message={isProcessingWellness ? "Обробляємо ваше самопочуття..." : "Завантаження..."}
+          showTimer={isProcessingWellness}
+          processingStep={wellnessProcessingStep}
+        />
+      );
     }
 
     switch (currentView) {
