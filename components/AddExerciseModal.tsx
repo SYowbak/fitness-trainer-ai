@@ -124,7 +124,7 @@ const AddExerciseModal: React.FC<AddExerciseModalProps> = ({ isOpen, onClose, on
           {weightType !== 'none' && (
             <div>
               <label className="block text-xs text-purple-200 mb-1">
-                Цільова вага (кг) {weightType === 'total' ? '(загальна)' : weightType === 'single' ? '(1 гантель)' : weightType === 'bodyweight' ? '(вага тіла)' : ''}
+                Цільова вага (кг) {weightType === 'total' ? '(загальна вага)' : weightType === 'single' ? '(1 снаряд)' : weightType === 'bodyweight' ? '(власна вага)' : ''}
               </label>
               <input
                 type="number"
@@ -136,6 +136,11 @@ const AddExerciseModal: React.FC<AddExerciseModalProps> = ({ isOpen, onClose, on
                 disabled={weightType === 'bodyweight'}
                 placeholder={weightType === 'bodyweight' ? '0' : ''}
               />
+              <p className="text-xs text-gray-400 mt-1">
+                {weightType === 'total' && 'Вказуйте загальну вагу (штанга + диски, весь блок)'}
+                {weightType === 'single' && 'Вказуйте вагу одного снаряда (тримаєте 2 гантелі - вводите вагу 1)'}
+                {weightType === 'bodyweight' && 'Використовується ваша власна вага тіла'}
+              </p>
             </div>
           )}
 

@@ -98,7 +98,33 @@ export const EXPERIENCE_LEVEL_OPTIONS: Array<{ value: ExperienceLevel; label: st
 export const DEFAULT_TRAINING_FREQUENCY = 3;
 export const DEFAULT_WEIGHT_DECREMENT = 5; // kg for example
 
-export const GEMINI_MODEL_TEXT = 'gemini-1.5-flash';
+export const GEMINI_MODEL_TEXT = 'gemini-2.5-flash';
+
+// Оптимізовані моделі для безкоштовного рівня (Free Tier)
+export const GEMINI_MODELS = {
+  // Швидкі інтерактивні відповіді (чат з тренером, генерація планів)
+  // ✅ RPM: 10, ✅ RPD: 250, ✅ Швидкість: ~2-3 сек, ✅ Пам'ять: 1M токенів
+  CHAT: 'gemini-2.5-flash',
+  WORKOUT_GENERATION: 'gemini-2.5-flash', 
+  
+  // Складний аналіз - ВИКОРИСТОВУЄМО FLASH замість PRO (обмеження Free Tier)
+  // ✅ RPM: 10, ✅ RPD: 250, ✅ Thinking підтримка для складного аналізу
+  ANALYSIS: 'gemini-2.5-flash', // Змінено з Pro на Flash через ліміти
+  
+  // Легкі та швидкі задачі (варіації вправ, рекомендації самопочуття)
+  // ✅ RPM: 15, ✅ RPD: 1000, ✅ Швидкість: ~1-2 сек, ✅ Найдешевша
+  LIGHT_TASKS: 'gemini-2.5-flash-lite',
+  
+  // За замовчуванням
+  DEFAULT: 'gemini-2.5-flash'
+} as const;
+
+// Інформація про ліміти Free Tier для моніторингу
+export const FREE_TIER_LIMITS = {
+  'gemini-2.5-pro': { rpm: 5, rpd: 100 },        // ДУЖЕ ОБМЕЖЕНО!
+  'gemini-2.5-flash': { rpm: 10, rpd: 250 },     // Збалансовано
+  'gemini-2.5-flash-lite': { rpm: 15, rpd: 1000 } // Найкраще для частого використання
+} as const;
 
 export const UI_TEXT = {
   appName: APP_NAME,

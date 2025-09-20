@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { UserProfile, WorkoutLog } from '../types';
-import { UI_TEXT, GEMINI_MODEL_TEXT } from '../constants';
-import { withQuotaManagement, shouldEnableAIFeature } from '../utils/apiQuotaManager';
+import { UI_TEXT, GEMINI_MODELS } from '../constants';
+import { withQuotaManagement, shouldEnableAIFeature, getSmartModel } from '../utils/apiQuotaManager';
 
 const ai = new GoogleGenerativeAI(import.meta.env.VITE_API_KEY || '');
 
@@ -108,7 +108,11 @@ ${userMessage}
 Відповідай на повідомлення користувача, враховуючи всі надані дані та контекст діалогу.`;
 
   return withQuotaManagement(async () => {
-    const model = ai!.getGenerativeModel({ model: GEMINI_MODEL_TEXT });
+    // Розумний вибір моделі на основі поточного використання квоти
+    const selectedModel = getSmartModel(GEMINI_MODELS.CHAT);
+    console.log(`Чат використовує модель: ${selectedModel}`);
+    
+    const model = ai!.getGenerativeModel({ model: selectedModel });
     const response = await model.generateContent(chatPrompt);
     const result = await response.response;
     return result.text();

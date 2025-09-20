@@ -22,7 +22,7 @@ interface RetryInfo {
 class ApiQuotaManager {
   private static instance: ApiQuotaManager;
   private readonly STORAGE_KEY = 'gemini_quota_status';
-  private readonly DEFAULT_DAILY_LIMIT = 100; // Increased limit to be more generous
+  private readonly DEFAULT_DAILY_LIMIT = 200; // Підвищуємо ліміт для Flash моделей (250 RPD)
   private readonly RESET_HOUR = 0; // Reset at midnight
 
   private constructor() {}
@@ -403,20 +403,64 @@ export function shouldEnableAIFeature(feature: 'variations' | 'analysis' | 'chat
     return essentialFeatures.includes(feature);
   }
   
-  // Be much more lenient with quota checks
-  if (status.requestCount < (status.dailyLimit + 20)) return true; // Allow extra buffer
+  // Смарт-логіка для Free Tier: зберігаємо запити для важливих функцій
+  const usagePercent = (status.requestCount / status.dailyLimit) * 100;
   
-  // Priority features that should work even with exceeded quota
-  const highPriorityFeatures = ['chat', 'analysis'];
+  // Пріоритетні функції за важливістю
+  const highPriorityFeatures = ['chat']; // Чат - найважливіше
+  const mediumPriorityFeatures = ['analysis']; // Аналіз - середній пріоритет
+  const lowPriorityFeatures = ['variations', 'recommendations']; // Низький пріоритет
   
+  // Чат завжди доступний (навіть при 90% використання)
   if (highPriorityFeatures.includes(feature)) {
-    return true; // Always allow high priority features
+    return usagePercent < 95;
   }
   
-  return false;
+  // Аналіз доступний до 70% використання
+  if (mediumPriorityFeatures.includes(feature)) {
+    return usagePercent < 70;
+  }
+  
+  // Низькопріоритетні до 50%
+  if (lowPriorityFeatures.includes(feature)) {
+    return usagePercent < 50;
+  }
+  
+  return usagePercent < 80; // За замовчуванням
 }
 
 export const quotaManager = ApiQuotaManager.getInstance();
+
+/**
+ * Розумний вибір моделі на основі поточного використання квоти
+ * При наближенні до ліміту перемикаємось на більш економні моделі
+ */
+export function getSmartModel(preferredModel: string): string {
+  const status = quotaManager.getQuotaStatus();
+  const usagePercent = (status.requestCount / status.dailyLimit) * 100;
+  
+  // Якщо використано менше 50% - використовуємо оригінальну модель
+  if (usagePercent < 50) {
+    return preferredModel;
+  }
+  
+  // При 50-80% використання - перемикаємось на Flash-Lite для некритичних задач
+  if (usagePercent >= 50 && usagePercent < 80) {
+    // Тільки чат залишається на оригінальній моделі
+    if (preferredModel === 'gemini-2.5-flash' && 
+        (preferredModel !== 'gemini-2.5-flash' /* чат */)) {
+      return 'gemini-2.5-flash-lite'; // Перемикаємось на Lite
+    }
+    return preferredModel;
+  }
+  
+  // При 80%+ - все крім чату на Flash-Lite
+  if (usagePercent >= 80) {
+    return 'gemini-2.5-flash-lite'; // Найекономніша модель
+  }
+  
+  return preferredModel;
+}
 
 /**
  * Emergency function to clear quota exceeded status

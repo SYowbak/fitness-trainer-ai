@@ -8,9 +8,9 @@ import {
   getUkrainianMuscleGroup, 
   getUkrainianExperienceLevel,
   UI_TEXT, 
-  GEMINI_MODEL_TEXT 
+  GEMINI_MODELS
 } from '../constants';
-import { withQuotaManagement, shouldEnableAIFeature, quotaManager } from '../utils/apiQuotaManager';
+import { withQuotaManagement, shouldEnableAIFeature, quotaManager, getSmartModel } from '../utils/apiQuotaManager';
 
 export const getApiKey = (): string | null => {
   return import.meta.env.VITE_API_KEY || null;
@@ -131,7 +131,7 @@ const constructPlanPrompt = (profile: UserProfile): string => {
 };
 
 
-export const generateWorkoutPlan = async (profile: UserProfile, modelName: string = GEMINI_MODEL_TEXT): Promise<DailyWorkoutPlan[]> => {
+export const generateWorkoutPlan = async (profile: UserProfile, modelName: string = GEMINI_MODELS.WORKOUT_GENERATION): Promise<DailyWorkoutPlan[]> => {
   if (!ai) {
     throw new Error(UI_TEXT.apiKeyMissing);
   }
@@ -139,7 +139,11 @@ export const generateWorkoutPlan = async (profile: UserProfile, modelName: strin
   const prompt = constructPlanPrompt(profile);
   
   return withQuotaManagement(async () => {
-    const model = ai!.getGenerativeModel({ model: modelName });
+    // Розумний вибір моделі
+    const selectedModel = getSmartModel(modelName);
+    console.log(`Генерація плану використовує модель: ${selectedModel}`);
+    
+    const model = ai!.getGenerativeModel({ model: selectedModel });
     const response = await model.generateContent(prompt);
     const result = await response.response;
     let jsonStr = result.text().trim();
@@ -231,7 +235,7 @@ export const generateWorkoutAnalysis = async ({
     throw new Error(UI_TEXT.apiKeyMissing);
   }
 
-  const modelName = "gemini-1.5-flash"; // Використовуємо gemini-1.5-flash для аналізу
+  const modelName = GEMINI_MODELS.ANALYSIS; // Використовуємо Pro для складного аналізу з багатьма даними
 
   // Аналізуємо історію тренувань для виявлення патернів
   const workoutHistory = lastWorkoutLog ? [lastWorkoutLog, ...previousWorkoutLogs] : previousWorkoutLogs;
@@ -471,7 +475,7 @@ export const generateExerciseVariations = async (
     return []; // Return empty array as fallback
   }
 
-  const modelName = "gemini-1.5-flash";
+  const modelName = GEMINI_MODELS.LIGHT_TASKS; // Швидка модель для варіацій вправ
 
   // Calculate exercise frequency from workout history
   const exerciseFrequency = shouldVaryExercise(originalExercise.name, workoutHistory) 
@@ -587,7 +591,7 @@ export const generateAdaptiveWorkout = async (
     throw new Error(UI_TEXT.apiKeyMissing);
   }
 
-  const modelName = "gemini-1.5-flash"; // Використовуємо gemini-1.5-flash для адаптивного тренування
+  const modelName = GEMINI_MODELS.WORKOUT_GENERATION; // Швидка модель для адаптивного тренування
 
   const adaptivePrompt = `Ти - досвідчений персональний тренер, який адаптує тренування під поточний стан та самопочуття клієнта. Твоя задача - створити адаптивний план тренування, враховуючи самопочуття та історію тренувань.
 
@@ -790,7 +794,7 @@ export const generateWellnessRecommendations = async (
 
   try {
     const model = ai.getGenerativeModel({
-      model: GEMINI_MODEL_TEXT,
+      model: GEMINI_MODELS.LIGHT_TASKS,
       generationConfig: {
         temperature: 0.2,
         topK: 40,

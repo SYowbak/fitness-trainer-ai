@@ -46,9 +46,9 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   const getWeightLabel = (weightType: WeightType) => {
     switch (weightType) {
       case 'total':
-        return 'Вага (кг)';
+        return 'Загальна вага (кг)';
       case 'single':
-        return 'Вага (кг)';
+        return 'Вага 1 снаряда (кг)';
       case 'bodyweight':
         return 'Власна вага';
       case 'none':
@@ -61,15 +61,17 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
     const name = exerciseName.toLowerCase();
     switch (weightType) {
       case 'total':
-        if (name.includes('штанга')) return 'Вся штанга';
-        if (name.includes('тренажер')) return 'Налаштування';
+        if (name.includes('штанга')) return 'Штанга + диски';
+        if (name.includes('тренажер')) return 'Весь блок';
+        if (name.includes('присід')) return 'Штанга + диски';
+        if (name.includes('жим')) return 'Штанга + диски';
         return 'Загальна вага';
       case 'single':
-        if (name.includes('гантел')) return 'Одна гантель';
-        if (name.includes('гир')) return 'Одна гиря';
-        return 'Один снаряд';
+        if (name.includes('гантел')) return '1 гантель';
+        if (name.includes('гир')) return '1 гиря';
+        return '1 снаряд';
       case 'bodyweight':
-        return 'Без ваги';
+        return 'Авто';
       default:
         return 'Вага';
     }
@@ -570,6 +572,21 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                               {getWeightDisplayHint(exercise.weightType, exercise.name)}
                             </div>
                           </div>
+                          {/* Додаємо пояснення під полем вводу */}
+                          <p className="text-[10px] text-gray-400 mt-1">
+                            {(() => {
+                              switch (exercise.weightType) {
+                                case 'total':
+                                  return 'Вказуйте загальну вагу (штанга + диски або весь блок тренажера)';
+                                case 'single':
+                                  return 'Вказуйте вагу одного снаряда (тримаєте два - вводите вагу одного)';
+                                case 'bodyweight':
+                                  return 'Використовується ваша власна вага тіла';
+                                default:
+                                  return '';
+                              }
+                            })()}
+                          </p>
                         </div>
                       </>
                     )}
