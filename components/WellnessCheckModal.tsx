@@ -15,6 +15,9 @@ const WellnessCheckModal: React.FC<WellnessCheckModalProps> = ({
   onSubmit,
   onSkip
 }) => {
+  // Test console logging right at component start
+  console.log('💫 [MODAL] WellnessCheckModal component rendered, isOpen:', isOpen);
+  
   const [wellnessCheck, setWellnessCheck] = useState<WellnessCheck>({
     energyLevel: EnergyLevel.NORMAL,
     sleepQuality: SleepQuality.GOOD,

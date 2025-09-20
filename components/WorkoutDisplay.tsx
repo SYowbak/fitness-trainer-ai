@@ -460,7 +460,10 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
               </button>
             )}
               <button
-              onClick={() => selectedDayForView !== null && onStartWorkout(selectedDayForView)}
+              onClick={() => {
+                console.log('👍 [WORKOUT] Start workout button clicked for day:', selectedDayForView);
+                selectedDayForView !== null && onStartWorkout(selectedDayForView);
+              }}
               disabled={selectedDayForView === null}
               className={`w-full md:w-auto px-4 py-2 rounded transition-colors ${
                 selectedDayForView === null

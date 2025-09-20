@@ -870,9 +870,13 @@ ${JSON.stringify(workoutHistory.slice(0, 5), null, 2)}
     const result = await response.response;
     let jsonStr = result.text().trim();
     
-    console.log('✅ [ADAPTIVE WORKOUT] Received response:', {
+    console.log('✅ [ADAPTIVE WORKOUT] Received raw response:', {
       responseLength: jsonStr.length,
-      firstChars: jsonStr.substring(0, 100)
+      firstChars: jsonStr.substring(0, 100),
+      lastChars: jsonStr.length > 100 ? jsonStr.substring(jsonStr.length - 100) : 'N/A',
+      containsJSON: jsonStr.includes('{') && jsonStr.includes('}'),
+      containsMarkdown: jsonStr.includes('```'),
+      lineCount: jsonStr.split('\n').length
     });
     
     // Видаляємо можливі markdown-розмітки
@@ -880,21 +884,39 @@ ${JSON.stringify(workoutHistory.slice(0, 5), null, 2)}
     const match = jsonStr.match(fenceRegex);
     if (match && match[1]) {
       jsonStr = match[1].trim();
-      console.log('🧹 [ADAPTIVE WORKOUT] Cleaned markdown from response');
+      console.log('🧹 [ADAPTIVE WORKOUT] Cleaned markdown from response, new length:', jsonStr.length);
+    } else {
+      console.log('ℹ️ [ADAPTIVE WORKOUT] No markdown detected, keeping original response');
     }
 
     try {
+      console.log('🔍 [ADAPTIVE WORKOUT] About to parse JSON:', {
+        jsonLength: jsonStr.length,
+        startsWithBrace: jsonStr.startsWith('{'),
+        endsWithBrace: jsonStr.endsWith('}'),
+        first100Chars: jsonStr.substring(0, 100),
+        last100Chars: jsonStr.length > 100 ? jsonStr.substring(jsonStr.length - 100) : 'N/A'
+      });
+      
       const parsedResult: any = JSON.parse(jsonStr);
-      console.log('🔍 [ADAPTIVE WORKOUT] Parsed JSON successfully:', {
+      console.log('✅ [ADAPTIVE WORKOUT] JSON parsed successfully');
+      console.log('🔍 [ADAPTIVE WORKOUT] Parsed structure:', {
         hasExercises: !!parsedResult.exercises,
         exerciseCount: parsedResult.exercises?.length,
         hasAdaptations: !!parsedResult.adaptations,
-        hasOverallAdaptation: !!parsedResult.overallAdaptation
+        hasOverallAdaptation: !!parsedResult.overallAdaptation,
+        topLevelKeys: Object.keys(parsedResult || {})
       });
       
       // Перевіряємо структуру
       if (!parsedResult || !parsedResult.exercises || !Array.isArray(parsedResult.exercises)) {
-        console.error('❌ [ADAPTIVE WORKOUT] Invalid structure:', parsedResult);
+        console.error('❌ [ADAPTIVE WORKOUT] Invalid structure detected:', {
+          hasResult: !!parsedResult,
+          hasExercises: !!parsedResult?.exercises,
+          exercisesType: typeof parsedResult?.exercises,
+          isArray: Array.isArray(parsedResult?.exercises),
+          entireResult: parsedResult
+        });
         throw new Error("Неправильна структура адаптивного плану");
       }
       
@@ -967,8 +989,27 @@ ${JSON.stringify(workoutHistory.slice(0, 5), null, 2)}
 
       return adaptivePlan;
     } catch (e) {
-      console.error('❌ [ADAPTIVE WORKOUT] Error parsing JSON:', e);
-      console.error('🔍 [ADAPTIVE WORKOUT] Problematic JSON string:', jsonStr);
+      console.error('❌ [ADAPTIVE WORKOUT] JSON parsing failed:', {
+        error: e,
+        errorMessage: e instanceof Error ? e.message : String(e),
+        errorType: typeof e,
+        jsonStringLength: jsonStr.length,
+        jsonStart: jsonStr.substring(0, 200),
+        jsonEnd: jsonStr.length > 200 ? jsonStr.substring(jsonStr.length - 200) : 'N/A',
+        fullJsonString: jsonStr.length < 1000 ? jsonStr : 'Too long to display'
+      });
+      console.error('🔍 [ADAPTIVE WORKOUT] Attempting to identify JSON issues...');
+      
+      // Пробуємо знайти проблему з JSON
+      const issues = [];
+      if (!jsonStr.trim()) issues.push('Empty response');
+      if (!jsonStr.includes('{')) issues.push('No opening brace');
+      if (!jsonStr.includes('}')) issues.push('No closing brace');
+      if (jsonStr.includes('```')) issues.push('Contains markdown');
+      if (jsonStr.includes('\n')) issues.push('Contains newlines');
+      
+      console.error('📝 [ADAPTIVE WORKOUT] Identified JSON issues:', issues);
+      
       throw new Error("Не вдалося розібрати адаптивний план від AI");
     }
   } catch (error: any) {
