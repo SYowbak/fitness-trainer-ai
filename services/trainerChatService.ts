@@ -52,7 +52,7 @@ ${recentHistory.length > 0 ? `Останні повідомлення:\n${recent
   }, { message: 'Пробачте, сталася помилка з AI. Спробуйте пізніше.' }, { 
     priority: 'high',
     bypassQuotaInDev: true,
-    skipOnQuotaExceeded: true
+    skipOnQuotaExceeded: false  // Changed to false for chat - we want it to work
   });
 };
 
@@ -87,7 +87,8 @@ ${todaysWorkout.exercises.map((ex, i) => `${i + 1}. ${ex.name}`).join('\n')}
       return response.response.text();
     }, null, { 
       priority: 'high',
-      bypassQuotaInDev: true
+      bypassQuotaInDev: true,
+      skipOnQuotaExceeded: false  // Changed to false for modifications - we want them to work
     });
 
     // Parse the JSON response

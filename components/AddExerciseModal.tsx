@@ -95,11 +95,11 @@ const AddExerciseModal: React.FC<AddExerciseModalProps> = ({ isOpen, onClose, on
             <div>
               <label className="block text-xs text-purple-200 mb-1">Підходи</label>
               <input
-                type="number"
-                min="1"
-                value={parseInt(sets) || ''}
-                onChange={(e) => setSets(e.target.value || '1')}
+                type="text"
+                value={sets}
+                onChange={(e) => setSets(e.target.value)}
                 className="w-full p-2 bg-gray-600 border border-gray-500 rounded text-gray-100 text-sm"
+                placeholder="3"
               />
             </div>
             <div>

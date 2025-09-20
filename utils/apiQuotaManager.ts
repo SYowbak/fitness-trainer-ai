@@ -52,6 +52,14 @@ class ApiQuotaManager {
         return this.createNewQuotaStatus();
       }
 
+      // Auto-reset exceeded status if retry period has passed and request count is reasonable
+      if (status.isExceeded && status.retryAfter && Date.now() >= status.retryAfter) {
+        console.log('🔄 Auto-resetting exceeded status - retry period expired');
+        status.isExceeded = false;
+        status.retryAfter = undefined;
+        this.saveQuotaStatus(status);
+      }
+
       return status;
     } catch (error) {
       console.error('Error parsing quota status:', error);
@@ -64,6 +72,14 @@ class ApiQuotaManager {
    */
   canMakeRequest(): boolean {
     const status = this.getQuotaStatus();
+    
+    // Auto-fix: if quota appears exceeded but request count is very low, reset the exceeded flag
+    if (status.isExceeded && status.requestCount < (status.dailyLimit * 0.8)) {
+      console.warn('🔧 Auto-fixing quota exceeded flag (request count too low to be exceeded)');
+      status.isExceeded = false;
+      status.retryAfter = undefined;
+      this.saveQuotaStatus(status);
+    }
     
     console.log('🔍 Quota check:', {
       requestCount: status.requestCount,
