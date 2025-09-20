@@ -706,6 +706,75 @@ export const shouldVaryExercise = (
   return frequency >= variationThreshold;
 };
 
+// Create fallback adaptive plan when AI parsing fails
+const createFallbackAdaptivePlan = (
+  originalPlan: DailyWorkoutPlan,
+  wellnessCheck: WellnessCheck
+): AdaptiveWorkoutPlan => {
+  // Simple rule-based adaptation based on wellness check
+  const adaptationReason = getAdaptationReason(wellnessCheck);
+  const intensity = getIntensityReduction(wellnessCheck);
+  
+  const adaptedExercises = originalPlan.exercises.map((exercise): Exercise => {
+    const setsReduction = intensity === 'high' ? 2 : intensity === 'medium' ? 1 : 0;
+    const repsReduction = intensity === 'high' ? '25%' : intensity === 'medium' ? '15%' : '0%';
+    
+    const originalSets = parseInt(String(exercise.sets)) || 3;
+    const newSets = Math.max(1, originalSets - setsReduction);
+    
+    return {
+      ...exercise,
+      id: uuidv4(),
+      sets: newSets.toString(),
+      reps: intensity === 'none' ? exercise.reps : `${exercise.reps} (зменшено на ${repsReduction})`,
+      recommendation: {
+        text: `Адаптовано: ${adaptationReason}`,
+        action: intensity === 'none' ? 'maintained' : 'reduced_intensity'
+      },
+      isCompletedDuringSession: false,
+      sessionLoggedSets: [],
+      sessionSuccess: false
+    };
+  });
+  
+  return {
+    day: originalPlan.day,
+    exercises: adaptedExercises,
+    notes: `План адаптовано автоматично через ${adaptationReason}`,
+    originalPlan: originalPlan,
+    adaptations: [],
+    overallAdaptation: {
+      intensity: intensity === 'none' ? 'maintained' : 'reduced',
+      duration: 'shorter',
+      focus: 'recovery',
+      reason: adaptationReason
+    }
+  };
+};
+
+const getAdaptationReason = (wellnessCheck: WellnessCheck): string => {
+  if (wellnessCheck.energyLevel === 'very_low') return 'дуже низький рівень енергії';
+  if (wellnessCheck.energyLevel === 'low') return 'низький рівень енергії';
+  if (wellnessCheck.sleepQuality === 'poor') return 'погану якість сну';
+  if (wellnessCheck.stressLevel === 'high') return 'високий рівень стресу';
+  if (wellnessCheck.fatigue >= 8) return 'високу втому';
+  if (wellnessCheck.motivation <= 3) return 'низьку мотивацію';
+  return 'поточний стан самопочуття';
+};
+
+const getIntensityReduction = (wellnessCheck: WellnessCheck): 'high' | 'medium' | 'low' | 'none' => {
+  if (wellnessCheck.energyLevel === 'very_low' || wellnessCheck.sleepQuality === 'poor' || wellnessCheck.fatigue >= 9) {
+    return 'high';
+  }
+  if (wellnessCheck.energyLevel === 'low' || wellnessCheck.stressLevel === 'high' || wellnessCheck.fatigue >= 7 || wellnessCheck.motivation <= 3) {
+    return 'medium';
+  }
+  if (wellnessCheck.fatigue >= 5 || wellnessCheck.motivation <= 5) {
+    return 'low';
+  }
+  return 'none';
+};
+
 export const generateAdaptiveWorkout = async (
   userProfile: UserProfile,
   originalPlan: DailyWorkoutPlan,
@@ -849,8 +918,15 @@ ${JSON.stringify(workoutHistory.slice(0, 5), null, 2)}
     promptLength: adaptivePrompt.length,
     model: selectedModel,
     userProfileKeys: Object.keys(userProfile),
-    wellnessKeys: Object.keys(wellnessCheck)
+    wellnessKeys: Object.keys(wellnessCheck),
+    estimatedTokens: Math.ceil(adaptivePrompt.length / 4) // Rough estimate: 1 token ≈ 4 characters
   });
+
+  // Check for potential quota issues based on prompt length
+  const estimatedInputTokens = Math.ceil(adaptivePrompt.length / 4);
+  if (estimatedInputTokens > 10000) {
+    console.warn('⚠️ [ADAPTIVE WORKOUT] Large prompt detected, potential quota risk:', estimatedInputTokens, 'tokens');
+  }
 
   try {
     // Оптимізовані налаштування для швидшої обробки
@@ -889,35 +965,22 @@ ${JSON.stringify(workoutHistory.slice(0, 5), null, 2)}
       console.log('ℹ️ [ADAPTIVE WORKOUT] No markdown detected, keeping original response');
     }
 
+    // Clean and attempt to fix JSON response
+    jsonStr = jsonStr.trim();
+    
+    // Remove common AI response prefixes/suffixes
+    jsonStr = jsonStr.replace(/^.*?```json\s*/i, '').replace(/```.*$/i, '');
+    jsonStr = jsonStr.replace(/^.*?{/, '{').replace(/}[^}]*$/, '}');
+    
+    // Remove trailing commas and fix common JSON issues
+    jsonStr = jsonStr.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
+    
     try {
-      console.log('🔍 [ADAPTIVE WORKOUT] About to parse JSON:', {
-        jsonLength: jsonStr.length,
-        startsWithBrace: jsonStr.startsWith('{'),
-        endsWithBrace: jsonStr.endsWith('}'),
-        first100Chars: jsonStr.substring(0, 100),
-        last100Chars: jsonStr.length > 100 ? jsonStr.substring(jsonStr.length - 100) : 'N/A'
-      });
-      
       const parsedResult: any = JSON.parse(jsonStr);
-      console.log('✅ [ADAPTIVE WORKOUT] JSON parsed successfully');
-      console.log('🔍 [ADAPTIVE WORKOUT] Parsed structure:', {
-        hasExercises: !!parsedResult.exercises,
-        exerciseCount: parsedResult.exercises?.length,
-        hasAdaptations: !!parsedResult.adaptations,
-        hasOverallAdaptation: !!parsedResult.overallAdaptation,
-        topLevelKeys: Object.keys(parsedResult || {})
-      });
       
-      // Перевіряємо структуру
+      // Validate structure and create fallback if needed
       if (!parsedResult || !parsedResult.exercises || !Array.isArray(parsedResult.exercises)) {
-        console.error('❌ [ADAPTIVE WORKOUT] Invalid structure detected:', {
-          hasResult: !!parsedResult,
-          hasExercises: !!parsedResult?.exercises,
-          exercisesType: typeof parsedResult?.exercises,
-          isArray: Array.isArray(parsedResult?.exercises),
-          entireResult: parsedResult
-        });
-        throw new Error("Неправильна структура адаптивного плану");
+        throw new Error('Invalid structure');
       }
       
       // Перевіряємо чи всі вправи з оригінального плану були оброблені
@@ -981,39 +1044,38 @@ ${JSON.stringify(workoutHistory.slice(0, 5), null, 2)}
         }
       };
 
-      console.log('✅ [ADAPTIVE WORKOUT] Successfully created adaptive plan:', {
-        finalExerciseCount: adaptivePlan.exercises.length,
-        adaptationsCount: adaptivePlan.adaptations?.length || 0,
-        overallAdaptation: adaptivePlan.overallAdaptation
-      });
-
       return adaptivePlan;
-    } catch (e) {
-      console.error('❌ [ADAPTIVE WORKOUT] JSON parsing failed:', {
-        error: e,
-        errorMessage: e instanceof Error ? e.message : String(e),
-        errorType: typeof e,
-        jsonStringLength: jsonStr.length,
-        jsonStart: jsonStr.substring(0, 200),
-        jsonEnd: jsonStr.length > 200 ? jsonStr.substring(jsonStr.length - 200) : 'N/A',
-        fullJsonString: jsonStr.length < 1000 ? jsonStr : 'Too long to display'
-      });
-      console.error('🔍 [ADAPTIVE WORKOUT] Attempting to identify JSON issues...');
+    } catch (parseError) {
+      // JSON parsing failed - create fallback adaptive plan
+      console.warn('⚠️ [ADAPTIVE WORKOUT] JSON parsing failed, creating fallback plan');
       
-      // Пробуємо знайти проблему з JSON
-      const issues = [];
-      if (!jsonStr.trim()) issues.push('Empty response');
-      if (!jsonStr.includes('{')) issues.push('No opening brace');
-      if (!jsonStr.includes('}')) issues.push('No closing brace');
-      if (jsonStr.includes('```')) issues.push('Contains markdown');
-      if (jsonStr.includes('\n')) issues.push('Contains newlines');
-      
-      console.error('📝 [ADAPTIVE WORKOUT] Identified JSON issues:', issues);
-      
-      throw new Error("Не вдалося розібрати адаптивний план від AI");
+      return createFallbackAdaptivePlan(originalPlan, wellnessCheck);
     }
   } catch (error: any) {
     console.error('❌ [ADAPTIVE WORKOUT] Error generating adaptive workout:', error);
+    console.error('🔍 [ADAPTIVE WORKOUT] Error details:', {
+      message: error.message,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      errorType: typeof error,
+      isQuotaError: error.message?.includes('429') || error.message?.includes('quota'),
+      isRateLimitError: error.message?.includes('rate limit') || error.message?.includes('exceeded')
+    });
+    
+    // For quota errors, create fallback plan instead of throwing error
+    if (
+      (error.response && error.response.status === 429) ||
+      (error.message && (
+        error.message.toLowerCase().includes("quota") ||
+        error.message.toLowerCase().includes("rate limit") ||
+        error.message.toLowerCase().includes("exceeded") ||
+        error.message.toLowerCase().includes("429")
+      ))
+    ) {
+      console.warn('⚠️ [ADAPTIVE WORKOUT] Quota exceeded, using fallback adaptation');
+      return createFallbackAdaptivePlan(originalPlan, wellnessCheck);
+    }
+    
     if (
       (error.response && error.response.status === 503) ||
       (error.message && (
@@ -1022,9 +1084,13 @@ ${JSON.stringify(workoutHistory.slice(0, 5), null, 2)}
         error.message.toLowerCase().includes("service unavailable")
       ))
     ) {
-      throw new Error(UI_TEXT.aiOverloaded);
+      console.warn('⚠️ [ADAPTIVE WORKOUT] Service overloaded, using fallback adaptation');
+      return createFallbackAdaptivePlan(originalPlan, wellnessCheck);
     }
-    throw new Error(`Помилка генерації адаптивного тренування: ${error.message || 'Невідома помилка'}`);
+    
+    // For any other API errors, also use fallback instead of failing
+    console.warn('⚠️ [ADAPTIVE WORKOUT] API error, using fallback adaptation');
+    return createFallbackAdaptivePlan(originalPlan, wellnessCheck);
   }
 };
 

@@ -24,9 +24,14 @@ import { WellnessCheck, AdaptiveWorkoutPlan, WellnessRecommendation } from './ty
 import WorkoutCompleteModal from './components/WorkoutCompleteModal';
 import AddExerciseModal from './components/AddExerciseModal';
 
+// Immediate test log to verify console is working
+console.log('🚀 [SYSTEM] App.tsx file loaded at:', new Date().toISOString());
+
 type View = 'profile' | 'workout' | 'progress';
 
 const App: React.FC = () => {
+  console.log('🎬 [APP] App component is rendering/re-rendering');
+  
   const { user, loading, logout, setUser } = useAuth();
   const { workoutPlan, saveWorkoutPlan, profile: firestoreProfile, workoutLogs: firestoreWorkoutLogs, saveProfile, saveWorkoutLog } = useUserData();
   const { session, startWorkout, updateExercise, addCustomExercise, endWorkout, updateTimer, updateWellnessCheck, updateAdaptiveWorkoutPlan, updateWellnessRecommendations, updateExerciseOrder } = useWorkoutSync(user?.uid || '');
@@ -46,6 +51,11 @@ const App: React.FC = () => {
     consistencyScore: number;
   } | null>(null);
   const [wellnessCheckModalOpen, setWellnessCheckModalOpen] = useState<boolean>(false);
+  
+  // Debug wellness modal state changes
+  useEffect(() => {
+    console.log('💫 [APP] wellnessCheckModalOpen changed to:', wellnessCheckModalOpen);
+  }, [wellnessCheckModalOpen]);
   const [wellnessRecommendationsModalOpen, setWellnessRecommendationsModalOpen] = useState<boolean>(false);
   const [wellnessRecommendations, setWellnessRecommendations] = useState<WellnessRecommendation[]>([]);
   const [adaptiveWorkoutPlan, setAdaptiveWorkoutPlan] = useState<AdaptiveWorkoutPlan | null>(null);
@@ -644,7 +654,32 @@ const App: React.FC = () => {
         errorObject: error
       });
       console.error('📍 [APP] Error occurred at processing step:', wellnessProcessingStep);
-      setError(error.message || 'Помилка при адаптації тренування');
+      
+      // Handle quota errors specially
+      if (error.message && (
+        error.message.includes('ліміт запитів') ||
+        error.message.includes('quota') ||
+        error.message.includes('429')
+      )) {
+        console.log('🕰️ [APP] Quota error detected, offering skip option');
+        setError('Перевищено ліміт AI запитів. Можете почати тренування без адаптації або чекати 1-2 хвилини.');
+        
+        // Offer to start workout without adaptation after 3 seconds
+        setTimeout(() => {
+          if (pendingWorkoutDay !== null && currentWorkoutPlan && confirm('Хочете почати тренування без адаптації плану? (Оригінальний план)')) {
+            console.log('🏃 [APP] Starting workout without adaptation due to quota limits');
+            const planForDay = currentWorkoutPlan.find(d => d.day === pendingWorkoutDay);
+            if (planForDay) {
+              startWorkout(planForDay.day, planForDay.exercises);
+              setPendingWorkoutDay(null);
+              setError(null);
+            }
+          }
+        }, 3000);
+      } else {
+        setError(error.message || 'Помилка при адаптації тренування');
+      }
+      
       setPendingWorkoutDay(null);
     } finally {
       console.log('🏁 [APP] Wellness check process finished, cleaning up...');
