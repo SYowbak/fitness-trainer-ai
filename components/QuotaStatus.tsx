@@ -188,17 +188,44 @@ const QuotaStatus: React.FC<QuotaStatusProps> = ({
               </div>
             )}
 
-            {/* Tips */}
-            <div className="mt-3 p-2 bg-blue-900/20 border border-blue-700 rounded">
-              <div className="flex items-start space-x-2">
-                <i className="fas fa-info-circle text-blue-400 mt-0.5"></i>
-                <div className="text-xs text-blue-300 space-y-1">
-                  <p>💡 Квота оновлюється щодня о полночі</p>
-                  <p>💡 Чат з тренером має найвищий пріоритет</p>
-                  <p>💡 Спробуйте згодом, якщо функції недоступні</p>
+            {/* Debug Controls (Development Only) */}
+            {import.meta.env.DEV && (
+              <div className="mt-3 p-2 bg-purple-900/20 border border-purple-700 rounded">
+                <div className="flex items-center space-x-2 mb-2">
+                  <i className="fas fa-code text-purple-400"></i>
+                  <span className="text-xs text-purple-300 font-semibold">Debug Controls</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => {
+                      disableQuotaChecks();
+                      setQuotaStatus(quotaManager.getQuotaStatus());
+                    }}
+                    className="px-2 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded transition-colors"
+                  >
+                    ✅ Force Allow All
+                  </button>
+                  <button
+                    onClick={() => {
+                      clearQuotaExceeded();
+                      setQuotaStatus(quotaManager.getQuotaStatus());
+                    }}
+                    className="px-2 py-1 bg-yellow-600 hover:bg-yellow-700 text-white text-xs rounded transition-colors"
+                  >
+                    🗑️ Clear Exceeded
+                  </button>
+                  <button
+                    onClick={() => {
+                      quotaManager.resetQuota();
+                      setQuotaStatus(quotaManager.getQuotaStatus());
+                    }}
+                    className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded transition-colors"
+                  >
+                    🔄 Reset Quota
+                  </button>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* Emergency Controls (only in detailed view) */}
             <div className="mt-4 pt-3 border-t border-gray-700">

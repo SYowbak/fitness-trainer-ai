@@ -136,17 +136,33 @@ export const generateWorkoutPlan = async (profile: UserProfile, modelName: strin
     throw new Error(UI_TEXT.apiKeyMissing);
   }
 
+  console.log('🏋️-♀️ Starting workout plan generation:', {
+    modelName,
+    userProfile: {
+      name: profile.name,
+      goal: profile.goal,
+      trainingFrequency: profile.trainingFrequency
+    }
+  });
+
   const prompt = constructPlanPrompt(profile);
   
   return withQuotaManagement(async () => {
     // Розумний вибір моделі
     const selectedModel = getSmartModel(modelName);
-    console.log(`Генерація плану використовує модель: ${selectedModel}`);
+    console.log(`🤖 Генерація плану використовує модель: ${selectedModel}`);
     
     const model = ai!.getGenerativeModel({ model: selectedModel });
+    
+    console.log('🚀 Making API call to generate workout plan...');
     const response = await model.generateContent(prompt);
     const result = await response.response;
     let jsonStr = result.text().trim();
+    
+    console.log('✅ Received response from API, parsing...', {
+      responseLength: jsonStr.length,
+      firstChars: jsonStr.substring(0, 100)
+    });
     
     // Видаляємо можливі markdown-розмітки
     const fenceRegex = /^```(?:json)?\s*\n?(.*?)\n?\s*```$/s;
