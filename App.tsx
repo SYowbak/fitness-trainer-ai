@@ -8,6 +8,7 @@ import ProgressView from './components/ProgressView';
 import Spinner from './components/Spinner';
 import ErrorMessage from './components/ErrorMessage';
 import TrainerChat from './components/TrainerChat';
+import QuotaStatus from './components/QuotaStatus';
 import { generateWorkoutPlan as apiGenerateWorkoutPlan, generateAdaptiveWorkout, generateWellnessRecommendations } from './services/geminiService';
 import { useAuth } from './hooks/useAuth';
 import { AuthForm } from './components/AuthForm';
@@ -571,14 +572,22 @@ const App: React.FC = () => {
       case 'profile':
         return (
           <div className="container mx-auto px-4 py-8">
-            <UserProfileForm
-              existingProfile={userProfile}
-              onSave={handleProfileSave}
-              apiKeyMissing={apiKeyMissing}
-              isLoading={isLoading}
-              onLogout={logout}
-              onDeleteAccount={handleDeleteAccount}
-            />
+            <div className="space-y-6">
+              <UserProfileForm
+                existingProfile={userProfile}
+                onSave={handleProfileSave}
+                apiKeyMissing={apiKeyMissing}
+                isLoading={isLoading}
+                onLogout={logout}
+                onDeleteAccount={handleDeleteAccount}
+              />
+              {user && (
+                <QuotaStatus 
+                  className="" 
+                  showDetailed={true}
+                />
+              )}
+            </div>
           </div>
         );
       case 'workout':
@@ -638,9 +647,12 @@ const App: React.FC = () => {
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-900 via-slate-800 to-purple-900">
       <header className="bg-gray-800/70 backdrop-blur-md shadow-lg p-3 sm:p-4 sticky top-0 z-50">
         <div className="container mx-auto flex flex-col sm:flex-row justify-between items-center">
-          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500 mb-2 sm:mb-0">
-            <i className="fas fa-dumbbell mr-2"></i>{UI_TEXT.appName}
-          </h1>
+          <div className="flex items-center space-x-4 mb-2 sm:mb-0">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">
+              <i className="fas fa-dumbbell mr-2"></i>{UI_TEXT.appName}
+            </h1>
+            {user && <QuotaStatus className="" />}
+          </div>
           {(userProfile || isLoading || session.activeDay !== null) &&  // Показуємо навігацію якщо є профіль, завантаження або активне тренування
             <Navbar currentView={currentView} onViewChange={(v) => {
               if (session.activeDay !== null && v !== 'workout') { // Використовуємо session.activeDay

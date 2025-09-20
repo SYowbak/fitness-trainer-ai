@@ -5,6 +5,7 @@ import { UI_TEXT } from '../constants';
 import { database } from '../config/firebase';
 import { ref, set, get, remove } from 'firebase/database';
 import { useAuth } from '../hooks/useAuth';
+import { quotaManager } from '../utils/apiQuotaManager';
 
 interface ChatMessage {
   id: string;
@@ -31,8 +32,28 @@ const TrainerChat: React.FC<TrainerChatProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [quotaWarning, setQuotaWarning] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout>();
+
+  // Check quota status periodically
+  useEffect(() => {
+    const checkQuotaStatus = () => {
+      const status = quotaManager.getQuotaStatus();
+      if (status.isExceeded) {
+        setQuotaWarning('Денна квота AI запитів вичерпана. Квота оновиться завтра о полночі.');
+      } else if (quotaManager.isServiceOverloaded()) {
+        setQuotaWarning('Сервіс AI тимчасово перевантажений. Спробуйте пізніше.');
+      } else {
+        setQuotaWarning(null);
+      }
+    };
+
+    checkQuotaStatus();
+    const interval = setInterval(checkQuotaStatus, 30000); // Check every 30 seconds
+
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = () => {
@@ -333,6 +354,12 @@ const TrainerChat: React.FC<TrainerChatProps> = ({
       </div>
 
       <form onSubmit={handleSendMessage} className="p-3 sm:p-4 border-t border-purple-700 bg-gray-800/50">
+        {quotaWarning && (
+          <div className="mb-3 p-2 bg-orange-900/50 border border-orange-700 rounded text-orange-300 text-sm">
+            <i className="fas fa-exclamation-triangle mr-2"></i>
+            {quotaWarning}
+          </div>
+        )}
         <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
           <textarea
             value={inputMessage}

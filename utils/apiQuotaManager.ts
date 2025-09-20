@@ -22,7 +22,7 @@ interface RetryInfo {
 class ApiQuotaManager {
   private static instance: ApiQuotaManager;
   private readonly STORAGE_KEY = 'gemini_quota_status';
-  private readonly DEFAULT_DAILY_LIMIT = 45; // Conservative limit (below 50)
+  private readonly DEFAULT_DAILY_LIMIT = 100; // Increased limit to be more generous
   private readonly RESET_HOUR = 0; // Reset at midnight
 
   private constructor() {}
@@ -64,7 +64,8 @@ class ApiQuotaManager {
    */
   canMakeRequest(): boolean {
     const status = this.getQuotaStatus();
-    return !status.isExceeded && status.requestCount < status.dailyLimit;
+    // Be more lenient - allow requests even when close to limit
+    return status.requestCount < (status.dailyLimit + 10); // Allow 10 extra requests
   }
 
   /**
@@ -73,7 +74,8 @@ class ApiQuotaManager {
   recordRequest(): void {
     const status = this.getQuotaStatus();
     status.requestCount++;
-    status.isExceeded = status.requestCount >= status.dailyLimit;
+    // Only mark as exceeded if we go significantly over the limit
+    status.isExceeded = status.requestCount >= (status.dailyLimit + 15);
     this.saveQuotaStatus(status);
   }
 
@@ -197,6 +199,22 @@ class ApiQuotaManager {
    */
   resetQuota(): void {
     localStorage.removeItem(this.STORAGE_KEY);
+    console.log('Quota status reset manually');
+  }
+
+  /**
+   * Force clear quota exceeded status (emergency reset)
+   */
+  clearQuotaExceeded(): void {
+    const status = this.getQuotaStatus();
+    status.isExceeded = false;
+    status.retryAfter = undefined;
+    status.serviceOverloaded = false;
+    status.lastOverloadTime = undefined;
+    // Reset request count to allow some requests
+    status.requestCount = Math.max(0, status.requestCount - 10);
+    this.saveQuotaStatus(status);
+    console.log('Quota exceeded status cleared manually');
   }
 
   private createNewQuotaStatus(): QuotaStatus {
@@ -280,20 +298,37 @@ export async function withQuotaManagement<T>(
       
       return result;
     } catch (error: any) {
-      // Check if it's a quota error
-      const isQuotaError = error.message?.includes('429') || 
-                          error.message?.includes('quota') ||
-                          error.message?.includes('Too Many Requests');
+      // Check if it's a quota error - improved detection for Google API errors
+      const errorMessage = error.message || '';
+      const isQuotaError = errorMessage.includes('429') || 
+                          errorMessage.includes('quota') ||
+                          errorMessage.includes('Too Many Requests') ||
+                          errorMessage.includes('Quota exceeded') ||
+                          errorMessage.includes('generativelanguage.googleapis.com') ||
+                          errorMessage.includes('quotaExceeded') ||
+                          errorMessage.includes('QUOTA_EXCEEDED') ||
+                          (error.status && (error.status === 429 || error.status === 403));
       
       // Check if it's a service overload error
-      const isServiceOverloadError = error.message?.includes('503') ||
-                                    error.message?.includes('Service Unavailable') ||
-                                    error.message?.includes('overload') ||
-                                    error.message?.includes('overloaded');
+      const isServiceOverloadError = errorMessage.includes('503') ||
+                                    errorMessage.includes('Service Unavailable') ||
+                                    errorMessage.includes('overload') ||
+                                    errorMessage.includes('overloaded') ||
+                                    errorMessage.includes('RESOURCE_EXHAUSTED') ||
+                                    (error.status && error.status === 503);
 
       if (isQuotaError) {
+        console.error('Quota error detected:', {
+          message: errorMessage,
+          status: error.status,
+          attempt: attempt,
+          maxAttempts: maxAttempts
+        });
+        
         // Extract retry-after from error message if available
-        const retryMatch = error.message.match(/retryDelay":"(\d+)s/);
+        const retryMatch = errorMessage.match(/retryDelay[":]\s*["']?(\d+)s?["']?/i) ||
+                          errorMessage.match(/retry[\s-]?after[":]\s*["']?(\d+)["']?/i) ||
+                          errorMessage.match(/(\d+)\s*seconds?/i);
         const retryAfter = retryMatch ? parseInt(retryMatch[1]) : undefined;
         
         quotaManager.recordQuotaExceeded(retryAfter);
@@ -343,22 +378,73 @@ export function shouldEnableAIFeature(feature: 'variations' | 'analysis' | 'chat
   
   // If service is overloaded, disable all non-essential features
   if (quotaManager.isServiceOverloaded()) {
-    const essentialFeatures: string[] = []; // No features are considered essential during overload
+    const essentialFeatures: string[] = ['chat']; // Keep chat available even during overload
     return essentialFeatures.includes(feature);
   }
   
-  if (!status.isExceeded) return true;
+  // Be much more lenient with quota checks
+  if (status.requestCount < (status.dailyLimit + 20)) return true; // Allow extra buffer
   
-  // Priority features that should work even with limited quota
-  const highPriorityFeatures = ['chat'];
-  const remaining = status.dailyLimit - status.requestCount;
+  // Priority features that should work even with exceeded quota
+  const highPriorityFeatures = ['chat', 'analysis'];
   
-  if (highPriorityFeatures.includes(feature) && remaining > 0) {
-    return true;
+  if (highPriorityFeatures.includes(feature)) {
+    return true; // Always allow high priority features
   }
   
   return false;
 }
 
 export const quotaManager = ApiQuotaManager.getInstance();
+
+/**
+ * Emergency function to clear quota exceeded status
+ * Use this when the quota manager gets stuck in exceeded state
+ */
+export const clearQuotaExceeded = () => {
+  quotaManager.clearQuotaExceeded();
+};
+
+/**
+ * Disable quota checks entirely (for development/testing)
+ */
+export const disableQuotaChecks = () => {
+  const status = quotaManager.getQuotaStatus();
+  status.requestCount = 0;
+  status.isExceeded = false;
+  status.dailyLimit = 99999; // Very high limit
+  status.serviceOverloaded = false;
+  status.lastOverloadTime = undefined;
+  status.retryAfter = undefined;
+  // Use localStorage directly since saveQuotaStatus is private
+  localStorage.setItem('gemini_quota_status', JSON.stringify(status));
+  console.log('Quota checks disabled - all AI features should work');
+};
+
+/**
+ * Get current quota status for debugging
+ */
+export const getQuotaStatus = () => {
+  return quotaManager.getQuotaStatus();
+};
+
+// Make quota functions available globally in development
+if (typeof window !== 'undefined' && import.meta.env.DEV) {
+  (window as any).quotaDebug = {
+    getStatus: getQuotaStatus,
+    clearQuotaExceeded,
+    disableQuotaChecks, // Add the new function
+    resetQuota: () => quotaManager.resetQuota(),
+    manager: quotaManager
+  };
+  console.log('Quota debug functions available at window.quotaDebug');
+  console.log('To disable quota entirely, run: window.quotaDebug.disableQuotaChecks()');
+  
+  // Auto-clear quota on page load in development
+  console.log('Development mode: Auto-clearing quota restrictions');
+  setTimeout(() => {
+    quotaManager.clearQuotaExceeded();
+  }, 1000);
+}
+
 export default ApiQuotaManager;

@@ -306,7 +306,9 @@ export const UI_TEXT = {
   progressNotPerfection: "Прогрес, а не досконалість",
   consistencyIsKey: "Консистентність - це ключ",
   smallStepsBigResults: "Малі кроки - великі результати",
-  aiOverloaded: "Сервіс AI тимчасово перевантажений. Спробуйте ще раз через кілька секунд."
+  aiOverloaded: "Сервіс AI тимчасово перевантажений або перевищено квоту. Спробуйте ще раз пізніше або через декілька годин.",
+  quotaExceeded: "Перевищено денну квоту запитів до AI. Квота оновиться завтра.",
+  quotaLimited: "Обмежені функції AI через квоту. Деякі можливості тимчасово недоступні."
 };
 
 export function getUkrainianGoal(goal: FitnessGoal): string {
