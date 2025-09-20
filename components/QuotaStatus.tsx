@@ -235,6 +235,19 @@ const QuotaStatus: React.FC<QuotaStatusProps> = ({
                 </button>
                 <button
                   onClick={() => {
+                    console.log('Current quota status:', quotaManager.getQuotaStatus());
+                    console.log('Can make request:', quotaManager.canMakeRequest());
+                    console.log('Is service overloaded:', quotaManager.isServiceOverloaded());
+                    alert(`Quota status:\n- Is exceeded: ${quotaManager.getQuotaStatus().isExceeded}\n- Request count: ${quotaManager.getQuotaStatus().requestCount}\n- Can make request: ${quotaManager.canMakeRequest()}`);
+                  }}
+                  className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors"
+                  title="Debug quota status"
+                >
+                  <i className="fas fa-bug mr-1"></i>
+                  Debug Status
+                </button>
+                <button
+                  onClick={() => {
                     quotaManager.resetQuota();
                     setQuotaStatus(quotaManager.getQuotaStatus());
                   }}

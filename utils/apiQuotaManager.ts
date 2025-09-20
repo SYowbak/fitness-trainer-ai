@@ -64,6 +64,17 @@ class ApiQuotaManager {
    */
   canMakeRequest(): boolean {
     const status = this.getQuotaStatus();
+    
+    // Check if quota is explicitly marked as exceeded (from 429 errors)
+    if (status.isExceeded) {
+      return false;
+    }
+    
+    // Check if we're still within retry-after period
+    if (status.retryAfter && Date.now() < status.retryAfter) {
+      return false;
+    }
+    
     // Be more lenient - allow requests even when close to limit
     return status.requestCount < (status.dailyLimit + 10); // Allow 10 extra requests
   }
@@ -332,6 +343,16 @@ export async function withQuotaManagement<T>(
         const retryAfter = retryMatch ? parseInt(retryMatch[1]) : undefined;
         
         quotaManager.recordQuotaExceeded(retryAfter);
+        
+        // For 429 errors with retry delays, fail immediately (don't retry)
+        if (retryAfter || error.status === 429) {
+          console.warn('Google API rate limit exceeded with retry delay, failing immediately');
+          if (skipOnQuotaExceeded && fallbackValue !== undefined) {
+            console.warn('API quota exceeded, using fallback value');
+            return fallbackValue;
+          }
+          throw new Error('AI service rate limit exceeded. Please try again in a few minutes.');
+        }
         
         if (skipOnQuotaExceeded && fallbackValue !== undefined) {
           console.warn('API quota exceeded, using fallback value');
