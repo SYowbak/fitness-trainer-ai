@@ -109,7 +109,7 @@ ${planStyleContext}
 
 **Вимоги до даних у JSON:**
 1.  **Назва:** Вкажи точну українську назву вправи.
-2.  **Опис Техніки:** Надай достатньо детальний, але без зайвої води (приблизно 5-7 речень) покроковий опис правильної техніки виконання вправи. Включи ключові моменти руху, правильне дихання та типові помилки. Опис має бути приблизно однакової довжини для всіх вправ.
+2.  **Опис Техніки:** Надай достатньо детальний, але без зайвої води (приблизно 5-7 речень) покроковий опис правильної техніки виконання вправи. Включаю ключові моменти руху, правильне дихання та типові помилки. Опис має бути приблизно однакової довжини для всіх вправ.
 3.  **Кількість підходів:** Вкажи кількість робочих підходів (наприклад, "3-4" або число 4).
 4.  **Кількість повторень:** Вкажи діапазон повторень, оптимальний для цілі (наприклад, "8-12" для гіпертрофії, "12-15" для витривалості).
 5.  **Відпочинок:** Вкажи рекомендований час відпочинку між підходами в секундах (наприклад, "60-90 секунд").
@@ -160,7 +160,8 @@ export const generateNewExercise = async (
         targetReps: null,
         isCompletedDuringSession: false,
         sessionLoggedSets: [],
-        sessionSuccess: false
+        sessionSuccess: false,
+        isSkipped: false // Add the missing isSkipped field
       };
     } catch (e) {
       console.error("Error parsing JSON from AI response:", e);
@@ -214,7 +215,8 @@ export const regenerateExercise = async (
         targetReps: null,
         isCompletedDuringSession: false,
         sessionLoggedSets: [],
-        sessionSuccess: false
+        sessionSuccess: false,
+        isSkipped: false // Add the missing isSkipped field
       };
     } catch (e) {
       console.error("Error parsing JSON from AI response:", e);
@@ -271,6 +273,7 @@ export const completeExerciseDetails = async (
         isCompletedDuringSession: exercise.isCompletedDuringSession ?? false,
         sessionLoggedSets: exercise.sessionLoggedSets ?? [],
         sessionSuccess: exercise.sessionSuccess ?? false,
+        isSkipped: exercise.isSkipped ?? false, // Add the missing isSkipped field
         recommendation: exercise.recommendation || null,
       };
     } catch (e) {

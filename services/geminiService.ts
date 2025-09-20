@@ -208,7 +208,9 @@ export const generateWorkoutPlan = async (profile: UserProfile, modelName: strin
               recommendation: ex.recommendation || { text: '', action: '' },
               isCompletedDuringSession: false,
               sessionLoggedSets: [],
-              sessionSuccess: false
+              sessionSuccess: false,
+              isSkipped: false, // Add the missing isSkipped field
+              notes: ex.notes || null
             };
           })
         };
@@ -444,7 +446,9 @@ ${JSON.stringify(Object.fromEntries(exerciseProgress), null, 2)}
                recommendation: ex.recommendation || { text: '', action: '' },
                isCompletedDuringSession: false,
                sessionLoggedSets: [],
-               sessionSuccess: false
+               sessionSuccess: false,
+               isSkipped: false, // Add the missing isSkipped field
+               notes: ex.notes || null
            }))
        };
 
@@ -637,6 +641,7 @@ ${JSON.stringify(originalExercise, null, 2)}
       isCompletedDuringSession: false,
       sessionLoggedSets: [],
       sessionSuccess: false,
+      isSkipped: false, // Add the missing isSkipped field
       notes: `Варіація: ${variation.variationType || 'alternative'} | Складність: ${variation.difficulty || 'intermediate'}`
     }));
   }, [], { priority: 'low', skipOnQuotaExceeded: true });
@@ -856,7 +861,9 @@ ${JSON.stringify(workoutHistory.slice(0, 5), null, 2)}
           recommendation: ex.recommendation || { text: '', action: '' },
           isCompletedDuringSession: false,
           sessionLoggedSets: [],
-          sessionSuccess: false
+          sessionSuccess: false,
+          isSkipped: false, // Add the missing isSkipped field
+          notes: ex.notes || null
         })),
         notes: parsedResult.notes || originalPlan.notes || '',
         originalPlan: originalPlan,
