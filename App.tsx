@@ -698,8 +698,24 @@ const App: React.FC = () => {
               <div className="flex-1 min-h-0">
                 <TrainerChat
                   userProfile={userProfile!}
-                  lastWorkoutLog={workoutLogs && workoutLogs.length > 0 ? workoutLogs[0] : null}
-                  previousWorkoutLogs={workoutLogs && workoutLogs.length > 1 ? workoutLogs.slice(1) : []}
+                  currentWorkoutPlan={currentWorkoutPlan}
+                  activeDay={session.activeDay}
+                  onWorkoutPlanModified={async (modifiedPlan) => {
+                    if (!currentWorkoutPlan) return;
+                    
+                    // Update the current workout plan
+                    const updatedPlan = currentWorkoutPlan.map(day => 
+                      day.day === modifiedPlan.day ? modifiedPlan : day
+                    );
+                    
+                    setCurrentWorkoutPlan(updatedPlan);
+                    await saveWorkoutPlan(updatedPlan);
+                    
+                    // If currently in an active workout, update session exercises
+                    if (session.activeDay === modifiedPlan.day) {
+                      updateExerciseOrder(modifiedPlan.exercises);
+                    }
+                  }}
                 />
               </div>
             </div>

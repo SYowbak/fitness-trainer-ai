@@ -1,23 +1,240 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { UserProfile, WorkoutLog } from '../types';
+import { UserProfile, DailyWorkoutPlan } from '../types';
 import { UI_TEXT, GEMINI_MODELS } from '../constants';
 import { withQuotaManagement, shouldEnableAIFeature, getSmartModel } from '../utils/apiQuotaManager';
+import { generateNewExercise, regenerateExercise } from './workoutEditService';
 
 const ai = new GoogleGenerativeAI(import.meta.env.VITE_API_KEY || '');
 
+interface TrainerAction {
+  type: 'chat' | 'modify_workout' | 'replace_exercise' | 'add_exercise' | 'remove_exercise';
+  data?: any;
+}
+
+interface TrainerResponse {
+  message: string;
+  action?: TrainerAction;
+  modifiedPlan?: DailyWorkoutPlan;
+}
+
+// Helper function to generate regular chat responses
+const generateRegularChatResponse = async (
+  userProfile: UserProfile,
+  userMessage: string,
+  conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>,
+  todaysWorkout?: DailyWorkoutPlan | null
+): Promise<TrainerResponse> => {
+  const recentHistory = conversationHistory.slice(-4); // Last 4 messages for context
+  
+  const chatPrompt = `Ти - персональний фітнес-тренер. Відповідай коротко, зрозуміло та по суті.
+
+Профіль: Вік ${userProfile.age}, ціль: ${userProfile.goal}
+
+${todaysWorkout ? `План на сьогодні: ${todaysWorkout.exercises.map(e => e.name).join(', ')}` : ''}
+
+${recentHistory.length > 0 ? `Останні повідомлення:\n${recentHistory.map(msg => `${msg.role === 'user' ? 'Користувач' : 'Тренер'}: ${msg.content}`).join('\n')}\n` : ''}
+
+Повідомлення: ${userMessage}
+
+Відповідай українською, дружньо та професійно. Якщо користувач скаржиться на біль або хоче змінити вправи, порадь йому написати щось на кшталт "заміни вправу Х на вправу У".`;
+
+  return withQuotaManagement(async () => {
+    const selectedModel = getSmartModel(GEMINI_MODELS.CHAT);
+    console.log(`Чат використовує модель: ${selectedModel}`);
+    
+    const model = ai!.getGenerativeModel({ model: selectedModel });
+    const response = await model.generateContent(chatPrompt);
+    const result = await response.response;
+    
+    return {
+      message: result.text()
+    };
+  }, { message: 'Пробачте, сталася помилка з AI. Спробуйте пізніше.' }, { 
+    priority: 'high',
+    bypassQuotaInDev: true,
+    skipOnQuotaExceeded: true
+  });
+};
+
+// Helper function to handle workout modifications
+const handleWorkoutModification = async (
+  userProfile: UserProfile,
+  userMessage: string,
+  todaysWorkout: DailyWorkoutPlan,
+  currentWorkoutPlan: DailyWorkoutPlan[],
+  conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>
+): Promise<TrainerResponse> => {
+  const modificationPrompt = `Користувач хоче змінити вправи. Проаналізуй повідомлення:
+
+"Повідомлення: ${userMessage}"
+
+Поточні вправи на сьогодні:
+${todaysWorkout.exercises.map((ex, i) => `${i + 1}. ${ex.name}`).join('\n')}
+
+Визнач конкретну дію:
+1. replace_exercise: заміна конкретної вправи
+2. add_exercise: додавання нової вправи
+3. remove_exercise: видалення вправи
+4. chat: просто розмова
+
+Відповідь JSON: {"action": "replace_exercise", "exercise_name": "Назва вправи", "reason": "Причина", "message": "Повідомлення користувачу"}`;
+
+  try {
+    const analysisResult = await withQuotaManagement(async () => {
+      const selectedModel = getSmartModel(GEMINI_MODELS.ANALYSIS);
+      const model = ai!.getGenerativeModel({ model: selectedModel });
+      const response = await model.generateContent(modificationPrompt);
+      return response.response.text();
+    }, null, { 
+      priority: 'high',
+      bypassQuotaInDev: true
+    });
+
+    // Parse the JSON response
+    if (!analysisResult) {
+      return {
+        message: `Не вдалося обробити ваш запит. Спробуйте написати: "заміни вправу [назва] на іншу" або "додай вправу".`
+      };
+    }
+    
+    const cleanResponse = analysisResult.replace(/```json|```/g, '').trim();
+    const parsedAction = JSON.parse(cleanResponse);
+
+    // Handle different actions
+    switch (parsedAction.action) {
+      case 'replace_exercise': {
+        const exerciseIndex = todaysWorkout.exercises.findIndex(ex => 
+          ex.name.toLowerCase().includes(parsedAction.exercise_name.toLowerCase()) ||
+          parsedAction.exercise_name.toLowerCase().includes(ex.name.toLowerCase())
+        );
+
+        if (exerciseIndex === -1) {
+          return {
+            message: `Не знайшов вправу "${parsedAction.exercise_name}". Повторіть запит, вказавши точну назву.`
+          };
+        }
+
+        // Generate a replacement exercise
+        try {
+          const newExercise = await regenerateExercise(
+            userProfile, 
+            currentWorkoutPlan, 
+            todaysWorkout.day, 
+            exerciseIndex
+          );
+
+          const modifiedWorkout: DailyWorkoutPlan = {
+            ...todaysWorkout,
+            exercises: todaysWorkout.exercises.map((ex, i) => 
+              i === exerciseIndex ? newExercise : ex
+            )
+          };
+
+          return {
+            message: `Замінив "${todaysWorkout.exercises[exerciseIndex].name}" на "${newExercise.name}". ${parsedAction.message || 'Причина: ' + parsedAction.reason}`,
+            action: {
+              type: 'replace_exercise',
+              data: { originalIndex: exerciseIndex, newExercise }
+            },
+            modifiedPlan: modifiedWorkout
+          };
+        } catch (error) {
+          return {
+            message: `Не вдалося згенерувати заміну. Спробуйте пізніше.`
+          };
+        }
+      }
+
+      case 'add_exercise': {
+        try {
+          const newExercise = await generateNewExercise(
+            userProfile,
+            currentWorkoutPlan,
+            todaysWorkout.day
+          );
+
+          const modifiedWorkout: DailyWorkoutPlan = {
+            ...todaysWorkout,
+            exercises: [...todaysWorkout.exercises, newExercise]
+          };
+
+          return {
+            message: `Додав нову вправу: "${newExercise.name}". ${parsedAction.message}`,
+            action: {
+              type: 'add_exercise',
+              data: { newExercise }
+            },
+            modifiedPlan: modifiedWorkout
+          };
+        } catch (error) {
+          return {
+            message: `Не вдалося додати нову вправу. Спробуйте пізніше.`
+          };
+        }
+      }
+
+      case 'remove_exercise': {
+        const exerciseIndex = todaysWorkout.exercises.findIndex(ex => 
+          ex.name.toLowerCase().includes(parsedAction.exercise_name.toLowerCase()) ||
+          parsedAction.exercise_name.toLowerCase().includes(ex.name.toLowerCase())
+        );
+
+        if (exerciseIndex === -1) {
+          return {
+            message: `Не знайшов вправу "${parsedAction.exercise_name}".`
+          };
+        }
+
+        if (todaysWorkout.exercises.length <= 1) {
+          return {
+            message: `Не можу видалити останню вправу. Мінімум 1 вправа на день.`
+          };
+        }
+
+        const modifiedWorkout: DailyWorkoutPlan = {
+          ...todaysWorkout,
+          exercises: todaysWorkout.exercises.filter((_, i) => i !== exerciseIndex)
+        };
+
+        return {
+          message: `Видалив "${todaysWorkout.exercises[exerciseIndex].name}". ${parsedAction.message}`,
+          action: {
+            type: 'remove_exercise',
+            data: { removedIndex: exerciseIndex }
+          },
+          modifiedPlan: modifiedWorkout
+        };
+      }
+
+      default:
+        return await generateRegularChatResponse(
+          userProfile,
+          userMessage,
+          conversationHistory,
+          todaysWorkout
+        );
+    }
+  } catch (error) {
+    console.error('Error in workout modification:', error);
+    return {
+      message: `Не вдалося обробити ваш запит. Спробуйте написати: "заміни вправу [назва] на іншу" або "додай вправу".`
+    };
+  }
+};
+
 export const generateTrainerResponse = async ({
   userProfile,
-  lastWorkoutLog,
-  previousWorkoutLogs = [],
   userMessage,
-  conversationHistory = []
+  conversationHistory = [],
+  currentWorkoutPlan = null,
+  activeDay = null
 }: {
   userProfile: UserProfile;
-  lastWorkoutLog: WorkoutLog | null;
-  previousWorkoutLogs?: WorkoutLog[];
   userMessage: string;
   conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
-}): Promise<string> => {
+  currentWorkoutPlan?: DailyWorkoutPlan[] | null;
+  activeDay?: number | null;
+}): Promise<TrainerResponse> => {
   if (!ai) {
     throw new Error(UI_TEXT.apiKeyMissing);
   }
@@ -27,94 +244,35 @@ export const generateTrainerResponse = async ({
     throw new Error(UI_TEXT.aiOverloaded);
   }
 
-  const chatPrompt = `Ти - персональний фітнес-тренер. Твоя задача - надавати персоналізовані рекомендації та  коротко і зрозуміло по суті, як людина відповідати на питання користувача, враховуючи його профіль та історію тренувань.
+  // Get current day's workout if available
+  const todaysWorkout = currentWorkoutPlan && activeDay ? 
+    currentWorkoutPlan.find(day => day.day === activeDay) : null;
 
-Профіль користувача:
-{
-  "gender": "${userProfile.gender}",
-  "age": ${userProfile.age},
-  "height": ${userProfile.height},
-  "weight": ${userProfile.weight},
-  "bodyType": "${userProfile.bodyType}",
-  "experienceLevel": "${userProfile.experienceLevel}",
-  "fitnessGoal": "${userProfile.goal}",
-  "targetMuscleGroups": ${JSON.stringify(userProfile.targetMuscleGroups)}
-}
+  // Detect if user wants to modify workout
+  const modificationKeywords = [
+    'замін', 'змін', 'інш', 'болить', 'біль', 'травм', 'не можу', 'важко', 
+    'складно', 'додай', 'прибер', 'вилуч', 'убер', 'напряжк', 'лікт'
+  ];
+  
+  const wantsModification = modificationKeywords.some(keyword => 
+    userMessage.toLowerCase().includes(keyword)
+  );
 
-Останні тренування (від найновішого до старішого):
-${lastWorkoutLog ? JSON.stringify([lastWorkoutLog, ...previousWorkoutLogs], null, 2) : 'Немає попередніх логів'}
+  if (wantsModification && todaysWorkout) {
+    return await handleWorkoutModification(
+      userProfile, 
+      userMessage, 
+      todaysWorkout, 
+      currentWorkoutPlan!,
+      conversationHistory
+    );
+  }
 
-Історія діалогу:
-${conversationHistory.map(msg => `${msg.role === 'user' ? 'Користувач' : 'Тренер'}: ${msg.content}`).join('\n')}
-
-Повідомлення користувача:
-${userMessage}
-
-При аналізі та відповідях враховуй:
-
-1. Фізичні характеристики:
-   - Стать: ${userProfile.gender}
-   - Вік: ${userProfile.age}
-   - Зріст: ${userProfile.height} см
-   - Вага: ${userProfile.weight} кг
-   - Тип статури: ${userProfile.bodyType}
-   - Рівень досвіду: ${userProfile.experienceLevel}
-   - Фітнес-ціль: ${userProfile.goal}
-   - Цільові групи м'язів: ${userProfile.targetMuscleGroups.join(', ')}
-
-2. Історія тренувань:
-   - Аналіз попередніх логів
-   - Патерни прогресу/регресу
-   - Тривалість тренувань
-   - Частота тренувань
-   - Відпочинок між підходами
-   - Виконані вправи та їх прогресія
-
-3. Прогресія навантаження:
-   - Для схуднення: більше повторень (12-15), менша вага, коротший відпочинок
-   - Для набору маси: середня кількість повторень (8-12), середня вага, середній відпочинок
-   - Для сили: менше повторень (4-6), більша вага, довший відпочинок
-   - Для витривалості: більше повторень (15-20), легка вага, мінімальний відпочинок
-
-4. Техніка та безпека:
-   - Аналіз виконаних повторень
-   - Перевірка прогресу ваги
-   - Відстеження болю/дискомфорту
-   - Рекомендації щодо техніки
-
-5. Персоналізація відповідей:
-   - Адаптуй всі рекомендації під конкретний профіль
-   - Враховуй тип статури при розрахунку прогресії
-   - Надавай конкретні числові значення для ваги та повторень
-   - Включай рекомендації щодо техніки
-   - Враховуй загальну втому та час відновлення
-   - Надавай мотивуючі коментарі при позитивному прогресі
-
-6. Структура відповіді:
-   - Відповідай українською мовою
-   - Будь дружнім та професійним
-   - Надавай конкретні рекомендації
-   - Пояснюй причини рекомендацій
-   - Запропонуй альтернативні варіанти
-   - Відповідай на конкретне питання користувача
-
-7. Додаткові рекомендації:
-   - Харчування та відновлення
-   - Зміни в програмі тренувань
-   - Технічні аспекти вправ
-   - Стратегії прогресу
-   - Запобігання травмам
-
-Відповідай на повідомлення користувача, враховуючи всі надані дані та контекст діалогу.`;
-
-  return withQuotaManagement(async () => {
-    // Розумний вибір моделі на основі поточного використання квоти
-    const selectedModel = getSmartModel(GEMINI_MODELS.CHAT);
-    console.log(`Чат використовує модель: ${selectedModel}`);
-    
-    const model = ai!.getGenerativeModel({ model: selectedModel });
-    const response = await model.generateContent(chatPrompt);
-    const result = await response.response;
-    return result.text();
-  }, undefined, { priority: 'high' });
-}; 
+  // Regular chat response
+  return await generateRegularChatResponse(
+    userProfile,
+    userMessage,
+    conversationHistory,
+    todaysWorkout
+  );
+};

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { quotaManager, clearQuotaExceeded, disableQuotaChecks } from '../utils/apiQuotaManager';
+import { quotaManager, clearQuotaExceeded, disableQuotaChecks, emergencyBypass } from '../utils/apiQuotaManager';
 
 interface QuotaStatusProps {
   className?: string;
@@ -198,6 +198,15 @@ const QuotaStatus: React.FC<QuotaStatusProps> = ({
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => {
+                      emergencyBypass();
+                      setQuotaStatus(quotaManager.getQuotaStatus());
+                    }}
+                    className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded transition-colors font-bold"
+                  >
+                    🚑 Emergency Bypass
+                  </button>
+                  <button
+                    onClick={() => {
                       disableQuotaChecks();
                       setQuotaStatus(quotaManager.getQuotaStatus());
                     }}
@@ -219,7 +228,7 @@ const QuotaStatus: React.FC<QuotaStatusProps> = ({
                       quotaManager.resetQuota();
                       setQuotaStatus(quotaManager.getQuotaStatus());
                     }}
-                    className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded transition-colors"
+                    className="px-2 py-1 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded transition-colors"
                   >
                     🔄 Reset Quota
                   </button>

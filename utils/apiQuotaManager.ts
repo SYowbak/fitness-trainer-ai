@@ -300,16 +300,35 @@ export async function withQuotaManagement<T>(
   options: {
     priority?: 'high' | 'medium' | 'low';
     skipOnQuotaExceeded?: boolean;
+    bypassQuotaInDev?: boolean; // New option for development
   } = {}
 ): Promise<T> {
   const quotaManager = ApiQuotaManager.getInstance();
-  const { skipOnQuotaExceeded = false } = options;
+  const { skipOnQuotaExceeded = false, bypassQuotaInDev = false } = options;
 
   console.log('🚀 API call starting:', {
     priority: options.priority,
     skipOnQuotaExceeded,
-    hasFallback: fallbackValue !== undefined
+    hasFallback: fallbackValue !== undefined,
+    bypassQuotaInDev
   });
+
+  // Development bypass mode
+  if (import.meta.env.DEV && bypassQuotaInDev) {
+    console.log('🚑 Development bypass mode - ignoring all quota checks');
+    try {
+      const result = await apiCall();
+      console.log('✅ API call successful (bypassed)');
+      return result;
+    } catch (error: any) {
+      console.warn('⚠️ API call failed even with bypass:', error.message);
+      if (fallbackValue !== undefined) {
+        console.log('🔄 Using fallback value due to API error');
+        return fallbackValue;
+      }
+      throw error;
+    }
+  }
 
   // Check if service is overloaded before making any request
   if (quotaManager.isServiceOverloaded()) {
@@ -540,7 +559,7 @@ export const disableQuotaChecks = () => {
   status.retryAfter = undefined;
   // Use localStorage directly since saveQuotaStatus is private
   localStorage.setItem('gemini_quota_status', JSON.stringify(status));
-  console.log('Quota checks disabled - all AI features should work');
+  console.log('✅ Quota checks disabled - all AI features should work');
 };
 
 /**
@@ -550,12 +569,42 @@ export const getQuotaStatus = () => {
   return quotaManager.getQuotaStatus();
 };
 
+/**
+ * Emergency bypass - completely disable quota system
+ */
+export const emergencyBypass = () => {
+  // Override the canMakeRequest method to always return true
+  (quotaManager as any).canMakeRequest = () => {
+    console.log('🚑 Emergency bypass active - quota checks disabled');
+    return true;
+  };
+  
+  // Clear localStorage
+  localStorage.removeItem('gemini_quota_status');
+  
+  // Create a clean state
+  const cleanStatus = {
+    requestCount: 0,
+    lastReset: Date.now(),
+    dailyLimit: 999999,
+    isExceeded: false,
+    retryAfter: undefined,
+    serviceOverloaded: false,
+    lastOverloadTime: undefined
+  };
+  localStorage.setItem('gemini_quota_status', JSON.stringify(cleanStatus));
+  
+  console.log('🚑 Emergency bypass activated - all quota restrictions removed');
+  return cleanStatus;
+};
+
 // Make quota functions available globally in development
 if (typeof window !== 'undefined' && import.meta.env.DEV) {
   (window as any).quotaDebug = {
     getStatus: getQuotaStatus,
     clearQuotaExceeded,
-    disableQuotaChecks, // Add the new function
+    disableQuotaChecks,
+    emergencyBypass, // Add emergency bypass
     resetQuota: () => quotaManager.resetQuota(),
     manager: quotaManager,
     // Add new debug functions
@@ -584,14 +633,15 @@ if (typeof window !== 'undefined' && import.meta.env.DEV) {
   };
   console.log('🛠️ Quota debug functions available at window.quotaDebug');
   console.log('🐛 To disable quota entirely, run: window.quotaDebug.disableQuotaChecks()');
+  console.log('🚑 Emergency bypass: window.quotaDebug.emergencyBypass()');
   console.log('🔧 To force allow all requests: window.quotaDebug.forceAllowRequests()');
   console.log('📊 Current quota status:', getQuotaStatus());
   
   // Auto-clear quota on page load in development
   console.log('🛠️ Development mode: Auto-clearing quota restrictions');
   setTimeout(() => {
-    quotaManager.clearQuotaExceeded();
-    console.log('📊 Quota status after auto-clear:', getQuotaStatus());
+    emergencyBypass(); // Use emergency bypass instead
+    console.log('📊 Quota status after emergency bypass:', getQuotaStatus());
   }, 1000);
 }
 

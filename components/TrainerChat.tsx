@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { UserProfile, WorkoutLog } from '../types';
+import { UserProfile } from '../types';
 import { generateTrainerResponse } from '../services/trainerChatService';
 import { UI_TEXT } from '../constants';
 import { database } from '../config/firebase';
@@ -16,14 +16,16 @@ interface ChatMessage {
 
 interface TrainerChatProps {
   userProfile: UserProfile;
-  lastWorkoutLog: WorkoutLog | null;
-  previousWorkoutLogs?: WorkoutLog[];
+  currentWorkoutPlan?: any[] | null;
+  activeDay?: number | null;
+  onWorkoutPlanModified?: (modifiedPlan: any) => void;
 }
 
 const TrainerChat: React.FC<TrainerChatProps> = ({
   userProfile,
-  lastWorkoutLog,
-  previousWorkoutLogs = []
+  currentWorkoutPlan = null,
+  activeDay = null,
+  onWorkoutPlanModified
 }) => {
   const { user } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -169,20 +171,37 @@ const TrainerChat: React.FC<TrainerChatProps> = ({
     try {
       const response = await generateTrainerResponse({
         userProfile,
-        lastWorkoutLog,
-        previousWorkoutLogs,
         userMessage,
-        conversationHistory: messages.map(msg => ({ role: msg.role, content: msg.content }))
+        conversationHistory: messages.map(msg => ({ role: msg.role, content: msg.content })),
+        currentWorkoutPlan,
+        activeDay
       });
 
       const assistantMessage: ChatMessage = {
         id: `assistant_${Date.now()}`,
         role: 'assistant',
-        content: response,
+        content: response.message,
         timestamp: Date.now()
       };
       
       setMessages(prev => [...prev, assistantMessage]);
+      
+      // Handle workout modifications
+      if (response.modifiedPlan && onWorkoutPlanModified) {
+        onWorkoutPlanModified(response.modifiedPlan);
+        
+        // Add a system notification about the modification
+        const notificationMessage: ChatMessage = {
+          id: `notification_${Date.now()}`,
+          role: 'assistant',
+          content: `✅ План тренування оновлено! Зміни вступили в силу.`,
+          timestamp: Date.now()
+        };
+        
+        setTimeout(() => {
+          setMessages(prev => [...prev, notificationMessage]);
+        }, 500);
+      }
     } catch (e: any) {
       console.error('Error in chat:', e);
       setError(e.message || UI_TEXT.errorOccurred);
