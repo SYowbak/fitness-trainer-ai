@@ -823,22 +823,76 @@ export const generateWellnessRecommendations = async (
     const result = await response.response;
     let jsonStr = result.text().trim();
     
+    // Логування для діагностики
+    console.log('🔍 Raw AI response for wellness:', jsonStr);
+    
     // Видаляємо можливі markdown-розмітки
     const fenceRegex = /^```(?:json)?\s*\n?(.*?)\n?\s*```$/s;
     const match = jsonStr.match(fenceRegex);
     if (match && match[1]) {
       jsonStr = match[1].trim();
     }
+    
+    // Додаткове очищення JSON
+    jsonStr = jsonStr.replace(/\n\s*/g, ' ').trim();
+    
+    // Перевіряємо, чи JSON починається і закінчується правильно
+    if (!jsonStr.startsWith('[') || !jsonStr.endsWith(']')) {
+      console.warn('⚠️ JSON не має правильного формату масиву, спробуємо виправити');
+      
+      // Спробуємо знайти останню закриваючу дужку
+      const lastBracket = jsonStr.lastIndexOf(']');
+      if (lastBracket !== -1) {
+        jsonStr = jsonStr.substring(0, lastBracket + 1);
+      } else {
+        // Якщо немає закриваючої дужки, додаємо її
+        if (jsonStr.includes('[')) {
+          jsonStr = jsonStr + ']';
+        } else {
+          throw new Error('Невалідний формат JSON від AI');
+        }
+      }
+    }
+    
+    console.log('🔧 Cleaned JSON for wellness:', jsonStr);
 
     try {
       const recommendations: WellnessRecommendation[] = JSON.parse(jsonStr);
-      return recommendations;
+      
+      // Валідуємо структуру кожної рекомендації
+      const validRecommendations = recommendations.filter(rec => 
+        rec && 
+        typeof rec.type === 'string' && 
+        typeof rec.title === 'string' && 
+        typeof rec.description === 'string' &&
+        Array.isArray(rec.actions) &&
+        typeof rec.priority === 'string'
+      );
+      
+      if (validRecommendations.length === 0) {
+        console.warn('⚠️ Немає валідних рекомендацій, повертаємо порожній масив');
+        return [];
+      }
+      
+      console.log('✅ Successfully parsed wellness recommendations:', validRecommendations.length);
+      return validRecommendations;
     } catch (e) {
       console.error("Error parsing wellness recommendations:", e);
-      throw new Error("Не вдалося розібрати рекомендації по самопочуттю");
+      console.error("Problematic JSON string:", jsonStr);
+      
+      // Якщо не вдалося парсити, повертаємо порожній масив замість помилки
+      console.warn('🚫 Returning empty recommendations due to parsing error');
+      return [];
     }
   } catch (error: any) {
     console.error("Error generating wellness recommendations:", error);
+    
+    // Якщо це помилка парсингу JSON, повертаємо порожній масив замість викидання помилки
+    if (error.message && error.message.includes('розібрати рекомендації')) {
+      console.warn('🔄 Returning empty recommendations due to parsing issues');
+      return [];
+    }
+    
     if (
       (error.response && error.response.status === 503) ||
       (error.message && (
@@ -849,6 +903,9 @@ export const generateWellnessRecommendations = async (
     ) {
       throw new Error(UI_TEXT.aiOverloaded);
     }
-    throw new Error(`Помилка генерації рекомендацій: ${error.message || 'Невідома помилка'}`);
+    
+    // Для інших помилок також повертаємо порожній масив замість викидання помилки
+    console.warn('🔄 Returning empty recommendations due to service error:', error.message);
+    return [];
   }
 };

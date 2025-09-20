@@ -515,10 +515,19 @@ const App: React.FC = () => {
             workoutLogs
           );
           setWellnessRecommendations(recs);
-          setWellnessRecommendationsModalOpen(true);
+          
+          // Показуємо модальне вікно тільки якщо є рекомендації
+          if (recs.length > 0) {
+            setWellnessRecommendationsModalOpen(true);
+          } else {
+            console.log('🎯 No wellness recommendations needed - user feeling great!');
+          }
+          
           await updateWellnessRecommendations(recs);
         } catch (e) {
           console.error('Помилка генерації рекомендацій самопочуття (фон):', e);
+          // Встановлюємо порожній масив у випадку помилки
+          setWellnessRecommendations([]);
         }
       })();
 

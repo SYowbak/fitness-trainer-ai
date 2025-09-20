@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { quotaManager, clearQuotaExceeded, disableQuotaChecks, emergencyBypass } from '../utils/apiQuotaManager';
+import { quotaManager, clearQuotaExceeded } from '../utils/apiQuotaManager';
 
 interface QuotaStatusProps {
   className?: string;
@@ -8,10 +8,10 @@ interface QuotaStatusProps {
 
 const QuotaStatus: React.FC<QuotaStatusProps> = ({ 
   className = '',
-  showDetailed = false 
+  showDetailed = false
 }) => {
   const [quotaStatus, setQuotaStatus] = useState(quotaManager.getQuotaStatus());
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
     const updateStatus = () => {
@@ -65,35 +65,54 @@ const QuotaStatus: React.FC<QuotaStatusProps> = ({
     const minutes = Math.floor((resetTime % (1000 * 60 * 60)) / (1000 * 60));
     
     if (hours > 0) {
-      return `${hours}г ${minutes}хв`;
+      return `${hours}h ${minutes}m`;
     }
-    return `${minutes}хв`;
+    return `${minutes}m`;
   };
 
   const getStatusMessage = () => {
     if (quotaManager.isServiceOverloaded()) {
-      return 'Сервіс AI тимчасово перевантажений';
+      return 'AI service temporarily overloaded';
     }
     
     if (quotaStatus.isExceeded) {
-      return 'Денна квота вичерпана';
+      return 'Daily quota exceeded';
     }
     
     const remaining = quotaStatus.dailyLimit - quotaStatus.requestCount;
-    return `Залишилось ${remaining} запитів`;
+    return `${remaining} requests remaining`;
   };
 
-  if (!showDetailed && !isExpanded) {
+  if (!showDetailed) {
     return (
-      <div 
-        className={`inline-flex items-center space-x-2 cursor-pointer hover:opacity-80 transition-opacity ${className}`}
-        onClick={() => setIsExpanded(true)}
-        title="Клікніть для детальної інформації про квоту"
-      >
-        <i className={`${getStatusIcon()} ${getStatusColor()} text-sm`}></i>
-        <span className={`text-sm ${getStatusColor()}`}>
-          {quotaStatus.requestCount}/{quotaStatus.dailyLimit}
-        </span>
+      <div className={`relative ${className}`}>
+        {/* Compact Header Indicator */}
+        {isVisible ? (
+          <div className="inline-flex items-center space-x-2 cursor-pointer">
+            <i className={`${getStatusIcon()} ${getStatusColor()} text-sm`}></i>
+            <span className={`text-sm ${getStatusColor()}`}>
+              {quotaStatus.requestCount}/{quotaStatus.dailyLimit}
+            </span>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsVisible(false);
+              }}
+              className="text-gray-500 hover:text-gray-300 text-xs ml-1"
+              title="Hide quota status"
+            >
+              <i className="fas fa-times"></i>
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setIsVisible(true)}
+            className="text-gray-400 hover:text-gray-300 text-sm transition-colors"
+            title="Show quota status"
+          >
+            <i className="fas fa-chart-bar"></i>
+          </button>
+        )}
       </div>
     );
   }
@@ -103,16 +122,8 @@ const QuotaStatus: React.FC<QuotaStatusProps> = ({
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center space-x-2">
           <i className={`${getStatusIcon()} ${getStatusColor()}`}></i>
-          <h3 className="text-lg font-semibold text-white">Статус квоти AI</h3>
+          <h3 className="text-lg font-semibold text-white">AI Quota Status</h3>
         </div>
-        {showDetailed && (
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="text-gray-400 hover:text-white transition-colors"
-          >
-            <i className={`fas fa-chevron-${isExpanded ? 'up' : 'down'}`}></i>
-          </button>
-        )}
       </div>
 
       <div className="space-y-3">
@@ -146,20 +157,20 @@ const QuotaStatus: React.FC<QuotaStatusProps> = ({
             {getStatusMessage()}
           </span>
           <span className="text-xs text-gray-400">
-            Оновлення: {getTimeUntilReset()}
+            Reset: {getTimeUntilReset()}
           </span>
         </div>
 
         {/* Detailed Information */}
-        {(isExpanded || showDetailed) && (
+        {showDetailed && (
           <div className="mt-4 pt-3 border-t border-gray-700 space-y-2">
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <span className="text-gray-400">Денний лімітк:</span>
+                <span className="text-gray-400">Daily Limit:</span>
                 <span className="text-white ml-2">{quotaStatus.dailyLimit}</span>
               </div>
               <div>
-                <span className="text-gray-400">Залишилось:</span>
+                <span className="text-gray-400">Remaining:</span>
                 <span className="text-white ml-2">
                   {Math.max(0, quotaStatus.dailyLimit - quotaStatus.requestCount)}
                 </span>
@@ -171,7 +182,7 @@ const QuotaStatus: React.FC<QuotaStatusProps> = ({
                 <div className="flex items-center space-x-2">
                   <i className="fas fa-exclamation-triangle text-red-400"></i>
                   <span className="text-red-300 text-sm">
-                    Квота вичерпана. Оновлення через {getTimeUntilReset()}
+                    Quota exceeded. Reset in {getTimeUntilReset()}
                   </span>
                 </div>
               </div>
@@ -182,7 +193,7 @@ const QuotaStatus: React.FC<QuotaStatusProps> = ({
                 <div className="flex items-center space-x-2">
                   <i className="fas fa-hourglass-half text-orange-400"></i>
                   <span className="text-orange-300 text-sm">
-                    Сервіс перевантажений. Деякі функції обмежені.
+                    Service overloaded. Some features may be limited.
                   </span>
                 </div>
               </div>
@@ -196,24 +207,6 @@ const QuotaStatus: React.FC<QuotaStatusProps> = ({
                   <span className="text-xs text-purple-300 font-semibold">Debug Controls</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => {
-                      emergencyBypass();
-                      setQuotaStatus(quotaManager.getQuotaStatus());
-                    }}
-                    className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded transition-colors font-bold"
-                  >
-                    🚑 Emergency Bypass
-                  </button>
-                  <button
-                    onClick={() => {
-                      disableQuotaChecks();
-                      setQuotaStatus(quotaManager.getQuotaStatus());
-                    }}
-                    className="px-2 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded transition-colors"
-                  >
-                    ✅ Force Allow All
-                  </button>
                   <button
                     onClick={() => {
                       clearQuotaExceeded();
@@ -236,62 +229,21 @@ const QuotaStatus: React.FC<QuotaStatusProps> = ({
               </div>
             )}
 
-            {/* Emergency Controls (only in detailed view) */}
+            {/* Reset Block Button (Production Safe) */}
             <div className="mt-4 pt-3 border-t border-gray-700">
-              <h4 className="text-sm font-semibold text-gray-300 mb-2">
-                <i className="fas fa-tools mr-2"></i>
-                Керування квотою
-              </h4>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex justify-center">
                 <button
                   onClick={() => {
-                    if (confirm('Скинути статус перевищення квоти? Це може допомогти, якщо функції AI блокуються помилково.')) {
+                    if (confirm('Reset quota exceeded status? This may help if AI features are blocked incorrectly.')) {
                       clearQuotaExceeded();
                       setQuotaStatus(quotaManager.getQuotaStatus());
                     }
                   }}
-                  className="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white text-xs rounded transition-colors"
-                  title="Скинути блокування квоти"
+                  className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white text-sm rounded transition-colors"
+                  title="Reset quota block"
                 >
-                  <i className="fas fa-refresh mr-1"></i>
-                  Скинути блокування
-                </button>
-                <button
-                  onClick={() => {
-                    if (confirm('Повністю відключити перевірки квоти? Використовуйте обережно - це може призвести до перевищення лімітів Google API.')) {
-                      disableQuotaChecks();
-                      setQuotaStatus(quotaManager.getQuotaStatus());
-                    }
-                  }}
-                  className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded transition-colors"
-                  title="Відключити всі перевірки квоти (обережно!)"
-                >
-                  <i className="fas fa-power-off mr-1"></i>
-                  Відключити квоту
-                </button>
-                <button
-                  onClick={() => {
-                    console.log('Current quota status:', quotaManager.getQuotaStatus());
-                    console.log('Can make request:', quotaManager.canMakeRequest());
-                    console.log('Is service overloaded:', quotaManager.isServiceOverloaded());
-                    alert(`Quota status:\n- Is exceeded: ${quotaManager.getQuotaStatus().isExceeded}\n- Request count: ${quotaManager.getQuotaStatus().requestCount}\n- Can make request: ${quotaManager.canMakeRequest()}`);
-                  }}
-                  className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors"
-                  title="Debug quota status"
-                >
-                  <i className="fas fa-bug mr-1"></i>
-                  Debug Status
-                </button>
-                <button
-                  onClick={() => {
-                    quotaManager.resetQuota();
-                    setQuotaStatus(quotaManager.getQuotaStatus());
-                  }}
-                  className="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-xs rounded transition-colors"
-                  title="Повністю скинути квоту до початкового стану"
-                >
-                  <i className="fas fa-undo mr-1"></i>
-                  Повний скид
+                  <i className="fas fa-refresh mr-2"></i>
+                  Reset Block
                 </button>
               </div>
             </div>
