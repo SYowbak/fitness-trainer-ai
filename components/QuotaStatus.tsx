@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { quotaManager, getQuotaStatus, clearQuotaExceeded, disableQuotaChecks } from '../utils/apiQuotaManager';
+import { quotaManager, clearQuotaExceeded, disableQuotaChecks } from '../utils/apiQuotaManager';
 
 interface QuotaStatusProps {
   className?: string;
