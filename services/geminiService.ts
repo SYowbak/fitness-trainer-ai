@@ -12,6 +12,25 @@ import {
 } from '../constants';
 import { withQuotaManagement, shouldEnableAIFeature, quotaManager, getSmartModel } from '../utils/apiQuotaManager';
 
+// Функції для перекладу варіацій на українську
+const getUkrainianVariationType = (variationType: string): string => {
+  switch (variationType) {
+    case 'progression': return UI_TEXT.progression;
+    case 'regression': return UI_TEXT.regression;
+    case 'alternative': return UI_TEXT.alternative;
+    default: return UI_TEXT.alternative;
+  }
+};
+
+const getUkrainianDifficulty = (difficulty: string): string => {
+  switch (difficulty) {
+    case 'beginner': return UI_TEXT.beginner;
+    case 'intermediate': return UI_TEXT.intermediate;
+    case 'advanced': return UI_TEXT.advanced;
+    default: return UI_TEXT.intermediate;
+  }
+};
+
 export const getApiKey = (): string | null => {
   return import.meta.env.VITE_API_KEY || null;
 };
@@ -209,7 +228,7 @@ export const generateWorkoutPlan = async (profile: UserProfile, modelName: strin
               isCompletedDuringSession: false,
               sessionLoggedSets: [],
               sessionSuccess: false,
-              isSkipped: false, // Add the missing isSkipped field
+
               notes: ex.notes || null
             };
           })
@@ -386,18 +405,18 @@ ${JSON.stringify(Object.fromEntries(exerciseProgress), null, 2)}
 
 Проаналізуй надані дані та згенеруй JSON відповідь з оновленим планом на день, загальною рекомендацією та детальними рекомендаціями для кожної вправи.`;
 
-  try {
-    // Оптимізовані налаштування для аналізу
-    const model = ai.getGenerativeModel({
+  return withQuotaManagement(async () => {
+    const model = ai!.getGenerativeModel({
       model: modelName,
       generationConfig: {
-        temperature: 0.2, // Нижча температура для більш предсказуваних результатів
+        temperature: 0.2,
         topK: 40,
         topP: 0.8,
-        maxOutputTokens: 1500, // Обмежуємо для стабільності
+        maxOutputTokens: 1500,
         responseMimeType: "application/json"
       }
     } as any);
+    
     const response = await model.generateContent(analysisPrompt);
     const result = await response.response;
     let jsonStr = result.text().trim();
@@ -410,11 +429,10 @@ ${JSON.stringify(Object.fromEntries(exerciseProgress), null, 2)}
     }
 
     try {
-      const parsedResult: any = JSON.parse(jsonStr); 
+      const parsedResult: any = JSON.parse(jsonStr);
       
-      // Перевіряємо базову структуру відповіді від аналізу
       if (!parsedResult || !parsedResult.updatedPlan || !parsedResult.recommendation) {
-         console.error("Неправильна базова структура відповіді від AI аналізу:", parsedResult);
+        console.error("Неправильна базова структура відповіді від AI аналізу:", parsedResult);
         throw new Error("Неправильна базова структура відповіді від AI аналізу");
       }
 
@@ -422,35 +440,32 @@ ${JSON.stringify(Object.fromEntries(exerciseProgress), null, 2)}
       const generalRecommendation = parsedResult.recommendation;
       const dailyRecommendations = parsedResult.dailyRecommendations || [];
 
-      // Перевіряємо структуру оновленого плану (аналогічно generateWorkoutPlan)
       if (typeof updatedPlan.day !== 'number' || !Array.isArray(updatedPlan.exercises)) {
-         console.error("Неправильна структура updatedPlan у відповіді від AI аналізу:", updatedPlan);
+        console.error("Неправильна структура updatedPlan у відповіді від AI аналізу:", updatedPlan);
         throw new Error("Неправильна структура updatedPlan у відповіді від AI аналізу");
       }
 
-       // Мапуємо дані з відповіді AI до типу DailyWorkoutPlan, включаючи нові поля
-       const mappedUpdatedPlan: DailyWorkoutPlan = {
-           day: updatedPlan.day,
-           notes: updatedPlan.notes || '',
-           exercises: updatedPlan.exercises.map((ex: any): Exercise => ({
-               id: uuidv4(),
-               name: ex.name || "Невідома вправа",
-               description: ex.description || "Опис відсутній.",
-               sets: ex.sets || "3",
-               reps: ex.reps || "10-12",
-               rest: ex.rest || "60 секунд",
-               weightType: ex.weightType || 'total', // Додано обробку нового поля
-               videoSearchQuery: ex.videoSearchQuery || null,
-               targetWeight: ex.targetWeight !== undefined && ex.targetWeight !== null ? ex.targetWeight : null,
-               targetReps: ex.targetReps !== undefined && ex.targetReps !== null ? ex.targetReps : null,
-               recommendation: ex.recommendation || { text: '', action: '' },
-               isCompletedDuringSession: false,
-               sessionLoggedSets: [],
-               sessionSuccess: false,
-               isSkipped: false, // Add the missing isSkipped field
-               notes: ex.notes || null
-           }))
-       };
+      const mappedUpdatedPlan: DailyWorkoutPlan = {
+        day: updatedPlan.day,
+        notes: updatedPlan.notes || '',
+        exercises: updatedPlan.exercises.map((ex: any): Exercise => ({
+          id: uuidv4(),
+          name: ex.name || "Невідома вправа",
+          description: ex.description || "Опис відсутній.",
+          sets: ex.sets || "3",
+          reps: ex.reps || "10-12",
+          rest: ex.rest || "60 секунд",
+          weightType: ex.weightType || 'total',
+          videoSearchQuery: ex.videoSearchQuery || null,
+          targetWeight: ex.targetWeight !== undefined && ex.targetWeight !== null ? ex.targetWeight : null,
+          targetReps: ex.targetReps !== undefined && ex.targetReps !== null ? ex.targetReps : null,
+          recommendation: ex.recommendation || { text: '', action: '' },
+          isCompletedDuringSession: false,
+          sessionLoggedSets: [],
+          sessionSuccess: false,
+          notes: ex.notes || null
+        }))
+      };
 
       return {
         updatedPlan: mappedUpdatedPlan,
@@ -462,7 +477,6 @@ ${JSON.stringify(Object.fromEntries(exerciseProgress), null, 2)}
       console.error("Received string (after processing):", jsonStr);
       console.error("Original AI response text:", result.text());
       
-      // Спробуємо створити fallback відповідь
       console.warn('⚠️ Creating fallback analysis response due to parsing error');
       
       const fallbackAnalysis = {
@@ -490,60 +504,29 @@ ${JSON.stringify(Object.fromEntries(exerciseProgress), null, 2)}
       
       return fallbackAnalysis;
     }
-
-  } catch (error: any) {
-    console.error("Error during workout analysis via Gemini API:", error);
-    
-    // Спеціальна обробка ключових помилок
-    if (error.message && (error.message.includes("API_KEY_INVALID") || (error.response && error.response.status === 400))) {
-      throw new Error("Наданий API ключ недійсний або не має дозволів для використання аналізу. Будь ласка, перевірте ваш API ключ.");
-    }
-    
-    if (error.message && error.message.toLowerCase().includes("candidate.safetyetyratings")) {
-      throw new Error("Відповідь від AI була заблокована через налаштування безпеки при аналізі. Спробуйте змінити дані або запит.");
-    }
-    
-    if (error.message && error.message.toLowerCase().includes("fetch")) { 
-      throw new Error("Помилка мережі при зверненні до AI сервісу аналізу. Перевірте ваше інтернет-з'єднання та спробуйте пізніше.");
-    }
-    
-    if (
-      (error.response && error.response.status === 503) ||
-      (error.message && (
-        error.message.toLowerCase().includes("overload") ||
-        error.message.toLowerCase().includes("unavailable") ||
-        error.message.toLowerCase().includes("service unavailable")
-      ))
-    ) {
-      throw new Error(UI_TEXT.aiOverloaded);
-    }
-    
-    // Основний fallback - повертаємо мінімальну валідну відповідь
-    console.warn('⚠️ Creating fallback analysis response due to service error:', error.message);
-    
-    return {
-      updatedPlan: {
-        day: dayPlan.day,
-        notes: dayPlan.notes || 'План залишено без змін через помилку сервісу',
-        exercises: dayPlan.exercises.map(ex => ({
-          ...ex,
-          recommendation: {
-            text: 'Вправа залишена без змін',
-            action: 'maintain'
-          }
-        }))
-      },
-      recommendation: {
-        text: 'Сервіс аналізу тимчасово недоступний. Продовжуйте тренування за попереднім планом.',
-        action: 'maintain'
-      },
-      dailyRecommendations: dayPlan.exercises.map(ex => ({
-        exerciseName: ex.name,
-        recommendation: 'Продовжуйте за попереднім планом',
-        reason: 'Аналіз тимчасово недоступний'
+  }, {
+    // Fallback response for quota/API errors
+    updatedPlan: {
+      day: dayPlan.day,
+      notes: dayPlan.notes || 'План залишено без змін через помилку сервісу',
+      exercises: dayPlan.exercises.map(ex => ({
+        ...ex,
+        recommendation: {
+          text: 'Вправа залишена без змін',
+          action: 'maintain'
+        }
       }))
-    };
-  }
+    },
+    recommendation: {
+      text: 'Сервіс аналізу тимчасово недоступний. Продовжуйте тренування за попереднім планом.',
+      action: 'maintain'
+    },
+    dailyRecommendations: dayPlan.exercises.map(ex => ({
+      exerciseName: ex.name,
+      recommendation: 'Продовжуйте за попереднім планом',
+      reason: 'Аналіз тимчасово недоступний'
+    }))
+  }, { priority: 'medium', skipOnQuotaExceeded: true });
 };
 
 export const generateExerciseVariations = async (
@@ -641,8 +624,7 @@ ${JSON.stringify(originalExercise, null, 2)}
       isCompletedDuringSession: false,
       sessionLoggedSets: [],
       sessionSuccess: false,
-      isSkipped: false, // Add the missing isSkipped field
-      notes: `Варіація: ${variation.variationType || 'alternative'} | Складність: ${variation.difficulty || 'intermediate'}`
+      notes: `Варіація: ${getUkrainianVariationType(variation.variationType)} | Складність: ${getUkrainianDifficulty(variation.difficulty)}`
     }));
   }, [], { priority: 'low', skipOnQuotaExceeded: true });
 };
@@ -862,7 +844,6 @@ ${JSON.stringify(workoutHistory.slice(0, 5), null, 2)}
           isCompletedDuringSession: false,
           sessionLoggedSets: [],
           sessionSuccess: false,
-          isSkipped: false, // Add the missing isSkipped field
           notes: ex.notes || null
         })),
         notes: parsedResult.notes || originalPlan.notes || '',

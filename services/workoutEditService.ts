@@ -161,7 +161,6 @@ export const generateNewExercise = async (
         isCompletedDuringSession: false,
         sessionLoggedSets: [],
         sessionSuccess: false,
-        isSkipped: false // Add the missing isSkipped field
       };
     } catch (e) {
       console.error("Error parsing JSON from AI response:", e);
@@ -216,7 +215,6 @@ export const regenerateExercise = async (
         isCompletedDuringSession: false,
         sessionLoggedSets: [],
         sessionSuccess: false,
-        isSkipped: false // Add the missing isSkipped field
       };
     } catch (e) {
       console.error("Error parsing JSON from AI response:", e);
@@ -273,7 +271,6 @@ export const completeExerciseDetails = async (
         isCompletedDuringSession: exercise.isCompletedDuringSession ?? false,
         sessionLoggedSets: exercise.sessionLoggedSets ?? [],
         sessionSuccess: exercise.sessionSuccess ?? false,
-        isSkipped: exercise.isSkipped ?? false, // Add the missing isSkipped field
         recommendation: exercise.recommendation || null,
       };
     } catch (e) {
