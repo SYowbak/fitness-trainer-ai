@@ -97,6 +97,7 @@ export const useWorkoutSync = (userId: string) => {
                   (ex1.recommendation?.action !== ex2.recommendation?.action) ||
                   ex1.isCompletedDuringSession !== ex2.isCompletedDuringSession ||
                   ex1.sessionSuccess !== ex2.sessionSuccess ||
+                  (ex1.isSkipped ?? false) !== (ex2.isSkipped ?? false) ||
                   !areLoggedSetsEqual(ex1.sessionLoggedSets, ex2.sessionLoggedSets)) {
                 return false;
               }

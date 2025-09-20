@@ -51,6 +51,7 @@ function cleanWorkoutPlanForFirestore(plan: DailyWorkoutPlan[]): DailyWorkoutPla
           isCompletedDuringSession: ex.isCompletedDuringSession ?? false, // Переконаємось, що це boolean
           sessionLoggedSets: ex.sessionLoggedSets ?? [], // Переконаємось, що це масив
           sessionSuccess: ex.sessionSuccess ?? false, // Переконаємось, що це boolean або null
+          isSkipped: ex.isSkipped ?? false, // Додаємо підтримку isSkipped
           notes: ex.notes ?? null,
         };
         return removeUndefined(cleanedExercise);

@@ -515,7 +515,8 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
                       ...adaptedExercise,
                       isCompletedDuringSession: true,
                       sessionLoggedSets: loggedSets,
-                      sessionSuccess: success
+                      sessionSuccess: success,
+                      isSkipped: false // Переконуємось, що при логуванні вправа не пропущена
                     };
                     onLogExercise(index, loggedSets, success);
                   }}
@@ -546,7 +547,8 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
                     ...adaptedExercise,
                     isCompletedDuringSession: true,
                     sessionLoggedSets: loggedSets,
-                    sessionSuccess: success
+                    sessionSuccess: success,
+                    isSkipped: false // Переконуємось, що при логуванні вправа не пропущена
                   };
                   onLogExercise(index, loggedSets, success);
                 }}

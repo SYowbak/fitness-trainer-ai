@@ -110,19 +110,28 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   // Ініціалізуємо або оновлюємо isCompleted, isSkipped та allSetsSuccessful, коли exercise змінюється
   useEffect(() => {
     // console.log(`ExerciseCard ${exercise.name}: useEffect [isCompletedDuringSession, sessionSuccess, isSkipped] triggered.`);
-    setIsCompleted(exercise.isCompletedDuringSession);
+    const newIsCompleted = exercise.isCompletedDuringSession;
     const newIsSkipped = exercise.isSkipped ?? false;
-    setIsSkipped(newIsSkipped);
+    
+    // Оновлюємо стан тільки якщо він справді змінився
+    if (isCompleted !== newIsCompleted) {
+      setIsCompleted(newIsCompleted);
+    }
+    if (isSkipped !== newIsSkipped) {
+      setIsSkipped(newIsSkipped);
+    }
+    
     setAllSetsSuccessful(exercise.sessionSuccess ?? true);
+    
     // Приховуємо форму логування, якщо вправу вже завершено або пропущено
-    if (exercise.isCompletedDuringSession || newIsSkipped) {
+    if (newIsCompleted || newIsSkipped) {
       setShowLogForm(false);
     }
     // Згортаємо картку при завершенні або пропуску
-    if (exercise.isCompletedDuringSession || newIsSkipped) {
+    if (newIsCompleted || newIsSkipped) {
       setIsExpanded(false);
     }
-  }, [exercise.isCompletedDuringSession, exercise.sessionSuccess, exercise.isSkipped, exercise.name]);
+  }, [exercise.isCompletedDuringSession, exercise.sessionSuccess, exercise.isSkipped, exercise.name, isCompleted, isSkipped]);
 
   useEffect(() => {
     // console.log(`ExerciseCard ${exercise.name}: loggedSetsData changed:`, loggedSetsData);
@@ -246,11 +255,37 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   };
   
   const cardBaseClasses = "p-3 sm:p-4 rounded-lg shadow-md transition-all duration-300";
-  const cardBgClasses = isCompleted ? "bg-green-800/50 hover:bg-green-700/60" : (isSkipped ? "bg-orange-800/50 hover:bg-orange-700/60" : "bg-gray-700/60 hover:bg-gray-700/80");
-  const completedTextClasses = isCompleted ? "text-green-300" : (isSkipped ? "text-orange-300" : "text-yellow-300");
+  
+  // Правильна логіка кольорів: спочатку перевіряємо пропуск, потім завершення
+  const getCardStyles = () => {
+    if (isSkipped) {
+      return {
+        bgClasses: "bg-orange-800/50 hover:bg-orange-700/60",
+        textClasses: "text-orange-300",
+        borderClasses: "border-l-4 border-orange-500"
+      };
+    }
+    if (isCompleted) {
+      return {
+        bgClasses: "bg-green-800/50 hover:bg-green-700/60",
+        textClasses: "text-green-300",
+        borderClasses: "border-l-4 border-green-500"
+      };
+    }
+    return {
+      bgClasses: "bg-gray-700/60 hover:bg-gray-700/80",
+      textClasses: "text-yellow-300",
+      borderClasses: "border-l-4 border-purple-600"
+    };
+  };
+  
+  const cardStyles = getCardStyles();
+  const cardBgClasses = cardStyles.bgClasses;
+  const completedTextClasses = cardStyles.textClasses;
+  const borderClasses = cardStyles.borderClasses;
 
   return (
-    <div className={`${cardBaseClasses} ${cardBgClasses} ${isCompleted ? 'border-l-4 border-green-500' : (isSkipped ? 'border-l-4 border-orange-500' : 'border-l-4 border-purple-600')}`}>
+    <div className={`${cardBaseClasses} ${cardBgClasses} ${borderClasses}`}>
       <button
         className="w-full flex justify-between items-center text-left focus:outline-none"
         onClick={() => setIsExpanded(!isExpanded)}
