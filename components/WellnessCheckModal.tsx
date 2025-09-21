@@ -6,18 +6,15 @@ interface WellnessCheckModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (wellnessCheck: WellnessCheck) => void;
-  onSkip?: () => void; // Made optional since we're removing skip functionality
+  onSkip: () => void;
 }
 
 const WellnessCheckModal: React.FC<WellnessCheckModalProps> = ({
   isOpen,
   onClose,
   onSubmit,
-  onSkip // Now optional
+  onSkip
 }) => {
-  // Test console logging right at component start
-  console.log('💫 [MODAL] WellnessCheckModal component rendered, isOpen:', isOpen);
-  
   const [wellnessCheck, setWellnessCheck] = useState<WellnessCheck>({
     energyLevel: EnergyLevel.NORMAL,
     sleepQuality: SleepQuality.GOOD,
@@ -29,14 +26,10 @@ const WellnessCheckModal: React.FC<WellnessCheckModalProps> = ({
   });
 
   const handleSubmit = () => {
-    console.log('🔘 [MODAL] handleSubmit called in WellnessCheckModal');
-    console.log('📋 [MODAL] wellnessCheck data:', wellnessCheck);
-    console.log('🎆 [MODAL] About to call onSubmit. onSubmit type:', typeof onSubmit);
     onSubmit({
       ...wellnessCheck,
       timestamp: new Date()
     });
-    console.log('✅ [MODAL] onSubmit called successfully');
   };
 
   const getEnergyLevelText = (level: EnergyLevel) => {
@@ -94,12 +87,12 @@ const WellnessCheckModal: React.FC<WellnessCheckModalProps> = ({
               <i className="fas fa-bolt mr-2"></i>
               {UI_TEXT.energyLevel}
             </label>
-            <div className="grid grid-cols-5 gap-2">
+            <div className="flex flex-wrap gap-2">
               {Object.values(EnergyLevel).map((level) => (
                 <button
                   key={level}
                   onClick={() => setWellnessCheck(prev => ({ ...prev, energyLevel: level }))}
-                  className={`p-2 rounded text-xs transition-colors ${
+                  className={`flex-1 text-center p-3 rounded text-xs sm:text-sm transition-colors ${
                     wellnessCheck.energyLevel === level
                       ? 'bg-purple-600 text-white'
                       : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
@@ -117,12 +110,12 @@ const WellnessCheckModal: React.FC<WellnessCheckModalProps> = ({
               <i className="fas fa-bed mr-2"></i>
               {UI_TEXT.sleepQuality}
             </label>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="flex flex-wrap gap-2">
               {Object.values(SleepQuality).map((quality) => (
                 <button
                   key={quality}
                   onClick={() => setWellnessCheck(prev => ({ ...prev, sleepQuality: quality }))}
-                  className={`p-2 rounded text-xs transition-colors ${
+                  className={`flex-1 text-center p-3 rounded text-xs sm:text-sm transition-colors ${
                     wellnessCheck.sleepQuality === quality
                       ? 'bg-blue-600 text-white'
                       : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
@@ -140,12 +133,12 @@ const WellnessCheckModal: React.FC<WellnessCheckModalProps> = ({
               <i className="fas fa-brain mr-2"></i>
               {UI_TEXT.stressLevel}
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="flex flex-wrap gap-2">
               {Object.values(StressLevel).map((level) => (
                 <button
                   key={level}
                   onClick={() => setWellnessCheck(prev => ({ ...prev, stressLevel: level }))}
-                  className={`p-2 rounded text-xs transition-colors ${
+                  className={`flex-1 text-center p-3 rounded text-xs sm:text-sm transition-colors ${
                     wellnessCheck.stressLevel === level
                       ? 'bg-red-600 text-white'
                       : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
@@ -238,10 +231,17 @@ const WellnessCheckModal: React.FC<WellnessCheckModalProps> = ({
             </div>
           </div>
           
-          <div className="flex justify-center pt-4">
+          <div className="flex flex-col sm:flex-row sm:justify-center gap-4 pt-4">
+            <button
+              onClick={onSkip}
+              className="w-full sm:w-auto px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium"
+            >
+              <i className="fas fa-forward mr-2"></i>
+              Пропустити
+            </button>
             <button
               onClick={handleSubmit}
-              className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium"
+              className="w-full sm:w-auto px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium"
             >
               <i className="fas fa-magic mr-2"></i>
               Генерувати AI план

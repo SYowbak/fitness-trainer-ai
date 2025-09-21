@@ -64,7 +64,7 @@ const WellnessRecommendations: React.FC<WellnessRecommendationsProps> = ({
           ) : (
             recommendations.map((recommendation, index) => (
               <div
-                key={index}
+                key={`${recommendation.type}-${index}`}
                 className={`p-4 rounded-lg border-l-4 ${getPriorityColor(recommendation.priority)}`}
               >
                 <div className="flex items-start space-x-3">
@@ -96,7 +96,7 @@ const WellnessRecommendations: React.FC<WellnessRecommendationsProps> = ({
                         </h4>
                         <ul className="space-y-1">
                           {recommendation.actions.map((action, actionIndex) => (
-                            <li key={actionIndex} className="flex items-center text-sm text-gray-300">
+                            <li key={`${action}-${actionIndex}`} className="flex items-center text-sm text-gray-300">
                               <i className="fas fa-check-circle text-green-400 mr-2 text-xs"></i>
                               {action}
                             </li>

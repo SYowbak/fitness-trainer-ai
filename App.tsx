@@ -30,7 +30,6 @@ console.log('🚀 [SYSTEM] App.tsx file loaded at:', new Date().toISOString());
 type View = 'profile' | 'workout' | 'progress';
 
 const App: React.FC = () => {
-  console.log('🎬 [APP] App component is rendering/re-rendering');
   
   const { user, loading, logout, setUser } = useAuth();
   const { workoutPlan, saveWorkoutPlan, profile: firestoreProfile, workoutLogs: firestoreWorkoutLogs, saveProfile, saveWorkoutLog } = useUserData();
@@ -54,7 +53,7 @@ const App: React.FC = () => {
   
   // Debug wellness modal state changes
   useEffect(() => {
-    console.log('💫 [APP] wellnessCheckModalOpen changed to:', wellnessCheckModalOpen);
+    // console.log('💫 [APP] wellnessCheckModalOpen changed to:', wellnessCheckModalOpen);
   }, [wellnessCheckModalOpen]);
   const [wellnessRecommendationsModalOpen, setWellnessRecommendationsModalOpen] = useState<boolean>(false);
   const [wellnessRecommendations, setWellnessRecommendations] = useState<WellnessRecommendation[]>([]);
@@ -253,10 +252,8 @@ const App: React.FC = () => {
   }, [userProfile, apiKeyMissing, session.activeDay, endWorkout, saveWorkoutPlan]);
 
   const handleStartWorkoutWithWellnessCheck = useCallback(async (dayNumber: number) => {
-    console.log('🚀 [APP] handleStartWorkoutWithWellnessCheck called with dayNumber:', dayNumber);
     setPendingWorkoutDay(dayNumber);
     setWellnessCheckModalOpen(true);
-    console.log('💫 [APP] Wellness check modal should now open');
   }, []);
 
   const handleLogSingleExercise = useCallback((exerciseIndex: number, loggedSets: LoggedSetWithAchieved[], success: boolean) => {
@@ -295,12 +292,13 @@ const App: React.FC = () => {
 
     if (loggedExercisesForSession.length === 0) {
       endWorkout();
+      setAdaptiveWorkoutPlan(null); // Очищаємо адаптивний план
       alert("Тренування завершено, але жодної вправи не було залоговано.");
       return;
     }
 
     endWorkout();
-    setAdaptiveWorkoutPlan(null);
+    setAdaptiveWorkoutPlan(null); // Очищаємо адаптивний план
     setWellnessRecommendations([]);
     setWellnessRecommendationsModalOpen(false);
     
@@ -351,6 +349,13 @@ const App: React.FC = () => {
 
       setExerciseRecommendations(analysisResult.dailyRecommendations || []);
       setIsWorkoutCompleteModalOpen(true); // Відкриваємо модальне вікно
+      
+      // Примусово завантажуємо повний план тренувань з Firestore
+      const fullPlan = await saveWorkoutPlan(null, true); // `true` для примусового завантаження
+      if (fullPlan) {
+        setCurrentWorkoutPlan(fullPlan);
+      }
+      
     } catch (analysisError) {
       console.error("[handleEndWorkout] Помилка під час аналізу тренування:", analysisError);
       setError("Не вдалося проаналізувати тренування");
@@ -489,31 +494,11 @@ const App: React.FC = () => {
 
   // Обробка перевірки самопочуття
   const handleWellnessCheckSubmit = useCallback(async (wellnessCheck: WellnessCheck) => {
-    console.log('🎬 [APP] handleWellnessCheckSubmit called with:', {
-      wellnessCheck: {
-        energyLevel: wellnessCheck.energyLevel,
-        sleepQuality: wellnessCheck.sleepQuality,
-        stressLevel: wellnessCheck.stressLevel,
-        motivation: wellnessCheck.motivation,
-        fatigue: wellnessCheck.fatigue
-      },
-      userProfile: !!userProfile,
-      currentWorkoutPlan: !!currentWorkoutPlan,
-      pendingWorkoutDay
-    });
-    
     if (!userProfile || !currentWorkoutPlan || pendingWorkoutDay === null) {
-      console.error('❌ [APP] Early validation failed:', {
-        hasUserProfile: !!userProfile,
-        hasCurrentWorkoutPlan: !!currentWorkoutPlan,
-        pendingWorkoutDay
-      });
       setError('Не вдалося знайти профіль користувача, план тренувань або день.');
       setWellnessCheckModalOpen(false);
       return;
     }
-
-    console.log('✅ [APP] Validation passed, starting processing...');
 
     setWellnessCheckModalOpen(false);
     setIsLoading(true);
@@ -523,71 +508,35 @@ const App: React.FC = () => {
     try {
       // Оновлюємо профіль з обмеженнями здоров'я (пам'ять травм) при наявності нотаток
       if (userProfile && wellnessCheck.notes) {
-        console.log('🏥 [APP] Processing health constraints from notes...');
         setWellnessProcessingStep('Оновлюємо профіль здоров\'я...');
         const newConstraints = extractConstraintsFromNotes(wellnessCheck.notes);
         if (newConstraints.length > 0) {
-          console.log('📝 [APP] Found health constraints:', newConstraints);
           const merged = Array.from(new Set([...(userProfile.healthConstraints || []), ...newConstraints]));
           const updatedProfile = { ...userProfile, healthConstraints: merged };
           await saveProfile(updatedProfile);
           setUserProfile(updatedProfile);
-          console.log('✅ [APP] Profile updated with health constraints');
         }
       }
 
       // Генеруємо адаптивний план тренування
-      console.log('🎯 [APP] Starting adaptive workout generation...');
       setWellnessProcessingStep('Адаптуємо план тренування...');
-      console.log('📺 [APP] Starting adaptive workout generation with data:', {
-        userProfile: userProfile ? {
-          name: userProfile.name,
-          goal: userProfile.goal,
-          experienceLevel: userProfile.experienceLevel,
-          healthConstraints: userProfile.healthConstraints
-        } : null,
-        currentWorkoutPlan: currentWorkoutPlan ? {
-          daysCount: currentWorkoutPlan.length,
-          targetDay: pendingWorkoutDay
-        } : null,
-        wellnessCheck: {
-          energyLevel: wellnessCheck.energyLevel,
-          sleepQuality: wellnessCheck.sleepQuality,
-          stressLevel: wellnessCheck.stressLevel,
-          motivation: wellnessCheck.motivation,
-          fatigue: wellnessCheck.fatigue,
-          notes: wellnessCheck.notes?.substring(0, 50)
-        },
-        workoutLogsCount: workoutLogs.length
-      });
       
-      console.log('🚀 [APP] Calling generateAdaptiveWorkout...');
       const adaptivePlan = await generateAdaptiveWorkout(
         userProfile!,
         currentWorkoutPlan.find(d => d.day === pendingWorkoutDay) || currentWorkoutPlan[0],
         wellnessCheck,
         workoutLogs
       );
-      console.log('✅ [APP] generateAdaptiveWorkout completed successfully');
-      console.log('📋 [APP] Adaptive plan result:', {
-        day: adaptivePlan?.day,
-        exerciseCount: adaptivePlan?.exercises?.length,
-        hasAdaptations: !!adaptivePlan?.adaptations,
-        adaptationsCount: adaptivePlan?.adaptations?.length || 0
-      });
       
       if (!adaptivePlan) {
-        console.error('❌ [APP] generateAdaptiveWorkout returned null/undefined');
         throw new Error('Не вдалося згенерувати адаптивний план');
       }
       
       setAdaptiveWorkoutPlan(adaptivePlan);
-      console.log('✅ [APP] Adaptive plan set in state');
 
       // Generate wellness recommendations in background (OPTIONAL - skip if quota issues)
       setWellnessProcessingStep('Готуємо рекомендації...');
       (async () => {
-        console.log('📊 [APP] Starting wellness recommendations generation in background');
         try {
           // Check quota before making another API call
           const { quotaManager } = await import('./utils/apiQuotaManager');
@@ -603,17 +552,11 @@ const App: React.FC = () => {
             wellnessCheck,
             workoutLogs
           );
-          console.log('✅ [APP] Successfully generated wellness recommendations:', {
-            count: recs.length,
-            types: recs.map(r => r.type)
-          });
           setWellnessRecommendations(recs);
           
           // Show modal only if there are recommendations
           if (recs.length > 0) {
             setWellnessRecommendationsModalOpen(true);
-          } else {
-            console.log('🎯 No wellness recommendations needed - user feeling great!');
           }
           
           await updateWellnessRecommendations(recs);
@@ -628,39 +571,25 @@ const App: React.FC = () => {
       })();
 
       // Оновлюємо план тренувань з адаптивним планом
-      console.log('💾 [APP] Updating workout plan with adaptive plan...');
       setWellnessProcessingStep('Зберігаємо план...');
       const updatedPlan = currentWorkoutPlan.map(dayPlan => 
         dayPlan.day === adaptivePlan.day ? adaptivePlan : dayPlan
       );
       setCurrentWorkoutPlan(updatedPlan);
       await saveWorkoutPlan(updatedPlan);
-      console.log('✅ [APP] Workout plan saved successfully');
 
       // АВТОМАТИЧНО СТАРТУЄМО ТРЕНУВАННЯ
-      console.log('🏃 [APP] Starting workout automatically...');
       setWellnessProcessingStep('Запускаємо тренування...');
       await startWorkout(adaptivePlan.day, adaptivePlan.exercises);
-      console.log('✅ [APP] Workout started successfully');
       
       // ОНОВЛЮЄМО LIVE-СЕСІЮ з wellnessCheck, adaptiveWorkoutPlan та wellnessRecommendations
-      console.log('🔄 [APP] Updating live session data...');
       await updateWellnessCheck(wellnessCheck);
       await updateAdaptiveWorkoutPlan(adaptivePlan);
-      console.log('✅ [APP] Live session updated successfully');
       // Оновлення wellnessRecommendations відбудеться після фонового отримання
       
       setPendingWorkoutDay(null);
-      console.log('🎉 [APP] Wellness check process completed successfully!');
     } catch (error: any) {
       console.error('❌ [APP] Error in handleWellnessCheckSubmit:', error);
-      console.error('🔍 [APP] Full error details:', {
-        message: error.message,
-        stack: error.stack,
-        type: typeof error,
-        errorObject: error
-      });
-      console.error('📍 [APP] Error occurred at processing step:', wellnessProcessingStep);
       
       // Handle different types of errors with specific messages
       if (error.message) {
@@ -669,40 +598,34 @@ const App: React.FC = () => {
             error.message.includes('quota') || 
             error.message.includes('429') ||
             error.message.includes('rate limit')) {
-          console.log('🕰️ [APP] Quota error detected');
           setError('Перевищено ліміт AI запитів. Спробуйте ще раз через 1-2 хвилини.');
         } 
         // Handle service unavailable errors
         else if (error.message.includes('service unavailable') || 
                  error.message.includes('503') || 
                  error.message.includes('overloaded')) {
-          console.log('🔧 [APP] Service unavailable error detected');
           setError('Сервіс AI тимчасово недоступний. Спробуйте ще раз через кілька хвилин.');
         }
         // Handle API key errors
         else if (error.message.includes('API_KEY') || 
                  error.message.includes('API key') || 
                  error.message.includes('authentication')) {
-          console.log('🔑 [APP] API key error detected');
           setError('Помилка API ключа. Перевірте налаштування API ключа.');
         }
         // Handle parsing errors
         else if (error.message.includes('JSON') || 
                  error.message.includes('parse') || 
                  error.message.includes('розпізнати')) {
-          console.log('📄 [APP] JSON parsing error detected');
           setError('Помилка обробки відповіді від AI. Спробуйте ще раз.');
         }
         // Handle general AI errors
         else if (error.message.includes('AI') || 
                  error.message.includes('адаптація') || 
                  error.message.includes('адаптивний')) {
-          console.log('🤖 [APP] General AI error detected');
           setError('Помилка AI адаптації: ' + error.message + '. Спробуйте ще раз через кілька секунд.');
         }
         // Handle all other errors
         else {
-          console.log('❓ [APP] Unknown error type detected');
           setError('Помилка: ' + error.message + '. Спробуйте ще раз.');
         }
       } else {
@@ -712,15 +635,39 @@ const App: React.FC = () => {
       
       setPendingWorkoutDay(null);
     } finally {
-      console.log('🏁 [APP] Wellness check process finished, cleaning up...');
       setIsLoading(false);
       setIsProcessingWellness(false);
       setWellnessProcessingStep('');
     }
   }, [userProfile, currentWorkoutPlan, workoutLogs, saveWorkoutPlan, pendingWorkoutDay, startWorkout, updateWellnessCheck, updateAdaptiveWorkoutPlan, updateWellnessRecommendations]);
 
-  // REMOVED: handleWellnessCheckSkip - AI-only mode enforced
-  // Users can no longer skip AI adaptation
+  const handleWellnessCheckSkip = useCallback(async () => {
+    if (pendingWorkoutDay === null || !currentWorkoutPlan) {
+      setError('Не вдалося почати тренування. Спробуйте ще раз.');
+      setWellnessCheckModalOpen(false);
+      return;
+    }
+
+    const dayPlan = currentWorkoutPlan.find(d => d.day === pendingWorkoutDay);
+    if (!dayPlan) {
+      setError(`Не знайдено план для дня ${pendingWorkoutDay}.`);
+      setWellnessCheckModalOpen(false);
+      return;
+    }
+
+    setWellnessCheckModalOpen(false);
+    setIsLoading(true);
+
+    try {
+      await startWorkout(dayPlan.day, dayPlan.exercises);
+      setPendingWorkoutDay(null);
+    } catch (error: any) {
+      console.error('Error starting workout without wellness check:', error);
+      setError('Помилка при запуску тренування: ' + error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [pendingWorkoutDay, currentWorkoutPlan, startWorkout]);
 
   const renderView = () => {
     if (!user) {
@@ -899,14 +846,9 @@ const App: React.FC = () => {
       {/* Модальні вікна */}
       <WellnessCheckModal
         isOpen={wellnessCheckModalOpen}
-        onClose={() => {
-          console.log('🚪 [APP] WellnessCheckModal onClose called');
-          setWellnessCheckModalOpen(false);
-        }}
-        onSubmit={(wellnessCheck) => {
-          console.log('🎯 [APP] onSubmit wrapper called, about to call handleWellnessCheckSubmit');
-          handleWellnessCheckSubmit(wellnessCheck);
-        }}
+        onClose={() => setWellnessCheckModalOpen(false)}
+        onSubmit={handleWellnessCheckSubmit}
+        onSkip={handleWellnessCheckSkip}
       />
 
       {wellnessRecommendationsModalOpen && (

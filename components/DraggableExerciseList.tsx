@@ -329,7 +329,7 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
         
         return (
           <div
-            key={exercise.id}
+            key={`${exercise.id}-${index}`}
             {...getDragHandleProps(index)}
             className={`
               relative

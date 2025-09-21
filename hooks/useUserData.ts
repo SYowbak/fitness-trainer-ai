@@ -212,16 +212,34 @@ export const useUserData = () => {
   };
 
   // Збереження плану тренувань
-  const saveWorkoutPlan = async (plan: DailyWorkoutPlan[]) => {
+  const saveWorkoutPlan = async (plan: DailyWorkoutPlan[] | null, forceRefetch: boolean = false): Promise<DailyWorkoutPlan[] | undefined> => {
     if (!user) throw new Error('User not authenticated');
-    try {
-      const cleanedPlan = cleanWorkoutPlanForFirestore(plan);
-      const docRef = doc(db, 'workoutPlans', user.uid);
-      await setDoc(docRef, { plan: cleanedPlan });
-      setWorkoutPlan(cleanedPlan);
-    } catch (error) {
-      console.error('Error saving workout plan:', error);
-      throw error;
+    
+    if (plan) {
+      try {
+        const cleanedPlan = cleanWorkoutPlanForFirestore(plan);
+        const docRef = doc(db, 'workoutPlans', user.uid);
+        await setDoc(docRef, { plan: cleanedPlan });
+        setWorkoutPlan(cleanedPlan);
+        return cleanedPlan;
+      } catch (error) {
+        console.error('Error saving workout plan:', error);
+        throw error;
+      }
+    }
+
+    if (forceRefetch) {
+      try {
+        const docRef = doc(db, 'workoutPlans', user.uid);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const fetchedPlan = docSnap.data().plan as DailyWorkoutPlan[];
+          setWorkoutPlan(fetchedPlan);
+          return fetchedPlan;
+        }
+      } catch (error) {
+        console.error('Error refetching workout plan:', error);
+      }
     }
   };
 

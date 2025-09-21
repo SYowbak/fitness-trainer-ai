@@ -20,7 +20,7 @@ const ExerciseLogRow: React.FC<{loggedEx: LoggedExercise}> = ({ loggedEx }) => {
         <div className="mt-2 space-y-1 pl-2 border-l-2 border-gray-600">
           <p>План: {loggedEx.originalSets ?? '-'} x {loggedEx.originalReps ?? '-'} @ {loggedEx.targetWeightAtLogging ?? 'N/A'}kg</p>
           {loggedEx.loggedSets.map((set, i) => (
-            <p key={i} className="text-gray-300">
+            <p key={`${loggedEx.exerciseName}-${i}`} className="text-gray-300">
               Підхід {i + 1}: {set.repsAchieved ?? '-'} повт. @ {set.weightUsed ?? '-'} кг
             </p>
           ))}
@@ -217,7 +217,7 @@ export const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({
                   <AccordionSection title="Рекомендації по самопочуттю" icon="fa-lightbulb">
                     <div className="space-y-4">
                       {log.wellnessRecommendations.map((rec, i) => (
-                        <div key={i} className="bg-gray-700/30 p-3 rounded-lg">
+                        <div key={`${log.id}-rec-${i}`} className="bg-gray-700/30 p-3 rounded-lg">
                           <h4 className="font-semibold text-lg mb-2 flex items-center">
                             <i className={`${getRecommendationIcon(rec.type)} mr-3`}></i>
                             {rec.title}
@@ -228,7 +228,7 @@ export const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({
                               <h5 className="font-medium text-gray-400 mb-1">Рекомендовані дії:</h5>
                               <ul className="list-disc list-inside space-y-1 text-gray-300 pl-2">
                                 {rec.actions.map((action, j) => (
-                                  <li key={j}>{action}</li>
+                                  <li key={`${log.id}-rec-${i}-action-${j}`}>{action}</li>
                                 ))}
                               </ul>
                             </div>
@@ -243,7 +243,7 @@ export const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({
                   <AccordionSection title="Адаптації" icon="fa-magic">
                     <div className="space-y-2">
                       {log.adaptiveWorkoutPlan.adaptations.map((a, i) => (
-                        <div key={i} className="bg-gray-700/30 p-3 rounded">
+                        <div key={`${log.id}-adaptation-${i}`} className="bg-gray-700/30 p-3 rounded">
                           <p className="font-semibold text-green-400 mb-1">{a.exerciseName}</p>
                           <p className="text-gray-300">{a.adaptationReason}</p>
                         </div>
@@ -268,7 +268,7 @@ export const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({
 
                 <AccordionSection title="Виконані вправи" icon="fa-dumbbell">
                   {log.loggedExercises.map((ex, i) => (
-                    <ExerciseLogRow key={i} loggedEx={ex} />
+                    <ExerciseLogRow key={`${log.id}-exercise-${i}`} loggedEx={ex} />
                   ))}
                 </AccordionSection>
 

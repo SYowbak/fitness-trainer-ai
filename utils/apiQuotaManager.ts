@@ -54,7 +54,6 @@ class ApiQuotaManager {
 
       // Auto-reset exceeded status if retry period has passed and request count is reasonable
       if (status.isExceeded && status.retryAfter && Date.now() >= status.retryAfter) {
-        console.log('🔄 [QUOTA] Auto-resetting exceeded status - retry period expired');
         status.isExceeded = false;
         status.retryAfter = undefined;
         this.saveQuotaStatus(status);
@@ -62,11 +61,6 @@ class ApiQuotaManager {
 
       // Additional auto-fix: if exceeded flag is set but we're clearly under limit
       if (status.isExceeded && status.requestCount < (status.dailyLimit * 0.8)) {
-        console.log('🔧 [QUOTA] Auto-fixing exceeded flag - request count well below limit:', {
-          count: status.requestCount,
-          limit: status.dailyLimit,
-          percentage: Math.round((status.requestCount / status.dailyLimit) * 100)
-        });
         status.isExceeded = false;
         status.retryAfter = undefined;
         this.saveQuotaStatus(status);
@@ -90,11 +84,6 @@ class ApiQuotaManager {
     
     // Auto-fix any stuck "exceeded" flags when request count is clearly below limit
     if (status.isExceeded && status.requestCount < (status.dailyLimit * 0.9)) {
-      console.warn('🔧 [QUOTA] Auto-fixing stuck exceeded flag - request count too low:', {
-        requestCount: status.requestCount,
-        limit: status.dailyLimit,
-        percentage: Math.round((status.requestCount / status.dailyLimit) * 100)
-      });
       status.isExceeded = false;
       status.retryAfter = undefined;
       this.saveQuotaStatus(status);
@@ -104,17 +93,6 @@ class ApiQuotaManager {
     const retryCheck = !status.retryAfter || Date.now() >= status.retryAfter;
     
     const canMake = basicCheck && !status.isExceeded && retryCheck;
-    
-    console.log('🔍 [QUOTA] Simple quota check:', {
-      requestCount: status.requestCount,
-      dailyLimit: status.dailyLimit,
-      percentage: Math.round((status.requestCount / status.dailyLimit) * 100),
-      isExceeded: status.isExceeded,
-      retryAfter: status.retryAfter ? new Date(status.retryAfter).toLocaleTimeString() : null,
-      basicCheck,
-      retryCheck,
-      finalDecision: canMake
-    });
     
     return canMake;
   }
@@ -131,15 +109,6 @@ class ApiQuotaManager {
     const wasExceeded = status.isExceeded;
     // Only mark exceeded if we go 20+ requests over the limit (was 15)
     status.isExceeded = status.requestCount >= (status.dailyLimit + 20);
-    
-    console.log('✓ [QUOTA] Request recorded:', {
-      oldCount,
-      newCount: status.requestCount,
-      dailyLimit: status.dailyLimit,
-      percentage: Math.round((status.requestCount / status.dailyLimit) * 100),
-      wasExceeded,
-      nowExceeded: status.isExceeded
-    });
     
     this.saveQuotaStatus(status);
   }
@@ -334,24 +303,13 @@ export async function withQuotaManagement<T>(
   const quotaManager = ApiQuotaManager.getInstance();
   const { skipOnQuotaExceeded = false, bypassQuotaInDev = false } = options;
 
-  console.log('🚀 API call starting:', {
-    priority: options.priority,
-    skipOnQuotaExceeded,
-    hasFallback: fallbackValue !== undefined,
-    bypassQuotaInDev
-  });
-
   // Development bypass mode
   if (import.meta.env.DEV && bypassQuotaInDev) {
-    console.log('🚑 Development bypass mode - ignoring all quota checks');
     try {
       const result = await apiCall();
-      console.log('✅ API call successful (bypassed)');
       return result;
     } catch (error: any) {
-      console.warn('⚠️ API call failed even with bypass:', error.message);
       if (fallbackValue !== undefined) {
-        console.log('🔄 Using fallback value due to API error');
         return fallbackValue;
       }
       throw error;
@@ -674,7 +632,6 @@ if (typeof window !== 'undefined' && import.meta.env.DEV) {
     // Add new debug functions
     inspectLocalStorage: () => {
       const stored = localStorage.getItem('gemini_quota_status');
-      console.log('🔍 LocalStorage content:', stored);
       return stored ? JSON.parse(stored) : null;
     },
     forceAllowRequests: () => {
@@ -685,14 +642,12 @@ if (typeof window !== 'undefined' && import.meta.env.DEV) {
       status.serviceOverloaded = false;
       status.lastOverloadTime = undefined;
       localStorage.setItem('gemini_quota_status', JSON.stringify(status));
-      console.log('✅ Forced all requests to be allowed');
       return status;
     },
     manualTest: () => {
-      console.log('🧪 Testing quota logic manually...');
-      console.log('canMakeRequest():', quotaManager.canMakeRequest());
-      console.log('getQuotaStatus():', quotaManager.getQuotaStatus());
-      console.log('isServiceOverloaded():', quotaManager.isServiceOverloaded());
+      quotaManager.canMakeRequest();
+      quotaManager.getQuotaStatus();
+      quotaManager.isServiceOverloaded();
     },
     // Add function to simulate quota exhaustion for testing
     simulateQuotaExceeded: () => {
@@ -700,41 +655,22 @@ if (typeof window !== 'undefined' && import.meta.env.DEV) {
       status.requestCount = status.dailyLimit + 50; // Exceed limit
       status.isExceeded = true;
       localStorage.setItem('gemini_quota_status', JSON.stringify(status));
-      console.log('🚨 Simulated quota exceeded state');
       return status;
     },
     // Add function to check current model selection
     checkModelSelection: (preferredModel: string) => {
-      console.log('🧠 Checking smart model selection...');
-      const status = quotaManager.getQuotaStatus();
-      const usagePercent = (status.requestCount / status.dailyLimit) * 100;
       const selectedModel = getSmartModel(preferredModel);
-      console.log('📊 Model selection results:', {
-        preferredModel,
-        selectedModel,
-        requestCount: status.requestCount,
-        dailyLimit: status.dailyLimit,
-        usagePercent: usagePercent.toFixed(2) + '%'
-      });
       return selectedModel;
     }
   };
-  console.log('🛠️ Quota debug functions available at window.quotaDebug');
-  console.log('🐛 To fix stuck quota: window.quotaDebug.forceResetQuota()');
-  console.log('🐛 To disable quota entirely: window.quotaDebug.disableQuotaChecks()');
-  console.log('🚑 Emergency bypass: window.quotaDebug.emergencyBypass()');
-  console.log('🔧 Current quota status:', getQuotaStatus());
   
   // Auto-fix any stuck quota on page load in development
-  console.log('🛠️ Development mode: Auto-fixing any stuck quota states');
   setTimeout(() => {
     const currentStatus = getQuotaStatus();
     // If quota shows as exceeded but count is reasonable, auto-fix it
     if (currentStatus.isExceeded && currentStatus.requestCount < (currentStatus.dailyLimit * 0.9)) {
-      console.log('🔧 Auto-fixing stuck quota in development');
       forceResetQuota();
     }
-    console.log('📊 Final quota status:', getQuotaStatus());
   }, 1000);
 }
 

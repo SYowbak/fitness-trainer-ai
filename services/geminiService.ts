@@ -1304,7 +1304,7 @@ export const generateAdaptiveWorkout = async (
   // Використовуємо правильну модель згідно з новими стандартами
   // Збільшуємо ліміт токенів для кращої обробки складних планів
   const selectedModel = isComplexPlan ? GEMINI_MODELS.WORKOUT_GENERATION : GEMINI_MODELS.LIGHT_TASKS;
-  const maxTokens = isComplexPlan ? 2500 : 2000; // Згідно з правилами для ≤6 та >6 вправ
+  const maxTokens = isComplexPlan ? 60000 : 60000; // Значно збільшено ліміти токенів
   
   console.log(`🤖 [ADAPTIVE WORKOUT] Selected model: ${selectedModel} (${exerciseCount} exercises, complex: ${isComplexPlan}, maxTokens: ${maxTokens})`);
   
@@ -1334,27 +1334,25 @@ export const generateAdaptiveWorkout = async (
 - Мотивація: ${wellnessCheck.motivation}/10
 - Больові відчуття (втома): ${wellnessCheck.fatigue}/10${wellnessCheck.notes ? `\n- Нотатки: "${wellnessCheck.notes}"` : ''}${smartContext}
 
-ОРИГІНАЛЬНИЙ ПЛАН:
+ОРИГІНАЛЬНИЙ ПЛАН (з рекомендаціями, які треба врахувати):
 ${JSON.stringify(originalPlan.exercises.map(ex => ({
   name: ex.name,
   sets: ex.sets,
   reps: ex.reps,
-  rest: ex.rest
+  rest: ex.rest,
+  recommendation: ex.recommendation || null
 })), null, 2)}
 
 ІНТЕЛІГЕНТНІ ПРАВИЛА АДАПТАЦІЇ:
-
-1. КОЛИ ЕНЕРГІЯ НИЖКА (1-4): зменшити підходи на 30-50%, повторення на 20-40%, збільшити відпочинок на 50-100%
-2. КОЛИ СОН ПОГАНИЙ (1-4): зменшити підходи на 25%, збільшити відпочинок на 30-60 секунд
-3. КОЛИ СТРЕС ВИСОКИЙ (1-4): зменшити інтенсивність, збільшити відпочинок, фокус на техніці
-4. КОЛИ МОТИВАЦІЯ НИЖКА (1-4): зменшити час тренування, зменшити підходи, менше відпочинку
-5. КОЛИ ВТОМА ВИСОКА (8-10): значно зменшити навантаження, більше відпочинку
-6. КОЛИ ВСІ ПОКАЗНИКИ ВИСОКІ (8-10): можна збільшити підходи, додати повторення, зменшити відпочинок
-
-ПРИКЛАДИ РЕАЛЬНИХ АДАПТАЦІЙ:
-Приклад 1 (енергія 3/10, сон 3/10): 3 підходи х 12 повторень → 2 підходи х 8 повторень
-Приклад 2 (мотивація 2/10): 4 підходи → 3 підходи (швидше тренування)
-Приклад 3 (все високо): 3 підходи х 10 → 4 підходи х 12
+1.  **База:** За основу бери рекомендації з ОРИГІНАЛЬНОГО ПЛАНУ.
+2.  **Коригування:** Змінюй базові рекомендації ТІЛЬКИ якщо показники самопочуття цього вимагають.
+3.  **Пріоритет:** Якщо є нотатки про біль/травму, вони мають найвищий пріоритет. Адаптуй або заміни вправу.
+4.  **Логіка:**
+    *   КОЛИ ЕНЕРГІЯ НИЗЬКА (1-4): зменш обсяг (підходи/повторення) на 20-40%, збільш відпочинок.
+    *   КОЛИ СОН ПОГАНИЙ (1-4): зменш інтенсивність, трохи збільш відпочинок.
+    *   КОЛИ СТРЕС ВИСОКИЙ (1-4): фокус на техніці, не на вазі. Можна замінити складні вправи на простіші.
+    *   КОЛИ ВТОМА ВИСОКА (8-10): значно зменш навантаження, можливо, запропонуй легке кардіо або розтяжку замість силових.
+    *   КОЛИ ВСІ ПОКАЗНИКИ ВИСОКІ (8-10): дотримуйся плану, можливо, трохи збільш вагу або повторення.
 
 ВІДПОВІДАЙ ТІЛЬКИ валідним JSON у слідуючому форматі:
 {
@@ -1372,7 +1370,7 @@ ${JSON.stringify(originalPlan.exercises.map(ex => ({
       "targetWeight": null,
       "targetReps": null,
       "recommendation": {
-        "text": "Конкретна порада з цифрами самопочуття. Пояснюй КОНКРЕТНО чому саме стільки підходів/повторень. 2-3 речення",
+        "text": "Конкретна порада. Поясни, чому саме такі зміни, базуючись на самопочутті ТА рекомендаціях з плану. 2-3 речення",
         "action": "maintained|reduced_intensity|increased_intensity|recovery_focus|progression"
       },
       "isCompletedDuringSession": false,
@@ -1446,11 +1444,12 @@ ${JSON.stringify(originalPlan.exercises.map(ex => ({
     });
     
     // Видаляємо можливі markdown-розмітки
-    const fenceRegex = /^```(?:json)?\s*\n?(.*?)\n?\s*```$/s;
-    const match = jsonStr.match(fenceRegex);
-    if (match && match[1]) {
-      jsonStr = match[1].trim();
+    if (jsonStr.startsWith('```json')) {
+      jsonStr = jsonStr.substring(7, jsonStr.length - 3).trim();
       console.log('🧹 [ADAPTIVE WORKOUT] Cleaned markdown from response, new length:', jsonStr.length);
+    } else if (jsonStr.startsWith('```')) {
+        jsonStr = jsonStr.substring(3, jsonStr.length - 3).trim();
+        console.log('🧹 [ADAPTIVE WORKOUT] Cleaned markdown from response, new length:', jsonStr.length);
     } else {
       console.log('ℹ️ [ADAPTIVE WORKOUT] No markdown detected, keeping original response');
     }
@@ -1468,26 +1467,25 @@ ${JSON.stringify(originalPlan.exercises.map(ex => ({
     try {
       const parsedResult: any = JSON.parse(jsonStr);
       
-      // Validate structure and create fallback if needed
+      // Validate structure
       if (!parsedResult || !parsedResult.exercises || !Array.isArray(parsedResult.exercises)) {
-        throw new Error('Invalid structure');
+        throw new Error('Invalid structure after parsing');
       }
       
-      // Перевіряємо чи всі вправи з оригінального плану були оброблені
+      console.log('✅ [ADAPTIVE WORKOUT] JSON parsed successfully!');
+      
+      // Process the parsed result
       const originalExerciseCount = originalPlan.exercises.length;
       const adaptedExerciseCount = parsedResult.exercises.length;
       
       console.log(`🔍 [ADAPTIVE WORKOUT] Exercise count check: Original=${originalExerciseCount}, Adapted=${adaptedExerciseCount}`);
       
-      // Якщо модель обробила менше вправ, дозаповнюємо з оригінального плану
       let finalExercises = parsedResult.exercises;
       if (adaptedExerciseCount < originalExerciseCount) {
         console.warn(`⚠️ Model processed only ${adaptedExerciseCount}/${originalExerciseCount} exercises. Adding missing ones.`);
         
-        // Знаходимо оброблені вправи по назвах
         const adaptedNames = new Set(parsedResult.exercises.map((ex: any) => ex.name?.toLowerCase()));
         
-        // Додаємо відсутні вправи з оригінального плану
         const missingExercises = originalPlan.exercises
           .filter(origEx => !adaptedNames.has(origEx.name.toLowerCase()))
           .map(origEx => ({
@@ -1536,12 +1534,130 @@ ${JSON.stringify(originalPlan.exercises.map(ex => ({
 
       return adaptivePlan;
     } catch (parseError) {
-      // JSON parsing failed - throw error to force AI retry
-      console.error('❌ [ADAPTIVE WORKOUT] JSON parsing failed, rejecting fallback plan');
+      // Enhanced JSON parsing with repair attempts
+      console.error('❌ [ADAPTIVE WORKOUT] JSON parsing failed, attempting repair...');
       console.error('🔍 [ADAPTIVE WORKOUT] Parse error details:', parseError);
-      console.error('🔍 [ADAPTIVE WORKOUT] Problematic JSON string:', jsonStr.substring(0, 500));
+      console.error('🔍 [ADAPTIVE WORKOUT] Problematic JSON string (first 1000 chars):', jsonStr.substring(0, 1000));
       
-      throw new Error('Не вдалося розпізнати відповідь AI. Спробуйте ще раз через кілька секунд для отримання адаптивного плану.');
+      // Try to repair common JSON issues
+      try {
+        console.log('🔧 [ADAPTIVE WORKOUT] Attempting JSON repair...');
+        let repairedJson = jsonStr;
+        
+        // Fix common AI JSON issues
+        // 1. Remove trailing commas before } or ]
+        repairedJson = repairedJson.replace(/,\s*(\}|\])/g, '$1');
+        
+        // 2. Fix missing commas between array elements (common AI error)
+        repairedJson = repairedJson.replace(/(\}\s*)(\{)/g, '$1,$2');
+        
+        // 3. Fix missing commas between object properties
+        repairedJson = repairedJson.replace(/(\}\s+)(\w+)/g, '$1,$2');
+        
+        // 4. Fix unescaped quotes
+        repairedJson = repairedJson.replace(/([^\\])""/g, '$1"');
+        
+        // 5. Fix missing quotes around keys
+        repairedJson = repairedJson.replace(/(\s)(\w+)(\s*:)/g, '$1"$2"$3');
+        
+        // 6. Remove any text before the first {
+        const firstBraceIndex = repairedJson.indexOf('{');
+        if (firstBraceIndex > 0) {
+          repairedJson = repairedJson.substring(firstBraceIndex);
+        }
+        
+        // 7. Remove any text after the last }
+        const lastBraceIndex = repairedJson.lastIndexOf('}');
+        if (lastBraceIndex >= 0 && lastBraceIndex < repairedJson.length - 1) {
+          repairedJson = repairedJson.substring(0, lastBraceIndex + 1);
+        }
+        
+        // 8. Additional repairs for common AI issues
+        // Fix single quotes to double quotes for keys and string values
+        repairedJson = repairedJson.replace(/'/g, '"');
+        
+        // Fix unescaped newlines in strings
+        repairedJson = repairedJson.replace(/\\n/g, '\\n');
+        
+        // Fix missing commas between array/object elements
+        repairedJson = repairedJson.replace(/(\}|\])\s*(\{|\[)/g, '$1,$2');
+        
+        console.log('🔧 [ADAPTIVE WORKOUT] Attempting to parse repaired JSON...');
+        const repairedResult: any = JSON.parse(repairedJson);
+        
+        // Validate structure
+        if (!repairedResult || !repairedResult.exercises || !Array.isArray(repairedResult.exercises)) {
+          throw new Error('Invalid structure after repair');
+        }
+        
+        console.log('✅ [ADAPTIVE WORKOUT] JSON repair successful!');
+        
+        // Process the repaired result the same way as the original
+        const originalExerciseCount = originalPlan.exercises.length;
+        const adaptedExerciseCount = repairedResult.exercises.length;
+        
+        console.log(`🔍 [ADAPTIVE WORKOUT] Exercise count check: Original=${originalExerciseCount}, Adapted=${adaptedExerciseCount}`);
+        
+        let finalExercises = repairedResult.exercises;
+        if (adaptedExerciseCount < originalExerciseCount) {
+          console.warn(`⚠️ Model processed only ${adaptedExerciseCount}/${originalExerciseCount} exercises. Adding missing ones.`);
+          
+          const adaptedNames = new Set(repairedResult.exercises.map((ex: any) => ex.name?.toLowerCase()));
+          
+          const missingExercises = originalPlan.exercises
+            .filter(origEx => !adaptedNames.has(origEx.name.toLowerCase()))
+            .map(origEx => ({
+              ...origEx,
+              recommendation: {
+                text: "Залишено без змін через обмеження обробки",
+                action: "maintained"
+              }
+            }));
+          
+          finalExercises = [...repairedResult.exercises, ...missingExercises];
+          console.log(`✅ Added ${missingExercises.length} missing exercises`);
+        }
+
+        const adaptivePlan: AdaptiveWorkoutPlan = {
+          day: repairedResult.day || originalPlan.day,
+          exercises: finalExercises.map((ex: any): Exercise => ({
+            id: uuidv4(),
+            name: ex.name || "Невідома вправа",
+            description: ex.description || "Опис відсутній",
+            sets: ex.sets || "3",
+            reps: ex.reps || "10-12",
+            rest: ex.rest || "60 секунд",
+            weightType: ex.weightType || 'total',
+            videoSearchQuery: ex.videoSearchQuery || null,
+            targetWeight: ex.targetWeight !== undefined ? ex.targetWeight : null,
+            targetReps: ex.targetReps !== undefined ? ex.targetReps : null,
+            recommendation: ex.recommendation || null,
+            isCompletedDuringSession: false,
+            sessionLoggedSets: [],
+            sessionSuccess: false,
+            notes: ex.notes || null
+          })),
+          notes: repairedResult.notes || originalPlan.notes || '',
+          originalPlan: originalPlan,
+          adaptations: Array.isArray(repairedResult.adaptations) ? repairedResult.adaptations : [],
+          overallAdaptation: repairedResult.overallAdaptation || {
+            intensity: 'maintained',
+            duration: 'normal',
+            focus: 'maintenance',
+            reason: adaptedExerciseCount < originalExerciseCount 
+              ? `План частково адаптовано (${adaptedExerciseCount}/${originalExerciseCount} вправ)`
+              : 'План адаптовано'
+          }
+        };
+
+        return adaptivePlan;
+      } catch (repairError) {
+        console.error('❌ [ADAPTIVE WORKOUT] JSON repair also failed:', repairError);
+        console.error('🔍 [ADAPTIVE WORKOUT] Original JSON string (full):', jsonStr);
+        
+        // If both parsing and repair fail, throw a more descriptive error
+        throw new Error('Не вдалося розпізнати відповідь AI. Спробуйте ще раз через кілька секунд для отримання адаптивного плану.');
+      }
     }
   } catch (error: any) {
     console.error('❌ [ADAPTIVE WORKOUT] Error generating adaptive workout:', error);
@@ -1626,7 +1742,7 @@ export const generateWellnessRecommendations = async (
 Вхідні дані:
 Профіль (з можливими обмеженнями здоров'я): ${JSON.stringify(userProfile, null, 0)}
 Самопочуття: ${JSON.stringify(wellnessCheck, null, 0)}
-Останні тренування (до 5): ${JSON.stringify(workoutHistory.slice(0, 5), null, 0)}
+Останнє тренування: ${JSON.stringify(workoutHistory.length > 0 ? workoutHistory.slice(0, 1) : [], null, 0)}
 
 Вказівки:
 - Формуй рекомендації тільки за потребою (напр. низька енергія, високий стрес).
@@ -1642,7 +1758,7 @@ export const generateWellnessRecommendations = async (
 
   try {
     const model = ai.getGenerativeModel({
-      model: GEMINI_MODELS.LIGHT_TASKS,
+      model: GEMINI_MODELS.WORKOUT_GENERATION, // Використовуємо потужнішу модель
       generationConfig: {
         temperature: 0.2,
         topK: 40,

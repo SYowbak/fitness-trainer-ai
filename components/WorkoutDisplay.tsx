@@ -311,7 +311,7 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
                 <h4 className="text-green-300 font-medium mb-2">Адаптації вправ:</h4>
                 <div className="space-y-2">
                   {adaptiveWorkoutPlan.adaptations.map((adaptation, index) => (
-                    <div key={index} className="text-xs text-green-200 bg-green-900/20 p-2 rounded">
+                    <div key={`${adaptation.exerciseName}-${index}`} className="text-xs text-green-200 bg-green-900/20 p-2 rounded">
                       <p><strong>{adaptation.exerciseName}:</strong> {adaptation.adaptationReason}</p>
                       <p className="text-green-300">
                         {adaptation.originalSets}×{adaptation.originalReps} → {adaptation.adaptedSets}×{adaptation.adaptedReps}
@@ -541,7 +541,7 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
             
             return (
               <ExerciseCard
-                key={adaptedExercise.id}
+                key={adaptedExercise.id || `exercise-${index}`}
                 exercise={adaptedExercise}
                 isActive={activeDay !== null}
                 onLogExercise={(loggedSets, success) => {

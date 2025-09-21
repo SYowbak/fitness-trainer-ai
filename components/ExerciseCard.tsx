@@ -558,7 +558,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                 </div>
               </div>
               {Array.from({ length: numSets }).map((_, setIndex) => (
-                <div key={setIndex} className="p-2 sm:p-3 bg-gray-600/70 rounded-md space-y-2">
+                <div key={`${exercise.id}-set-${setIndex}`} className="p-2 sm:p-3 bg-gray-600/70 rounded-md space-y-2">
                   <p className="text-xs sm:text-sm font-medium text-yellow-300">Підхід {setIndex + 1}</p>
                   <div className="grid grid-cols-2 gap-2">
                     <div>

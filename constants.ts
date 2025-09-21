@@ -38,7 +38,7 @@ export const TRAINING_FREQUENCY_OPTIONS: Array<{ value: number; label: string }>
   { value: 3, label: '3 рази на тиждень' },
   { value: 4, label: '4 рази на тиждень' },
   { value: 5, label: '5 разів на тиждень' },
-  { value: 5, label: '6 разів на тиждень' },
+  { value: 6, label: '6 разів на тиждень' },
 ];
 
 export const MUSCLE_GROUP_OPTIONS: Array<{ value: MuscleGroup | ''; label: string; hint: string }> = [
@@ -352,15 +352,15 @@ export function getUkrainianGender(gender: Gender): string {
     return option ? option.label : "не вказано";
 }
 
-export function getUkrainianMuscleGroup(muscleGroup?: MuscleGroup | ''): string {
-    if (!muscleGroup) return MUSCLE_GROUP_OPTIONS[0].label;
-    const option = MUSCLE_GROUP_OPTIONS.find(opt => opt.value === muscleGroup);
-    return option ? option.label : "не вказано";
-}
-
 export function getUkrainianExperienceLevel(level: ExperienceLevel): string {
   const option = EXPERIENCE_LEVEL_OPTIONS.find(opt => opt.value === level);
   return option ? option.label : "не вказано";
+}
+
+export function getUkrainianMuscleGroup(muscleGroup?: string): string {
+    if (!muscleGroup || muscleGroup === '') return MUSCLE_GROUP_OPTIONS[0].label;
+    const option = MUSCLE_GROUP_OPTIONS.find(opt => opt.value === muscleGroup);
+    return option ? option.label : "не вказано";
 }
 
 export function formatTime(seconds: number): string {
