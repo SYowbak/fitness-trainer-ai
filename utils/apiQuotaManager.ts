@@ -54,7 +54,19 @@ class ApiQuotaManager {
 
       // Auto-reset exceeded status if retry period has passed and request count is reasonable
       if (status.isExceeded && status.retryAfter && Date.now() >= status.retryAfter) {
-        console.log('🔄 Auto-resetting exceeded status - retry period expired');
+        console.log('🔄 [QUOTA] Auto-resetting exceeded status - retry period expired');
+        status.isExceeded = false;
+        status.retryAfter = undefined;
+        this.saveQuotaStatus(status);
+      }
+
+      // Additional auto-fix: if exceeded flag is set but we're clearly under limit
+      if (status.isExceeded && status.requestCount < (status.dailyLimit * 0.8)) {
+        console.log('🔧 [QUOTA] Auto-fixing exceeded flag - request count well below limit:', {
+          count: status.requestCount,
+          limit: status.dailyLimit,
+          percentage: Math.round((status.requestCount / status.dailyLimit) * 100)
+        });
         status.isExceeded = false;
         status.retryAfter = undefined;
         this.saveQuotaStatus(status);
@@ -73,40 +85,37 @@ class ApiQuotaManager {
   canMakeRequest(): boolean {
     const status = this.getQuotaStatus();
     
-    // Auto-fix: if quota appears exceeded but request count is very low, reset the exceeded flag
-    if (status.isExceeded && status.requestCount < (status.dailyLimit * 0.8)) {
-      console.warn('🔧 Auto-fixing quota exceeded flag (request count too low to be exceeded)');
+    // SIMPLIFIED LOGIC: Primary check is just request count vs limit
+    const basicCheck = status.requestCount < status.dailyLimit;
+    
+    // Auto-fix any stuck "exceeded" flags when request count is clearly below limit
+    if (status.isExceeded && status.requestCount < (status.dailyLimit * 0.9)) {
+      console.warn('🔧 [QUOTA] Auto-fixing stuck exceeded flag - request count too low:', {
+        requestCount: status.requestCount,
+        limit: status.dailyLimit,
+        percentage: Math.round((status.requestCount / status.dailyLimit) * 100)
+      });
       status.isExceeded = false;
       status.retryAfter = undefined;
       this.saveQuotaStatus(status);
     }
     
-    console.log('🔍 Quota check:', {
+    // Check retry-after only if we have a future timestamp
+    const retryCheck = !status.retryAfter || Date.now() >= status.retryAfter;
+    
+    const canMake = basicCheck && !status.isExceeded && retryCheck;
+    
+    console.log('🔍 [QUOTA] Simple quota check:', {
       requestCount: status.requestCount,
       dailyLimit: status.dailyLimit,
+      percentage: Math.round((status.requestCount / status.dailyLimit) * 100),
       isExceeded: status.isExceeded,
-      retryAfter: status.retryAfter ? new Date(status.retryAfter).toLocaleString() : null,
-      serviceOverloaded: status.serviceOverloaded,
-      canMake: !status.isExceeded && (!status.retryAfter || Date.now() >= status.retryAfter) && status.requestCount < (status.dailyLimit + 10)
+      retryAfter: status.retryAfter ? new Date(status.retryAfter).toLocaleTimeString() : null,
+      basicCheck,
+      retryCheck,
+      finalDecision: canMake
     });
     
-    // Check if quota is explicitly marked as exceeded (from 429 errors)
-    if (status.isExceeded) {
-      console.warn('❌ Request blocked: quota marked as exceeded');
-      return false;
-    }
-    
-    // Check if we're still within retry-after period
-    if (status.retryAfter && Date.now() < status.retryAfter) {
-      console.warn('❌ Request blocked: still in retry-after period');
-      return false;
-    }
-    
-    // Be more lenient - allow requests even when close to limit
-    const canMake = status.requestCount < (status.dailyLimit + 10); // Allow 10 extra requests
-    if (!canMake) {
-      console.warn('❌ Request blocked: request count limit reached');
-    }
     return canMake;
   }
 
@@ -117,14 +126,17 @@ class ApiQuotaManager {
     const status = this.getQuotaStatus();
     const oldCount = status.requestCount;
     status.requestCount++;
-    // Only mark as exceeded if we go significantly over the limit
-    const wasExceeded = status.isExceeded;
-    status.isExceeded = status.requestCount >= (status.dailyLimit + 15);
     
-    console.log('✓ Request recorded:', {
+    // Only mark as exceeded if we go significantly over the limit (more conservative)
+    const wasExceeded = status.isExceeded;
+    // Only mark exceeded if we go 20+ requests over the limit (was 15)
+    status.isExceeded = status.requestCount >= (status.dailyLimit + 20);
+    
+    console.log('✓ [QUOTA] Request recorded:', {
       oldCount,
       newCount: status.requestCount,
       dailyLimit: status.dailyLimit,
+      percentage: Math.round((status.requestCount / status.dailyLimit) * 100),
       wasExceeded,
       nowExceeded: status.isExceeded
     });
@@ -396,22 +408,32 @@ export async function withQuotaManagement<T>(
       });
       // Check if it's a quota error - improved detection for Google API errors
       const errorMessage = error.message || '';
-      const isQuotaError = errorMessage.includes('429') || 
-                          errorMessage.includes('quota') ||
-                          errorMessage.includes('Too Many Requests') ||
-                          errorMessage.includes('Quota exceeded') ||
-                          errorMessage.includes('generativelanguage.googleapis.com') ||
-                          errorMessage.includes('quotaExceeded') ||
-                          errorMessage.includes('QUOTA_EXCEEDED') ||
-                          (error.status && (error.status === 429 || error.status === 403));
+      const errorStr = error.toString() || '';
       
-      // Check if it's a service overload error
-      const isServiceOverloadError = errorMessage.includes('503') ||
-                                    errorMessage.includes('Service Unavailable') ||
-                                    errorMessage.includes('overload') ||
-                                    errorMessage.includes('overloaded') ||
-                                    errorMessage.includes('RESOURCE_EXHAUSTED') ||
-                                    (error.status && error.status === 503);
+      // More precise quota error detection
+      const isQuotaError = 
+        error.status === 429 || 
+        error.status === 403 ||
+        errorMessage.includes('429') || 
+        errorMessage.includes('403') ||
+        errorMessage.includes('quota') ||
+        errorMessage.includes('Too Many Requests') ||
+        errorMessage.includes('Quota exceeded') ||
+        errorMessage.includes('QUOTA_EXCEEDED') ||
+        errorMessage.includes('Resource has been exhausted') ||
+        errorStr.includes('429') ||
+        (errorMessage.includes('generativelanguage.googleapis.com') && 
+         (errorMessage.includes('limit') || errorMessage.includes('exceeded')));
+      
+      // More precise service overload detection
+      const isServiceOverloadError = 
+        error.status === 503 ||
+        errorMessage.includes('503') ||
+        errorMessage.includes('Service Unavailable') ||
+        errorMessage.includes('overload') ||
+        errorMessage.includes('overloaded') ||
+        errorMessage.includes('RESOURCE_EXHAUSTED') ||
+        errorMessage.includes('temporarily unavailable');
 
       console.log('🔍 Error classification:', {
         isQuotaError,
@@ -555,6 +577,47 @@ export function getSmartModel(preferredModel: string): string {
 }
 
 /**
+ * Force clear quota exceeded status and reset to usable state
+ * Use this when quota gets stuck showing green but blocking requests
+ */
+export const forceResetQuota = () => {
+  const quotaManager = ApiQuotaManager.getInstance();
+  const status = quotaManager.getQuotaStatus();
+  
+  console.log('🔧 [QUOTA] Force resetting quota to clear stuck state');
+  console.log('🔍 [QUOTA] Before reset:', {
+    requestCount: status.requestCount,
+    dailyLimit: status.dailyLimit,
+    isExceeded: status.isExceeded,
+    retryAfter: status.retryAfter
+  });
+  
+  // Force clear all blocking conditions
+  status.isExceeded = false;
+  status.retryAfter = undefined;
+  status.serviceOverloaded = false;
+  status.lastOverloadTime = undefined;
+  
+  // Reset count to ensure we're well below limit
+  if (status.requestCount > status.dailyLimit * 0.8) {
+    status.requestCount = Math.floor(status.dailyLimit * 0.5); // Reset to 50% of limit
+  }
+  
+  // Save the corrected status
+  localStorage.setItem('gemini_quota_status', JSON.stringify(status));
+  
+  console.log('✅ [QUOTA] After reset:', {
+    requestCount: status.requestCount,
+    dailyLimit: status.dailyLimit,
+    isExceeded: status.isExceeded,
+    retryAfter: status.retryAfter,
+    canMakeRequest: quotaManager.canMakeRequest()
+  });
+  
+  return status;
+};
+
+/**
  * Emergency function to clear quota exceeded status
  * Use this when the quota manager gets stuck in exceeded state
  */
@@ -620,7 +683,8 @@ if (typeof window !== 'undefined' && import.meta.env.DEV) {
     getStatus: getQuotaStatus,
     clearQuotaExceeded,
     disableQuotaChecks,
-    emergencyBypass, // Add emergency bypass
+    emergencyBypass,
+    forceResetQuota, // Add the new force reset function
     resetQuota: () => quotaManager.resetQuota(),
     manager: quotaManager,
     // Add new debug functions
@@ -648,16 +712,21 @@ if (typeof window !== 'undefined' && import.meta.env.DEV) {
     }
   };
   console.log('🛠️ Quota debug functions available at window.quotaDebug');
-  console.log('🐛 To disable quota entirely, run: window.quotaDebug.disableQuotaChecks()');
+  console.log('🐛 To fix stuck quota: window.quotaDebug.forceResetQuota()');
+  console.log('🐛 To disable quota entirely: window.quotaDebug.disableQuotaChecks()');
   console.log('🚑 Emergency bypass: window.quotaDebug.emergencyBypass()');
-  console.log('🔧 To force allow all requests: window.quotaDebug.forceAllowRequests()');
-  console.log('📊 Current quota status:', getQuotaStatus());
+  console.log('🔧 Current quota status:', getQuotaStatus());
   
-  // Auto-clear quota on page load in development
-  console.log('🛠️ Development mode: Auto-clearing quota restrictions');
+  // Auto-fix any stuck quota on page load in development
+  console.log('🛠️ Development mode: Auto-fixing any stuck quota states');
   setTimeout(() => {
-    emergencyBypass(); // Use emergency bypass instead
-    console.log('📊 Quota status after emergency bypass:', getQuotaStatus());
+    const currentStatus = getQuotaStatus();
+    // If quota shows as exceeded but count is reasonable, auto-fix it
+    if (currentStatus.isExceeded && currentStatus.requestCount < (currentStatus.dailyLimit * 0.9)) {
+      console.log('🔧 Auto-fixing stuck quota in development');
+      forceResetQuota();
+    }
+    console.log('📊 Final quota status:', getQuotaStatus());
   }, 1000);
 }
 

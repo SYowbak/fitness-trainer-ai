@@ -584,11 +584,20 @@ const App: React.FC = () => {
       setAdaptiveWorkoutPlan(adaptivePlan);
       console.log('✅ [APP] Adaptive plan set in state');
 
-      // Генеруємо рекомендації по самопочуттю НЕБЛОКУЮЧЕ (у фоні)
+      // Generate wellness recommendations in background (OPTIONAL - skip if quota issues)
       setWellnessProcessingStep('Готуємо рекомендації...');
       (async () => {
         console.log('📊 [APP] Starting wellness recommendations generation in background');
         try {
+          // Check quota before making another API call
+          const { quotaManager } = await import('./utils/apiQuotaManager');
+          
+          if (!quotaManager.canMakeRequest()) {
+            console.warn('⚠️ [APP] Skipping wellness recommendations due to quota limits');
+            setWellnessRecommendations([]);
+            return;
+          }
+          
           const recs = await generateWellnessRecommendations(
             userProfile,
             wellnessCheck,
@@ -600,7 +609,7 @@ const App: React.FC = () => {
           });
           setWellnessRecommendations(recs);
           
-          // Показуємо модальне вікно тільки якщо є рекомендації
+          // Show modal only if there are recommendations
           if (recs.length > 0) {
             setWellnessRecommendationsModalOpen(true);
           } else {
@@ -610,12 +619,10 @@ const App: React.FC = () => {
           await updateWellnessRecommendations(recs);
         } catch (e: any) {
           console.error('❌ [APP] Помилка генерації рекомендацій самопочуття (фон):', e);
-          console.error('🔍 [APP] Повні деталі помилки wellness:', {
-            message: e.message,
-            stack: e.stack,
-            type: typeof e
-          });
-          // Встановлюємо порожній масив у випадку помилки
+          if (e.message && e.message.includes('429')) {
+            console.log('⚠️ [APP] Quota exceeded during wellness recommendations - continuing without them');
+          }
+          // Set empty array in case of error
           setWellnessRecommendations([]);
         }
       })();
