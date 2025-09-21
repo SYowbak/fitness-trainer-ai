@@ -1309,7 +1309,71 @@ const generatePersonalizedNotes = (analysis: any): string => {
   return notes;
 };
 
-const generateDetailedReason = (analysis: any): string => {
+// Функція для побудови розумного контексту для AI
+const buildSmartContext = (
+  userProfile: UserProfile,
+  workoutHistory: WorkoutLog[],
+  wellnessCheck: WellnessCheck,
+  originalPlan: DailyWorkoutPlan
+) => {
+  const recentWorkouts = workoutHistory.slice(-3); // Останні 3 тренування
+  const hasHistory = recentWorkouts.length > 0;
+  
+  let contextInfo = '';
+  
+  if (hasHistory) {
+    // Аналізуємо останні тренування для виявлення патернів
+    const lastWorkout = recentWorkouts[recentWorkouts.length - 1];
+    const averageDuration = recentWorkouts.reduce((sum, w) => sum + (w.duration || 0), 0) / recentWorkouts.length;
+    
+    // Правильно обробляємо дату з Firestore
+    const lastWorkoutDate = lastWorkout.date instanceof Date 
+      ? lastWorkout.date 
+      : new Date((lastWorkout.date as any).seconds * 1000);
+    const daysSinceLastWorkout = Math.round((Date.now() - lastWorkoutDate.getTime()) / (1000 * 60 * 60 * 24));
+    
+    // Виявляємо проблемні вправи
+    const problemExercises: string[] = [];
+    const planExerciseNames = originalPlan.exercises.map(ex => ex.name.toLowerCase());
+    
+    recentWorkouts.forEach(workout => {
+      const exercises = (workout as any).exercises || (workout as any).loggedExercises;
+      if (exercises) {
+        exercises.forEach((exercise: any) => {
+          const isInCurrentPlan = planExerciseNames.some(name => 
+            exercise.name?.toLowerCase().includes(name.split(' ')[0]) || 
+            name.includes(exercise.name?.toLowerCase().split(' ')[0])
+          );
+          
+          if (isInCurrentPlan && exercise.notes && 
+              (exercise.notes.toLowerCase().includes('важко') || 
+               exercise.notes.toLowerCase().includes('болить') ||
+               exercise.notes.toLowerCase().includes('втома'))) {
+            problemExercises.push(exercise.name);
+          }
+        });
+      }
+    });
+    
+    contextInfo = `
+📈 КОНТЕКСТ КЛІЄНТА:
+- Останнє тренування: ${daysSinceLastWorkout} днів тому
+- Середня тривалість: ${Math.round(averageDuration)} хвилин
+- Ціль: ${userProfile.goal}
+- Досвід: ${userProfile.experienceLevel}${problemExercises.length > 0 ? `\n- Обережно з: ${problemExercises.slice(0, 2).join(', ')}` : ''}`;
+  } else {
+    contextInfo = `
+📈 НОВИЙ КОРИСТУВАЧ:
+- Перші тренування - особлива увага до техніки
+- Консервативний підхід до навантажень
+- Ціль: ${userProfile.goal}
+- Досвід: ${userProfile.experienceLevel}`;
+  }
+  
+  return contextInfo;
+};
+
+export const generateDetailedReason = (analysis: any): string => {
   const reasonParts = [];
   
   if (analysis.energyScore <= 4) reasonParts.push('низький рівень енергії');
@@ -1372,6 +1436,9 @@ export const generateAdaptiveWorkout = async (
   const energyNum = convertToTenScale(wellnessCheck.energyLevel, 'energy');
   const sleepNum = convertToTenScale(wellnessCheck.sleepQuality, 'sleep');
   const stressNum = convertToTenScale(wellnessCheck.stressLevel, 'stress');
+  
+  // Додаємо розумний контекст користувача
+  const smartContext = buildSmartContext(userProfile, workoutHistory, wellnessCheck, originalPlan);
 
   const adaptivePrompt = `Ти - досвідчений фітнес-тренер з 10-річним досвідом. Адаптуй план тренування як справжній тренер.
 
@@ -1380,7 +1447,7 @@ export const generateAdaptiveWorkout = async (
 - Сон: ${sleepNum}/10 (${wellnessCheck.sleepQuality})
 - Стрес: ${stressNum}/10 (${wellnessCheck.stressLevel})
 - Мотивація: ${wellnessCheck.motivation}/10
-- Больові відчуття (втома): ${wellnessCheck.fatigue}/10
+- Больові відчуття (втома): ${wellnessCheck.fatigue}/10${wellnessCheck.notes ? `\n- Нотатки: "${wellnessCheck.notes}"` : ''}${smartContext}
 
 ОРИГІНАЛЬНИЙ ПЛАН:
 ${JSON.stringify(originalPlan.exercises.map(ex => ({
@@ -1448,7 +1515,7 @@ ${JSON.stringify(originalPlan.exercises.map(ex => ({
     "focus": "maintenance|recovery|performance",
     "reason": "Комплексне пояснення адаптації з урахуванням ВСІХ параметрів самопочуття"
   }
-}`;;
+`;;
 
   console.log('📝 [ADAPTIVE WORKOUT] Enhanced AI prompt prepared:', {
     promptLength: adaptivePrompt.length,
