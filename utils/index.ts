@@ -13,12 +13,6 @@ export const formatDuration = (seconds: number): string => {
   return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
 };
 
-// Validation utilities
-export const isValidEmail = (email: string): boolean => {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
-};
-
 // Firebase utilities
 export const removeUndefined = (obj: any): any => {
   if (obj === null || obj === undefined) return null;

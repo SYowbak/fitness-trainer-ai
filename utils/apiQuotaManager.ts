@@ -584,14 +584,6 @@ export const forceResetQuota = () => {
   const quotaManager = ApiQuotaManager.getInstance();
   const status = quotaManager.getQuotaStatus();
   
-  console.log('🔧 [QUOTA] Force resetting quota to clear stuck state');
-  console.log('🔍 [QUOTA] Before reset:', {
-    requestCount: status.requestCount,
-    dailyLimit: status.dailyLimit,
-    isExceeded: status.isExceeded,
-    retryAfter: status.retryAfter
-  });
-  
   // Force clear all blocking conditions
   status.isExceeded = false;
   status.retryAfter = undefined;
@@ -605,14 +597,6 @@ export const forceResetQuota = () => {
   
   // Save the corrected status
   localStorage.setItem('gemini_quota_status', JSON.stringify(status));
-  
-  console.log('✅ [QUOTA] After reset:', {
-    requestCount: status.requestCount,
-    dailyLimit: status.dailyLimit,
-    isExceeded: status.isExceeded,
-    retryAfter: status.retryAfter,
-    canMakeRequest: quotaManager.canMakeRequest()
-  });
   
   return status;
 };

@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { UserProfile, DailyWorkoutPlan, Exercise } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import { getApiKey } from './geminiService';
-import { getUkrainianGender, getUkrainianBodyType, getUkrainianGoal, getUkrainianExperienceLevel, getUkrainianMuscleGroup, GEMINI_MODEL_TEXT } from '../constants';
+import { getUkrainianGender, getUkrainianBodyType, getUkrainianGoal, getUkrainianExperienceLevel, getUkrainianMuscleGroup, GEMINI_MODELS } from '../constants';
 
 let ai: GoogleGenerativeAI | null = null;
 const apiKey = getApiKey();
@@ -132,7 +132,7 @@ export const generateNewExercise = async (
   const prompt = constructExercisePrompt(profile, currentPlan, targetDay);
   
   try {
-    const model = ai.getGenerativeModel({ model: GEMINI_MODEL_TEXT });
+    const model = ai.getGenerativeModel({ model: GEMINI_MODELS.WORKOUT_GENERATION });
     const response = await model.generateContent(prompt);
     const result = await response.response;
     let jsonStr = result.text().trim();
@@ -186,7 +186,7 @@ export const regenerateExercise = async (
   const prompt = constructExercisePrompt(profile, currentPlan, targetDay, exerciseIndex);
   
   try {
-    const model = ai.getGenerativeModel({ model: GEMINI_MODEL_TEXT });
+    const model = ai.getGenerativeModel({ model: GEMINI_MODELS.WORKOUT_GENERATION });
     const response = await model.generateContent(prompt);
     const result = await response.response;
     let jsonStr = result.text().trim();

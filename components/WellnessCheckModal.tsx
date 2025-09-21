@@ -6,14 +6,14 @@ interface WellnessCheckModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (wellnessCheck: WellnessCheck) => void;
-  onSkip: () => void;
+  onSkip?: () => void; // Made optional since we're removing skip functionality
 }
 
 const WellnessCheckModal: React.FC<WellnessCheckModalProps> = ({
   isOpen,
   onClose,
   onSubmit,
-  onSkip
+  onSkip // Now optional
 }) => {
   // Test console logging right at component start
   console.log('💫 [MODAL] WellnessCheckModal component rendered, isOpen:', isOpen);
@@ -228,30 +228,23 @@ const WellnessCheckModal: React.FC<WellnessCheckModalProps> = ({
             <div className="flex items-start space-x-2">
               <i className="fas fa-info-circle text-blue-400 mt-0.5"></i>
               <div className="text-sm text-blue-200">
-                <p className="font-medium mb-1">Про перевірку самопочуття:</p>
+                <p className="font-medium mb-1">Про AI адаптацію:</p>
                 <ul className="text-xs space-y-1">
                   <li>• Адаптує план під ваш стан</li>
                   <li>• Обробка: 30-90 секунд</li>
-                  <li>• Можна пропустити для швидкого старту</li>
+                  <li>• Лише AI-генеровані плани</li>
                 </ul>
               </div>
             </div>
           </div>
           
-          <div className="flex space-x-3 pt-4">
-            <button
-              onClick={onSkip}
-              className="flex-1 px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
-            >
-              <i className="fas fa-skip-forward mr-2"></i>
-              Почати зараз
-            </button>
+          <div className="flex justify-center pt-4">
             <button
               onClick={handleSubmit}
-              className="flex-1 px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+              className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium"
             >
-              <i className="fas fa-check mr-2"></i>
-              Адаптувати план
+              <i className="fas fa-magic mr-2"></i>
+              Генерувати AI план
             </button>
           </div>
         </div>

@@ -669,22 +669,16 @@ const App: React.FC = () => {
         error.message.includes('429')
       )) {
         console.log('🕰️ [APP] Quota error detected, offering skip option');
-        setError('Перевищено ліміт AI запитів. Можете почати тренування без адаптації або чекати 1-2 хвилини.');
+        setError('Перевищено ліміт AI запитів. Чекайте 1-2 хвилини для отримання адаптивного плану від AI.');
         
-        // Offer to start workout without adaptation after 3 seconds
+        // Обовязково чекаємо AI - ні яких альтернатив конструкторних планів!
         setTimeout(() => {
-          if (pendingWorkoutDay !== null && currentWorkoutPlan && confirm('Хочете почати тренування без адаптації плану? (Оригінальний план)')) {
-            console.log('🏃 [APP] Starting workout without adaptation due to quota limits');
-            const planForDay = currentWorkoutPlan.find(d => d.day === pendingWorkoutDay);
-            if (planForDay) {
-              startWorkout(planForDay.day, planForDay.exercises);
-              setPendingWorkoutDay(null);
-              setError(null);
-            }
-          }
+          console.log('🤖 [APP] AI-only mode: Waiting for user to retry...');
+          setError('Очікуємо AI адаптацію... Повторіть спробу через 1-2 хвилини.');
         }, 3000);
       } else {
-        setError(error.message || 'Помилка при адаптації тренування');
+        // Усі інші помилки - лише AI адаптація дозволена
+        setError('Помилка AI адаптації: ' + (error.message || 'Невідома помилка') + '. Повторіть через кілька секунд для отримання адаптивного плану.');
       }
       
       setPendingWorkoutDay(null);
@@ -696,17 +690,8 @@ const App: React.FC = () => {
     }
   }, [userProfile, currentWorkoutPlan, workoutLogs, saveWorkoutPlan, pendingWorkoutDay, startWorkout, updateWellnessCheck, updateAdaptiveWorkoutPlan, updateWellnessRecommendations]);
 
-  const handleWellnessCheckSkip = useCallback(() => {
-    setWellnessCheckModalOpen(false);
-    if (pendingWorkoutDay !== null && currentWorkoutPlan) {
-      // Стартуємо тренування з оригінальним планом без адаптації
-      const planForDay = currentWorkoutPlan.find(d => d.day === pendingWorkoutDay);
-      if (planForDay) {
-        startWorkout(planForDay.day, planForDay.exercises);
-      }
-      setPendingWorkoutDay(null);
-    }
-  }, [pendingWorkoutDay, currentWorkoutPlan, startWorkout]);
+  // REMOVED: handleWellnessCheckSkip - AI-only mode enforced
+  // Users can no longer skip AI adaptation
 
   const renderView = () => {
     if (!user) {
@@ -893,7 +878,6 @@ const App: React.FC = () => {
           console.log('🎯 [APP] onSubmit wrapper called, about to call handleWellnessCheckSubmit');
           handleWellnessCheckSubmit(wellnessCheck);
         }}
-        onSkip={handleWellnessCheckSkip}
       />
 
       {wellnessRecommendationsModalOpen && (

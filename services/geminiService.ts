@@ -706,7 +706,11 @@ export const shouldVaryExercise = (
   return frequency >= variationThreshold;
 };
 
-// Create sophisticated fallback adaptive plan when AI parsing fails
+// REMOVED: createFallbackAdaptivePlan function
+// The user specifically requested ONLY AI-generated plans
+// No fallback to constructor-built plans allowed
+
+/*
 const createFallbackAdaptivePlan = (
   originalPlan: DailyWorkoutPlan,
   wellnessCheck: WellnessCheck
@@ -773,6 +777,7 @@ const createFallbackAdaptivePlan = (
     overallAdaptation
   };
 };
+*/
 
 // Comprehensive wellness state analysis
 const analyzeWellnessState = (wellnessCheck: WellnessCheck) => {
@@ -1071,189 +1076,59 @@ const generatePersonalizedRecommendation = (
   let action = '';
   let notes = '';
   
-  // Базуємо рекомендацію на конкретних показниках
+  // Simplified personalized recommendation generation
   if (adaptationLevel === 'recovery') {
     action = 'recovery_focus';
-    recommendation = generateRecoveryRecommendation(energyScore, sleepScore, stressScore, fatigueScore, exercise.name, adaptationDetails);
-    notes = getRecoverySpecificNotes(analysis.criticalFactors, exerciseType);
+    recommendation = generateSimpleRecommendation(analysis, exercise.name, adaptationDetails);
+    notes = getSimpleNotes(analysis, exerciseType);
   } else if (adaptationLevel === 'deload') {
     action = 'reduced_intensity';
-    recommendation = generateDeloadRecommendation(analysis, exercise.name, adaptationDetails);
-    notes = getDeloadSpecificNotes(analysis.limitingFactors, exerciseType);
+    recommendation = generateSimpleRecommendation(analysis, exercise.name, adaptationDetails);
+    notes = getSimpleNotes(analysis, exerciseType);
   } else if (adaptationLevel === 'progression') {
     action = 'progression';
-    recommendation = generateProgressionRecommendation(analysis, exercise.name, adaptationDetails, exerciseIndex);
-    notes = getProgressionSpecificNotes(motivationScore, energyScore, exerciseType);
+    recommendation = generateSimpleRecommendation(analysis, exercise.name, adaptationDetails);
+    notes = getSimpleNotes(analysis, exerciseType);
   } else {
     action = 'maintained';
-    recommendation = generateMaintenanceRecommendation(analysis, exercise.name, adaptationDetails);
-    notes = getMaintenanceSpecificNotes(analysis, exerciseType);
+    recommendation = generateSimpleRecommendation(analysis, exercise.name, adaptationDetails);
+    notes = getSimpleNotes(analysis, exerciseType);
   }
   
   return { recommendation, action, notes };
 };
 
-// Генерація рекомендацій для відновлення
-const generateRecoveryRecommendation = (energy: number, sleep: number, stress: number, fatigue: number, exerciseName: string, details: any): string => {
-  const reasons = [];
-  if (energy <= 3) reasons.push(`енергії всього ${energy}/10`);
-  if (sleep <= 3) reasons.push(`сон ${sleep}/10`);
-  if (fatigue >= 8) reasons.push(`втома ${fatigue}/10`);
-  if (stress <= 3) reasons.push(`стрес дуже високий`);
+// REMOVED: Detailed recommendation generation functions
+// These were repetitive and could be simplified
+// generateRecoveryRecommendation, generateDeloadRecommendation, 
+// generateProgressionRecommendation, generateMaintenanceRecommendation
+// getRecoverySpecificNotes, getDeloadSpecificNotes, etc.
+
+// Simple recommendation generation function
+const generateSimpleRecommendation = (analysis: any, exerciseName: string, details: any): string => {
+  const { adaptationLevel, overallScore } = analysis;
   
-  const mainReason = reasons[0] || 'загальний стан';
-  
-  const messages = [
-    `Бачу, що ${mainReason} - тому робимо лише ${details.adaptedSets} підходи замість ${details.originalSets}. Організм потребує відновлення`,
-    `З такими показниками краще зосередитися на техніці. Роблю ${details.adaptedSets} підходи і збільшую відпочинок до ${Math.round(details.adaptedRestSeconds/60)} хвилин`,
-    `${mainReason} говорить про те, що треба полегшити. Зменшую навантаження і фокусуємося на відчуттях в тілі`
-  ];
-  
-  return messages[Math.floor(Math.random() * messages.length)];
-};
-
-// Генерація рекомендацій для зниження навантаження
-const generateDeloadRecommendation = (analysis: any, exerciseName: string, details: any): string => {
-  const { energyScore, motivationScore, fatigueScore } = analysis;
-  
-  const messages = [
-    `Енергії ${energyScore}/10, мотивації ${motivationScore}/10 - тому трохи знижую до ${details.adaptedSets} підходів. Краще якісно зробити менше`,
-    `Відчуваю, що сьогодні не на повну - адаптую план під твій стан. ${details.adaptedSets} підходи будуть більш доречними`,
-    `При втомі ${fatigueScore >= 6 ? 'високій' : 'помірній'} краще зменшити обсяг. Роби ${details.adaptedSets} підходи з хорошою технікою`
-  ];
-  
-  return messages[Math.floor(Math.random() * messages.length)];
-};
-
-// Генерація рекомендацій для прогресії
-const generateProgressionRecommendation = (analysis: any, exerciseName: string, details: any, exerciseIndex: number): string => {
-  const { energyScore, motivationScore } = analysis;
-  
-  const messages = [
-    `Енергія ${energyScore}/10, мотивація ${motivationScore}/10 - чудово! Можемо збільшити до ${details.adaptedSets} підходів`,
-    `Відмінне самопочуття дозволяє прогресувати. Додаю трохи навантаження - ${details.adaptedSets} підходи замість ${details.originalSets}`,
-    `Сьогодні в тебе все добре - використовуємо це! ${details.adaptedSets} підходи з хорошою інтенсивністю`
-  ];
-  
-  return messages[Math.floor(Math.random() * messages.length)];
-};
-
-// Генерація рекомендацій для підтримання
-const generateMaintenanceRecommendation = (analysis: any, exerciseName: string, details: any): string => {
-  const { overallScore } = analysis;
-  
-  const messages = [
-    `Стан ${overallScore}/100 - нормальний. Залишаємо ${details.adaptedSets} підходи як заплановано, слухаймо тіло`,
-    `Середнє самопочуття - дотримуємось плану. ${details.adaptedSets} підходи будуть в самий раз`,
-    `Самопочуття стабільне - робимо як планували. Зосереджуйся на техніці виконання`
-  ];
-  
-  return messages[Math.floor(Math.random() * messages.length)];
-};
-
-// Спеціалізовані нотатки для різних станів
-const getRecoverySpecificNotes = (criticalFactors: string[], exerciseType: any): string => {
-  if (criticalFactors.includes('критично низька енергія')) {
-    return 'Зупиняйся при найменших ознаках втоми. Краще недороби, ніж перероби';
-  }
-  if (criticalFactors.includes('критично поганий сон')) {
-    return 'Після поганого сну координація знижена. Обережно з важкими вправами';
-  }
-  if (exerciseType.category === 'compound') {
-    return 'Базові вправи вимагають багато енергії. Сьогодні обмежуйся мінімумом';
-  }
-  return 'Сьогодні фокус на відновленні, а не на досягненнях';
-};
-
-const getDeloadSpecificNotes = (limitingFactors: string[], exerciseType: any): string => {
-  if (limitingFactors.includes('низька енергія')) {
-    return 'Енергії мало - не змушуй себе через силу';
-  }
-  if (limitingFactors.includes('підвищений стрес')) {
-    return 'Стрес заважає концентрації. Роби повільно, дихай глибоко';
-  }
-  return 'Слухай своє тіло, при потребі зупинись раніше';
-};
-
-const getProgressionSpecificNotes = (motivation: number, energy: number, exerciseType: any): string => {
-  if (motivation >= 8 && energy >= 8) {
-    return 'Відмінний настрій і енергія! Можеш трохи виклик себе сьогодні';
-  }
-  if (exerciseType.category === 'compound') {
-    return 'Базові вправи - тут можна додати трохи інтенсивності';
-  }
-  return 'Гарне самопочуття дозволяє трохи прогресувати';
-};
-
-const getMaintenanceSpecificNotes = (analysis: any, exerciseType: any): string => {
-  if (analysis.overallScore >= 65) {
-    return 'Стабільний стан - дотримуємось плану';
-  }
-  return 'Середнє самопочуття - фокусуємось на якості, а не кількості';
-};
-
-// Helper functions for scoring
-const getEnergyScore = (level: string): number => {
-  switch (level) {
-    case 'very_high': return 10;
-    case 'high': return 8;
-    case 'normal': return 6;
-    case 'low': return 3;
-    case 'very_low': return 1;
-    default: return 6;
+  switch (adaptationLevel) {
+    case 'recovery':
+      return `Відновлення: ${details.adaptedSets} підходи замість ${details.originalSets}. Слухайте тіло.`;
+    case 'deload':
+      return `Полегшено до ${details.adaptedSets} підходів. Фокус на техніці.`;
+    case 'progression':
+      return `Відмінне самопочуття! Збільшено до ${details.adaptedSets} підходів.`;
+    default:
+      return `Стандартне навантаження: ${details.adaptedSets} підходи як заплановано.`;
   }
 };
 
-const getSleepScore = (quality: string): number => {
-  switch (quality) {
-    case 'excellent': return 10;
-    case 'good': return 7;
-    case 'fair': return 4;
-    case 'poor': return 1;
-    default: return 7;
-  }
+const getSimpleNotes = (analysis: any, exerciseType: any): string => {
+  if (analysis.needsRecovery) return 'Фокус на відновленні';
+  if (analysis.canProgress) return 'Можна трохи збільшити навантаження';
+  return 'Дотримуємось плану';
 };
 
-const getStressScore = (level: string): number => {
-  switch (level) {
-    case 'low': return 9;
-    case 'moderate': return 6;
-    case 'high': return 2;
-    default: return 6;
-  }
-};
-
-const getExerciseIntensity = (exerciseName: string): 'low' | 'medium' | 'high' => {
-  const highIntensityKeywords = ['присідання', 'становая', 'жим', 'підтягування', 'пуловер', 'тяга'];
-  const lowIntensityKeywords = ['розминка', 'розтягування', 'планка', 'ходьба', 'легкий'];
-  
-  if (highIntensityKeywords.some(keyword => exerciseName.includes(keyword))) return 'high';
-  if (lowIntensityKeywords.some(keyword => exerciseName.includes(keyword))) return 'low';
-  return 'medium';
-};
-
-const getRecoveryNotes = (limitingFactors: string[]): string => {
-  if (limitingFactors.includes('недостатній сон')) {
-    return 'Пріоритет: якісний сон. Розгляньте можливість скорочення тренування.';
-  }
-  if (limitingFactors.includes('високий стрес')) {
-    return 'Додайте дихальні вправи між підходами для зняття стресу.';
-  }
-  if (limitingFactors.includes('низька енергія')) {
-    return 'Слухайте тіло, зупиніться при перших ознаках втоми.';
-  }
-  return 'Фокус на відновлення - краще менше, але якісно.';
-};
-
-const enhanceExerciseDescription = (originalDescription: string, adaptation: any): string => {
-  if (adaptation.action === 'recovery_focus') {
-    return originalDescription + ' 🌱 Виконуйте повільно, контролюйте дихання.';
-  }
-  if (adaptation.action === 'progression') {
-    return originalDescription + ' 💪 Можете трохи збільшити навантаження!';
-  }
-  return originalDescription;
-};
+// REMOVED: Unused helper functions
+// getEnergyScore, getSleepScore, getStressScore, getExerciseIntensity, getRecoveryNotes
+// These were redundant with existing scoring functions
 
 const getAdaptationForExercise = (exercise: any, analysis: any) => {
   return {
@@ -1521,27 +1396,27 @@ ${JSON.stringify(originalPlan.exercises.map(ex => ({
     promptLength: adaptivePrompt.length,
     model: selectedModel,
     wellnessScore: 
-      (getEnergyScore(wellnessCheck.energyLevel) * 0.25 + 
-       getSleepScore(wellnessCheck.sleepQuality) * 0.25 + 
-       getStressScore(wellnessCheck.stressLevel) * 0.2 + 
+      (convertToTenScale(wellnessCheck.energyLevel, 'energy') * 0.25 + 
+       convertToTenScale(wellnessCheck.sleepQuality, 'sleep') * 0.25 + 
+       convertToTenScale(wellnessCheck.stressLevel, 'stress') * 0.2 + 
        wellnessCheck.motivation * 0.15 + 
        (11 - wellnessCheck.fatigue) * 0.15) * 10
   });
 
   try {
-    // Оптимізовані налаштування для швидшої обробки
+    // Оптимізовані налаштування для швидшої обробки (тільки AI-генерація)
     const model = ai.getGenerativeModel({
       model: selectedModel, // Динамічний вибір моделі
       generationConfig: {
-        temperature: 0.3,
-        topK: 30,
+        temperature: 0.2, // Менша температура для більш консистентних результатів
+        topK: 20, // Менше значення для більш предиктабельності
         topP: 0.8,
-        maxOutputTokens: isComplexPlan ? 2500 : 2000, // Більше токенів для складних планів
+        maxOutputTokens: isComplexPlan ? 3000 : 2500, // Більше токенів для складних планів та надійності
         responseMimeType: "application/json"
       }
     } as any);
     
-    console.log('🚀 [ADAPTIVE WORKOUT] Making API call...');
+    console.log('🚀 [ADAPTIVE WORKOUT] Making API call (AI-only mode)...');
     const response = await model.generateContent(adaptivePrompt);
     const result = await response.response;
     let jsonStr = result.text().trim();
@@ -1646,10 +1521,11 @@ ${JSON.stringify(originalPlan.exercises.map(ex => ({
 
       return adaptivePlan;
     } catch (parseError) {
-      // JSON parsing failed - create fallback adaptive plan
-      console.warn('⚠️ [ADAPTIVE WORKOUT] JSON parsing failed, creating fallback plan');
+      // JSON parsing failed - throw error to force AI retry
+      console.error('❌ [ADAPTIVE WORKOUT] JSON parsing failed, rejecting fallback plan');
+      console.error('🔍 [ADAPTIVE WORKOUT] Parse error details:', parseError);
       
-      return createFallbackAdaptivePlan(originalPlan, wellnessCheck);
+      throw new Error('Не вдалося розпізнати відповідь AI. Спробуйте ще раз через кілька секунд для отримання адаптивного плану.');
     }
   } catch (error: any) {
     console.error('❌ [ADAPTIVE WORKOUT] Error generating adaptive workout:', error);
@@ -1676,9 +1552,9 @@ ${JSON.stringify(originalPlan.exercises.map(ex => ({
       throw new Error('Перевищено ліміт запитів до AI. Спробуйте через 1-2 хвилини або пропустіть перевірку самопочуття для швидкого старту.');
     }
     
-    // For other errors (network, parsing, etc.), use fallback as last resort
-    console.warn('⚠️ [ADAPTIVE WORKOUT] API/parsing error, using intelligent fallback');
-    return createFallbackAdaptivePlan(originalPlan, wellnessCheck);
+    // For other errors (network, parsing, etc.), throw error to force AI-only approach
+    console.error('⚠️ [ADAPTIVE WORKOUT] API/parsing error, rejecting fallback plan');
+    throw new Error('Не вдалося згенерувати адаптивний план через AI. Спробуйте ще раз через кілька секунд.');
   }
 };
 
