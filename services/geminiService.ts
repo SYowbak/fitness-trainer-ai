@@ -706,73 +706,313 @@ export const shouldVaryExercise = (
   return frequency >= variationThreshold;
 };
 
-// Create fallback adaptive plan when AI parsing fails
+// Create sophisticated fallback adaptive plan when AI parsing fails
 const createFallbackAdaptivePlan = (
   originalPlan: DailyWorkoutPlan,
   wellnessCheck: WellnessCheck
 ): AdaptiveWorkoutPlan => {
-  // Simple rule-based adaptation based on wellness check
-  const adaptationReason = getAdaptationReason(wellnessCheck);
-  const intensity = getIntensityReduction(wellnessCheck);
+  console.log('🧠 [FALLBACK] Creating personalized adaptive plan based on wellness:', {
+    energyLevel: wellnessCheck.energyLevel,
+    sleepQuality: wellnessCheck.sleepQuality,
+    stressLevel: wellnessCheck.stressLevel,
+    motivation: wellnessCheck.motivation,
+    fatigue: wellnessCheck.fatigue
+  });
+
+  // Analyze user's current state comprehensively
+  const wellnessAnalysis = analyzeWellnessState(wellnessCheck);
+  console.log('📊 [FALLBACK] Wellness analysis result:', wellnessAnalysis);
   
-  const adaptedExercises = originalPlan.exercises.map((exercise): Exercise => {
-    const setsReduction = intensity === 'high' ? 2 : intensity === 'medium' ? 1 : 0;
-    const repsReduction = intensity === 'high' ? '25%' : intensity === 'medium' ? '15%' : '0%';
-    
-    const originalSets = parseInt(String(exercise.sets)) || 3;
-    const newSets = Math.max(1, originalSets - setsReduction);
+  // Generate personalized adaptations for each exercise
+  const adaptedExercises = originalPlan.exercises.map((exercise, index): Exercise => {
+    const exerciseAdaptation = createExerciseAdaptation(exercise, wellnessAnalysis, index);
     
     return {
       ...exercise,
       id: uuidv4(),
-      sets: newSets.toString(),
-      reps: intensity === 'none' ? exercise.reps : `${exercise.reps} (зменшено на ${repsReduction})`,
+      sets: exerciseAdaptation.sets,
+      reps: exerciseAdaptation.reps,
+      rest: exerciseAdaptation.rest,
+      description: enhanceExerciseDescription(exercise.description, exerciseAdaptation),
       recommendation: {
-        text: `Адаптовано: ${adaptationReason}`,
-        action: intensity === 'none' ? 'maintained' : 'reduced_intensity'
+        text: exerciseAdaptation.recommendation,
+        action: exerciseAdaptation.action
       },
       isCompletedDuringSession: false,
       sessionLoggedSets: [],
-      sessionSuccess: false
+      sessionSuccess: false,
+      notes: exerciseAdaptation.notes
     };
   });
+  
+  // Create detailed adaptations log
+  const adaptations = originalPlan.exercises.map((exercise, index) => {
+    const originalSets = String(exercise.sets);
+    const adaptedSets = String(adaptedExercises[index].sets);
+    const adaptation = getAdaptationForExercise(exercise, wellnessAnalysis);
+    
+    return {
+      exerciseName: exercise.name,
+      originalSets,
+      originalReps: exercise.reps,
+      adaptedSets,
+      adaptedReps: adaptedExercises[index].reps,
+      adaptationReason: adaptation.reason,
+      energyLevel: wellnessCheck.energyLevel
+    };
+  });
+  
+  const overallAdaptation = createOverallAdaptation(wellnessAnalysis);
   
   return {
     day: originalPlan.day,
     exercises: adaptedExercises,
-    notes: `План адаптовано автоматично через ${adaptationReason}`,
+    notes: generatePersonalizedNotes(wellnessAnalysis),
     originalPlan: originalPlan,
-    adaptations: [],
-    overallAdaptation: {
-      intensity: intensity === 'none' ? 'maintained' : 'reduced',
-      duration: 'shorter',
-      focus: 'recovery',
-      reason: adaptationReason
-    }
+    adaptations,
+    overallAdaptation
   };
 };
 
-const getAdaptationReason = (wellnessCheck: WellnessCheck): string => {
-  if (wellnessCheck.energyLevel === 'very_low') return 'дуже низький рівень енергії';
-  if (wellnessCheck.energyLevel === 'low') return 'низький рівень енергії';
-  if (wellnessCheck.sleepQuality === 'poor') return 'погану якість сну';
-  if (wellnessCheck.stressLevel === 'high') return 'високий рівень стресу';
-  if (wellnessCheck.fatigue >= 8) return 'високу втому';
-  if (wellnessCheck.motivation <= 3) return 'низьку мотивацію';
-  return 'поточний стан самопочуття';
+// Comprehensive wellness state analysis
+const analyzeWellnessState = (wellnessCheck: WellnessCheck) => {
+  const energyScore = getEnergyScore(wellnessCheck.energyLevel);
+  const sleepScore = getSleepScore(wellnessCheck.sleepQuality);
+  const stressScore = getStressScore(wellnessCheck.stressLevel);
+  const motivationScore = wellnessCheck.motivation;
+  const fatigueScore = 11 - wellnessCheck.fatigue; // Invert fatigue (higher = better)
+  
+  // Calculate composite wellness score (0-100)
+  const overallScore = Math.round(
+    (energyScore * 0.25 + sleepScore * 0.25 + stressScore * 0.2 + motivationScore * 0.15 + fatigueScore * 0.15) * 10
+  );
+  
+  // Determine adaptation strategy
+  let adaptationLevel: 'recovery' | 'maintenance' | 'progression' | 'deload';
+  if (overallScore >= 80) adaptationLevel = 'progression';
+  else if (overallScore >= 60) adaptationLevel = 'maintenance';
+  else if (overallScore >= 40) adaptationLevel = 'deload';
+  else adaptationLevel = 'recovery';
+  
+  // Identify primary limiting factors
+  const limitingFactors = [];
+  if (energyScore <= 4) limitingFactors.push('низька енергія');
+  if (sleepScore <= 4) limitingFactors.push('недостатній сон');
+  if (stressScore <= 4) limitingFactors.push('високий стрес');
+  if (wellnessCheck.motivation <= 4) limitingFactors.push('низька мотивація');
+  if (wellnessCheck.fatigue >= 8) limitingFactors.push('висока втома');
+  
+  return {
+    overallScore,
+    adaptationLevel,
+    limitingFactors,
+    energyScore,
+    sleepScore,
+    stressScore,
+    motivationScore,
+    fatigueScore,
+    needsRecovery: overallScore < 50,
+    canProgress: overallScore > 75,
+    primaryConcern: limitingFactors[0] || 'загальний стан'
+  };
 };
 
-const getIntensityReduction = (wellnessCheck: WellnessCheck): 'high' | 'medium' | 'low' | 'none' => {
-  if (wellnessCheck.energyLevel === 'very_low' || wellnessCheck.sleepQuality === 'poor' || wellnessCheck.fatigue >= 9) {
-    return 'high';
+// Create personalized exercise adaptation
+const createExerciseAdaptation = (exercise: any, analysis: any, exerciseIndex: number) => {
+  const baseIntensity = getExerciseIntensity(exercise.name.toLowerCase());
+  const originalSets = parseInt(String(exercise.sets)) || 3;
+  const originalReps = exercise.reps;
+  
+  let setsMultiplier = 1;
+  let repsModification = '';
+  let restModification = '';
+  let recommendation = '';
+  let action = 'maintained';
+  let notes = '';
+  
+  switch (analysis.adaptationLevel) {
+    case 'recovery':
+      setsMultiplier = 0.6; // Reduce to 60% of sets
+      repsModification = 'знизити на 30-40%';
+      restModification = 'збільшити відпочинок до 2-3 хвилин';
+      recommendation = `Зменшено навантаження через ${analysis.primaryConcern}. Фокус на відновлення.`;
+      action = 'recovery_focus';
+      notes = getRecoveryNotes(analysis.limitingFactors);
+      break;
+      
+    case 'deload':
+      setsMultiplier = 0.75;
+      repsModification = 'знизити на 15-25%';
+      restModification = 'збільшити відпочинок на 30 секунд';
+      recommendation = `Помірно знижено через ${analysis.primaryConcern}. Підтримання форми.`;
+      action = 'deload';
+      notes = 'Слухайте своє тіло, при потребі зупиніться раніше';
+      break;
+      
+    case 'maintenance':
+      setsMultiplier = baseIntensity === 'high' ? 0.9 : 1;
+      repsModification = baseIntensity === 'high' ? 'легко знизити' : 'як планувалось';
+      restModification = 'стандартний відпочинок';
+      recommendation = 'Підтримання поточного рівня з урахуванням самопочуття';
+      action = 'maintained';
+      notes = 'Зосередьтесь на якості виконання';
+      break;
+      
+    case 'progression':
+      setsMultiplier = exerciseIndex < 2 ? 1.1 : 1; // Прогресія тільки в перших вправах
+      repsModification = 'можна додати 1-2 повторення';
+      restModification = 'стандартний або менший відпочинок';
+      recommendation = 'Відмінне самопочуття дозволяє прогресувати!';
+      action = 'progression';
+      notes = 'Відчуваєте себе добре - можете трохи збільшити навантаження';
+      break;
   }
-  if (wellnessCheck.energyLevel === 'low' || wellnessCheck.stressLevel === 'high' || wellnessCheck.fatigue >= 7 || wellnessCheck.motivation <= 3) {
-    return 'medium';
+  
+  const adaptedSets = Math.max(1, Math.round(originalSets * setsMultiplier)).toString();
+  const adaptedReps = originalReps + (repsModification !== 'як планувалось' ? ` (${repsModification})` : '');
+  const adaptedRest = exercise.rest + (restModification !== 'стандартний відпочинок' ? ` (${restModification})` : '');
+  
+  return {
+    sets: adaptedSets,
+    reps: adaptedReps,
+    rest: adaptedRest,
+    recommendation,
+    action,
+    notes
+  };
+};
+
+// Helper functions for scoring
+const getEnergyScore = (level: string): number => {
+  switch (level) {
+    case 'very_high': return 10;
+    case 'high': return 8;
+    case 'normal': return 6;
+    case 'low': return 3;
+    case 'very_low': return 1;
+    default: return 6;
   }
-  if (wellnessCheck.fatigue >= 5 || wellnessCheck.motivation <= 5) {
-    return 'low';
+};
+
+const getSleepScore = (quality: string): number => {
+  switch (quality) {
+    case 'excellent': return 10;
+    case 'good': return 7;
+    case 'fair': return 4;
+    case 'poor': return 1;
+    default: return 7;
   }
-  return 'none';
+};
+
+const getStressScore = (level: string): number => {
+  switch (level) {
+    case 'low': return 9;
+    case 'moderate': return 6;
+    case 'high': return 2;
+    default: return 6;
+  }
+};
+
+const getExerciseIntensity = (exerciseName: string): 'low' | 'medium' | 'high' => {
+  const highIntensityKeywords = ['присідання', 'становая', 'жим', 'підтягування', 'пуловер', 'тяга'];
+  const lowIntensityKeywords = ['розминка', 'розтягування', 'планка', 'ходьба', 'легкий'];
+  
+  if (highIntensityKeywords.some(keyword => exerciseName.includes(keyword))) return 'high';
+  if (lowIntensityKeywords.some(keyword => exerciseName.includes(keyword))) return 'low';
+  return 'medium';
+};
+
+const getRecoveryNotes = (limitingFactors: string[]): string => {
+  if (limitingFactors.includes('недостатній сон')) {
+    return 'Пріоритет: якісний сон. Розгляньте можливість скорочення тренування.';
+  }
+  if (limitingFactors.includes('високий стрес')) {
+    return 'Додайте дихальні вправи між підходами для зняття стресу.';
+  }
+  if (limitingFactors.includes('низька енергія')) {
+    return 'Слухайте тіло, зупиніться при перших ознаках втоми.';
+  }
+  return 'Фокус на відновлення - краще менше, але якісно.';
+};
+
+const enhanceExerciseDescription = (originalDescription: string, adaptation: any): string => {
+  if (adaptation.action === 'recovery_focus') {
+    return originalDescription + ' 🌱 Виконуйте повільно, контролюйте дихання.';
+  }
+  if (adaptation.action === 'progression') {
+    return originalDescription + ' 💪 Можете трохи збільшити навантаження!';
+  }
+  return originalDescription;
+};
+
+const getAdaptationForExercise = (exercise: any, analysis: any) => {
+  return {
+    reason: `Адаптовано під ${analysis.adaptationLevel} режим через ${analysis.primaryConcern}`
+  };
+};
+
+const createOverallAdaptation = (analysis: any) => {
+  const intensityMap: Record<string, string> = {
+    'recovery': 'significantly_reduced',
+    'deload': 'reduced', 
+    'maintenance': 'maintained',
+    'progression': 'increased'
+  };
+  
+  const durationMap: Record<string, string> = {
+    'recovery': 'shorter',
+    'deload': 'slightly_shorter',
+    'maintenance': 'normal',
+    'progression': 'normal'
+  };
+  
+  const focusMap: Record<string, string> = {
+    'recovery': 'recovery',
+    'deload': 'maintenance', 
+    'maintenance': 'maintenance',
+    'progression': 'performance'
+  };
+  
+  return {
+    intensity: (intensityMap[analysis.adaptationLevel] || 'maintained') as 'maintained' | 'reduced' | 'increased',
+    duration: (durationMap[analysis.adaptationLevel] || 'normal') as 'normal' | 'shorter' | 'longer',
+    focus: (focusMap[analysis.adaptationLevel] || 'maintenance') as 'maintenance' | 'recovery' | 'performance',
+    reason: generateDetailedReason(analysis)
+  };
+};
+
+const generatePersonalizedNotes = (analysis: any): string => {
+  let notes = `Тренування адаптовано під ваш поточний стан (оцінка: ${analysis.overallScore}/100). `;
+  
+  if (analysis.needsRecovery) {
+    notes += 'Сьогодні ваше тіло потребує відновлення. Не перенавантажуйтесь.';
+  } else if (analysis.canProgress) {
+    notes += 'Відмінне самопочуття дозволяє трохи прогресувати!';
+  } else {
+    notes += 'Підтримуємо поточний рівень з урахуванням самопочуття.';
+  }
+  
+  if (analysis.limitingFactors.length > 0) {
+    notes += ` Основні фактори: ${analysis.limitingFactors.join(', ')}.`;
+  }
+  
+  return notes;
+};
+
+const generateDetailedReason = (analysis: any): string => {
+  const reasonParts = [];
+  
+  if (analysis.energyScore <= 4) reasonParts.push('низький рівень енергії');
+  if (analysis.sleepScore <= 4) reasonParts.push('недостатня якість сну');
+  if (analysis.stressScore <= 4) reasonParts.push('підвищений стрес');
+  if (analysis.motivationScore <= 4) reasonParts.push('знижена мотивація');
+  if (analysis.fatigueScore <= 4) reasonParts.push('висока втома');
+  
+  if (reasonParts.length === 0) {
+    return 'Відмінне самопочуття дозволяє повноцінне тренування';
+  }
+  
+  return `Адаптація через: ${reasonParts.join(', ')}. Оцінка стану: ${analysis.overallScore}/100`;
 };
 
 export const generateAdaptiveWorkout = async (
@@ -817,116 +1057,112 @@ export const generateAdaptiveWorkout = async (
   
   console.log(`🤖 [ADAPTIVE WORKOUT] Selected model: ${selectedModel} (${exerciseCount} exercises, complex: ${isComplexPlan})`);
 
-  const adaptivePrompt = `Ти - досвідчений персональний тренер, який адаптує тренування під поточний стан та самопочуття клієнта. Твоя задача - створити адаптивний план тренування, враховуючи самопочуття та історію тренувань.
+  const adaptivePrompt = `Ти - досвідчений персональний тренер із 15-річним стажем, який ІНДИВІДУАЛЬНО адаптує тренування під поточний стан кожного клієнта. Твоя спеціальність - точний аналіз самопочуття та створення персоналізованих планів.
 
-Якщо у профілі є "healthConstraints" (травми/обмеження), обов'язково уникай рухів/амплітуд, що можуть загострити стан. Врахуй це у підборі вправ, підходів/повторень, відпочинку та можливих замінах.
-
-ВАЖЛИВО: Відповідь має бути ВИКЛЮЧНО у форматі JSON без жодних пояснень.
-
-Профіль користувача (з можливими обмеженнями здоров'я):
+ПРОФІЛЬ КЛІЄНТА:
 ${JSON.stringify(userProfile, null, 2)}
 
-Оригінальний план тренування:
-${JSON.stringify(originalPlan, null, 2)}
-
-Поточне самопочуття:
+ПОТОЧНИЙ СТАН САМОПОЧУТТЯ (дуже важливо!):
 ${JSON.stringify(wellnessCheck, null, 2)}
 
-Історія тренувань (останні 5):
+ОРИГІНАЛЬНИЙ ПЛАН ТРЕНУВАННЯ:
+${JSON.stringify(originalPlan, null, 2)}
+
+ІСТОРІЯ ТРЕНУВАНЬ (останні 5):
 ${JSON.stringify(workoutHistory.slice(0, 5), null, 2)}
 
-Створи адаптивний план тренування, враховуючи:
-1. **Культурна чутливість:** Уникай використання назв вправ, які мають негативні конотації або асоціації з країнами-агресорами, особливо "російські" вправи. Використовуй нейтральні або українські назви.
-2. **Стислість:** Описи вправ та рекомендації мають бути достатньо детальними, але без зайвої води (приблизно 5-7 речень) та приблизно однакової довжини.
-3. Рівень енергії:
-   - VERY_LOW: Зменшити інтенсивність на 50-70%, фокус на відновленні
-   - LOW: Зменшити інтенсивність на 30-50%, фокус на підтримці
-   - NORMAL: Зберегти оригінальний план
-   - HIGH: Можна збільшити інтенсивність на 10-20%
-   - VERY_HIGH: Можна збільшити інтенсивність на 20-30%
+=== ІНСТРУКЦІЇ ДЛЯ ПЕРСОНАЛІЗАЦІЇ ===
 
-2. Якість сну:
-   - POOR: Значно зменшити навантаження, додати більше відпочинку
-   - FAIR: Помірно зменшити навантаження
-   - GOOD: Мінімальні зміни
-   - EXCELLENT: Можна збільшити навантаження
+1. АНАЛІЗ СТАНУ (обов'язково враховуй ВСІ параметри):
+   - energyLevel: VERY_LOW/LOW = серйозне зниження навантаження, NORMAL = базовий план, HIGH/VERY_HIGH = можна прогресувати
+   - sleepQuality: POOR = значне зниження + збільшення відпочинку, FAIR = помірне зниження, GOOD/EXCELLENT = норма
+   - stressLevel: HIGH = релаксаційний фокус + зниження інтенсивності, MODERATE = легке коригування, LOW = норма
+   - motivation (1-10): 1-3 = мотиваційний підхід + зниження, 4-6 = підтримка, 7-10 = можна виклики
+   - fatigue (1-10): 8-10 = відновлювальний режим, 5-7 = помірне зниження, 1-4 = норма
+   - notes: ОБОВ'ЯЗКОВО враховуй додаткові коментарі клієнта
 
-3. Рівень стресу:
-   - HIGH: Фокус на розслабляючих вправах, зменшити інтенсивність
-   - MODERATE: Помірні зміни
-   - LOW: Нормальне тренування
+2. СТВОРИ COMPOSITE SCORE (0-100) на основі всіх параметрів:
+   - 0-30: Режим відновлення (recovery)
+   - 31-50: Полегшене тренування (deload) 
+   - 51-70: Підтримуючий режим (maintenance)
+   - 71-85: Стандартне тренування (standard)
+   - 86-100: Прогресивне тренування (progression)
 
-4. Мотивація та втома:
-   - Мотивація 1-3: Значно зменшити навантаження, додати мотиваційні елементи
-   - Мотивація 4-6: Помірно зменшити навантаження
-   - Мотивація 7-10: Нормальне або збільшене навантаження
-   - Втома 8-10: Значно зменшити навантаження, фокус на відновленні
+3. АДАПТАЦІЯ КОЖНОЇ ВПРАВИ:
+   - Recovery: -40-60% підходів, -30-50% повторень, +50-100% відпочинок
+   - Deload: -20-40% підходів, -15-30% повторень, +30-50% відпочинок
+   - Maintenance: -10-20% для складних вправ, стандартний відпочинок
+   - Standard: без змін або мінімальні корективи
+   - Progression: +10-20% навантаження для ключових вправ
 
-5. Типи адаптацій:
-   - Зменшення кількості підходів
-   - Зменшення кількості повторень
-   - Збільшення відпочинку між підходами
-   - Заміна на легші варіації вправ
-   - Додавання розминкових вправ
-   - Зміна фокусу тренування
+4. ПЕРСОНАЛІЗОВАНІ РЕКОМЕНДАЦІЇ:
+   - Поясни ЧОМУ кожна вправа змінена
+   - Додай конкретні поради по техніці та темпу
+   - Врахуй психологічний стан (мотивація, стрес)
+   - Вкажи на що звернути увагу під час виконання
 
-Формат JSON відповіді:
+5. КУЛЬТУРНА АДАПТАЦІЯ:
+   - Використовуй ТІЛЬКИ українські назви вправ
+   - Уникай назв з негативними асоціаціями
+   - Пиши зрозумілою українською мовою
+
+ВІДПОВІДЬ СУВОРО У ФОРМАТІ JSON (без додаткового тексту):
+
 {
-  "day": 1,
+  "day": ${originalPlan.day},
   "exercises": [
     {
-      "name": "Назва вправи",
-      "description": "Опис техніки",
-      "sets": "3",
-      "reps": "8-10",
-      "rest": "90 секунд",
-      "videoSearchQuery": "...",
-      "weightType": "total", // Додано для прикладу
+      "id": "Не заповнюй - автоматично згенерується",
+      "name": "Українська назва вправи",
+      "description": "Техніка + персональні поради під стан клієнта",
+      "sets": "число_адаптоване_під_стан",
+      "reps": "діапазон_з_поясненням",
+      "rest": "час_відпочинку_з_обґрунтуванням",
+      "videoSearchQuery": "пошукова_фраза",
+      "weightType": "total",
       "targetWeight": null,
       "targetReps": null,
       "recommendation": {
-        "text": "Адаптовано під низький рівень енергії",
-        "action": "reduced_intensity"
+        "text": "Пояснення адаптації під самопочуття",
+        "action": "maintained|reduced_intensity|increased_intensity|recovery_focus|progression"
       },
       "isCompletedDuringSession": false,
       "sessionLoggedSets": [],
-      "sessionSuccess": false
+      "sessionSuccess": false,
+      "notes": "Конкретна порада під поточний стан"
     }
   ],
-  "notes": "Адаптовано під ваше самопочуття",
-  "originalPlan": { /* оригінальний план */ },
+  "notes": "Детальне пояснення чому план адаптовано саме так + загальні поради",
+  "originalPlan": ${JSON.stringify(originalPlan)},
   "adaptations": [
     {
-      "exerciseName": "Назва вправи",
-      "originalSets": "4",
-      "originalReps": "12-15",
-      "adaptedSets": "3",
-      "adaptedReps": "8-10",
-      "adaptationReason": "Зменшено через низький рівень енергії",
-      "energyLevel": "low"
+      "exerciseName": "назва",
+      "originalSets": "було",
+      "originalReps": "було", 
+      "adaptedSets": "стало",
+      "adaptedReps": "стало",
+      "adaptationReason": "Детальне пояснення ЧОМУ змінено",
+      "energyLevel": "${wellnessCheck.energyLevel}"
     }
   ],
   "overallAdaptation": {
-    "intensity": "reduced",
-    "duration": "shorter",
-    "focus": "recovery",
-    "reason": "Адаптовано під низький рівень енергії та поганий сон"
+    "intensity": "maintained|reduced|increased",
+    "duration": "normal|shorter|longer",
+    "focus": "maintenance|recovery|performance",
+    "reason": "Комплексне пояснення адаптації з урахуванням ВСІХ параметрів самопочуття"
   }
 }`;
 
-  console.log('📝 [ADAPTIVE WORKOUT] Sending prompt to AI:', {
+  console.log('📝 [ADAPTIVE WORKOUT] Enhanced AI prompt prepared:', {
     promptLength: adaptivePrompt.length,
     model: selectedModel,
-    userProfileKeys: Object.keys(userProfile),
-    wellnessKeys: Object.keys(wellnessCheck),
-    estimatedTokens: Math.ceil(adaptivePrompt.length / 4) // Rough estimate: 1 token ≈ 4 characters
+    wellnessScore: 
+      (getEnergyScore(wellnessCheck.energyLevel) * 0.25 + 
+       getSleepScore(wellnessCheck.sleepQuality) * 0.25 + 
+       getStressScore(wellnessCheck.stressLevel) * 0.2 + 
+       wellnessCheck.motivation * 0.15 + 
+       (11 - wellnessCheck.fatigue) * 0.15) * 10
   });
-
-  // Check for potential quota issues based on prompt length
-  const estimatedInputTokens = Math.ceil(adaptivePrompt.length / 4);
-  if (estimatedInputTokens > 10000) {
-    console.warn('⚠️ [ADAPTIVE WORKOUT] Large prompt detected, potential quota risk:', estimatedInputTokens, 'tokens');
-  }
 
   try {
     // Оптимізовані налаштування для швидшої обробки
@@ -1025,7 +1261,7 @@ ${JSON.stringify(workoutHistory.slice(0, 5), null, 2)}
           videoSearchQuery: ex.videoSearchQuery || null,
           targetWeight: ex.targetWeight !== undefined ? ex.targetWeight : null,
           targetReps: ex.targetReps !== undefined ? ex.targetReps : null,
-          recommendation: ex.recommendation || { text: '', action: '' },
+          recommendation: ex.recommendation || null,
           isCompletedDuringSession: false,
           sessionLoggedSets: [],
           sessionSuccess: false,
@@ -1062,7 +1298,7 @@ ${JSON.stringify(workoutHistory.slice(0, 5), null, 2)}
       isRateLimitError: error.message?.includes('rate limit') || error.message?.includes('exceeded')
     });
     
-    // For quota errors, create fallback plan instead of throwing error
+    // Only for quota errors, throw error to trigger user choice
     if (
       (error.response && error.response.status === 429) ||
       (error.message && (
@@ -1072,24 +1308,12 @@ ${JSON.stringify(workoutHistory.slice(0, 5), null, 2)}
         error.message.toLowerCase().includes("429")
       ))
     ) {
-      console.warn('⚠️ [ADAPTIVE WORKOUT] Quota exceeded, using fallback adaptation');
-      return createFallbackAdaptivePlan(originalPlan, wellnessCheck);
+      console.warn('⚠️ [ADAPTIVE WORKOUT] Quota exceeded, letting user choose');
+      throw new Error('Перевищено ліміт запитів до AI. Спробуйте через 1-2 хвилини або пропустіть перевірку самопочуття для швидкого старту.');
     }
     
-    if (
-      (error.response && error.response.status === 503) ||
-      (error.message && (
-        error.message.toLowerCase().includes("overload") ||
-        error.message.toLowerCase().includes("unavailable") ||
-        error.message.toLowerCase().includes("service unavailable")
-      ))
-    ) {
-      console.warn('⚠️ [ADAPTIVE WORKOUT] Service overloaded, using fallback adaptation');
-      return createFallbackAdaptivePlan(originalPlan, wellnessCheck);
-    }
-    
-    // For any other API errors, also use fallback instead of failing
-    console.warn('⚠️ [ADAPTIVE WORKOUT] API error, using fallback adaptation');
+    // For other errors (network, parsing, etc.), use fallback as last resort
+    console.warn('⚠️ [ADAPTIVE WORKOUT] API/parsing error, using intelligent fallback');
     return createFallbackAdaptivePlan(originalPlan, wellnessCheck);
   }
 };
