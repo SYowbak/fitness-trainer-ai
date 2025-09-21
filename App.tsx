@@ -662,23 +662,52 @@ const App: React.FC = () => {
       });
       console.error('📍 [APP] Error occurred at processing step:', wellnessProcessingStep);
       
-      // Handle quota errors specially
-      if (error.message && (
-        error.message.includes('ліміт запитів') ||
-        error.message.includes('quota') ||
-        error.message.includes('429')
-      )) {
-        console.log('🕰️ [APP] Quota error detected, offering skip option');
-        setError('Перевищено ліміт AI запитів. Чекайте 1-2 хвилини для отримання адаптивного плану від AI.');
-        
-        // Обовязково чекаємо AI - ні яких альтернатив конструкторних планів!
-        setTimeout(() => {
-          console.log('🤖 [APP] AI-only mode: Waiting for user to retry...');
-          setError('Очікуємо AI адаптацію... Повторіть спробу через 1-2 хвилини.');
-        }, 3000);
+      // Handle different types of errors with specific messages
+      if (error.message) {
+        // Handle quota errors
+        if (error.message.includes('ліміт запитів') || 
+            error.message.includes('quota') || 
+            error.message.includes('429') ||
+            error.message.includes('rate limit')) {
+          console.log('🕰️ [APP] Quota error detected');
+          setError('Перевищено ліміт AI запитів. Спробуйте ще раз через 1-2 хвилини.');
+        } 
+        // Handle service unavailable errors
+        else if (error.message.includes('service unavailable') || 
+                 error.message.includes('503') || 
+                 error.message.includes('overloaded')) {
+          console.log('🔧 [APP] Service unavailable error detected');
+          setError('Сервіс AI тимчасово недоступний. Спробуйте ще раз через кілька хвилин.');
+        }
+        // Handle API key errors
+        else if (error.message.includes('API_KEY') || 
+                 error.message.includes('API key') || 
+                 error.message.includes('authentication')) {
+          console.log('🔑 [APP] API key error detected');
+          setError('Помилка API ключа. Перевірте налаштування API ключа.');
+        }
+        // Handle parsing errors
+        else if (error.message.includes('JSON') || 
+                 error.message.includes('parse') || 
+                 error.message.includes('розпізнати')) {
+          console.log('📄 [APP] JSON parsing error detected');
+          setError('Помилка обробки відповіді від AI. Спробуйте ще раз.');
+        }
+        // Handle general AI errors
+        else if (error.message.includes('AI') || 
+                 error.message.includes('адаптація') || 
+                 error.message.includes('адаптивний')) {
+          console.log('🤖 [APP] General AI error detected');
+          setError('Помилка AI адаптації: ' + error.message + '. Спробуйте ще раз через кілька секунд.');
+        }
+        // Handle all other errors
+        else {
+          console.log('❓ [APP] Unknown error type detected');
+          setError('Помилка: ' + error.message + '. Спробуйте ще раз.');
+        }
       } else {
         // Усі інші помилки - лише AI адаптація дозволена
-        setError('Помилка AI адаптації: ' + (error.message || 'Невідома помилка') + '. Повторіть через кілька секунд для отримання адаптивного плану.');
+        setError('Помилка AI адаптації: Невідома помилка. Повторіть через кілька секунд для отримання адаптивного плану.');
       }
       
       setPendingWorkoutDay(null);

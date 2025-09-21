@@ -11,7 +11,14 @@ interface UserProfileFormProps {
   onDeleteAccount: () => Promise<void>;
 }
 
-const UserProfileForm: React.FC<UserProfileFormProps> = ({ existingProfile, onSave, apiKeyMissing, isLoading, onLogout, onDeleteAccount }) => {
+const UserProfileForm: React.FC<UserProfileFormProps> = ({
+  existingProfile,
+  onSave,
+  apiKeyMissing,
+  isLoading,
+  onLogout,
+  onDeleteAccount
+}) => {
   const [name, setName] = useState<string>('');
   const [gender, setGender] = useState<Gender>(GENDER_OPTIONS[0].value);
   const [bodyType, setBodyType] = useState<BodyType>(BODY_TYPE_OPTIONS[0].value);
@@ -82,7 +89,7 @@ const UserProfileForm: React.FC<UserProfileFormProps> = ({ existingProfile, onSa
   const commonLabelClasses = "block text-sm font-medium text-purple-300 mb-1";
 
   return (
-    <div className="max-w-2xl mx-auto p-6 sm:p-8 bg-gray-800/80 rounded-xl shadow-2xl backdrop-blur-sm">
+    <div className="max-w-4xl mx-auto">
       <h2 className="text-3xl font-bold text-center mb-8 text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">
         <i className="fas fa-id-card mr-3"></i>{UI_TEXT.tabProfile}
       </h2>

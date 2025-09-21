@@ -237,7 +237,7 @@ export const completeExerciseDetails = async (
     throw new Error("API ключ для Gemini не налаштовано");
   }
 
-  const modelName = "gemini-1.5-flash"; // Використовуємо gemini-1.5-flash для доповнення деталей
+  const modelName = GEMINI_MODELS.LIGHT_TASKS; // Використовуємо LIGHT_TASKS для доповнення деталей
 
   const prompt = constructExercisePrompt(profile, currentPlan, targetDay, undefined, exercise);
  

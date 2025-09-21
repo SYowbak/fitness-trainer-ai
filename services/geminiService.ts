@@ -1297,14 +1297,24 @@ export const generateAdaptiveWorkout = async (
 
   console.log('🤖 [ADAPTIVE WORKOUT] AI initialized successfully');
 
-  const modelName = GEMINI_MODELS.WORKOUT_GENERATION; // Основна модель дль адаптивного тренування
-
   // Перевіряємо складність плану для вибору моделі
   const exerciseCount = originalPlan.exercises.length;
   const isComplexPlan = exerciseCount > 6;
-  const selectedModel = isComplexPlan ? GEMINI_MODELS.WORKOUT_GENERATION : GEMINI_MODELS.LIGHT_TASKS;
   
-  console.log(`🤖 [ADAPTIVE WORKOUT] Selected model: ${selectedModel} (${exerciseCount} exercises, complex: ${isComplexPlan})`);
+  // Використовуємо правильну модель згідно з новими стандартами
+  // Збільшуємо ліміт токенів для кращої обробки складних планів
+  const selectedModel = isComplexPlan ? GEMINI_MODELS.WORKOUT_GENERATION : GEMINI_MODELS.LIGHT_TASKS;
+  const maxTokens = isComplexPlan ? 2500 : 2000; // Згідно з правилами для ≤6 та >6 вправ
+  
+  console.log(`🤖 [ADAPTIVE WORKOUT] Selected model: ${selectedModel} (${exerciseCount} exercises, complex: ${isComplexPlan}, maxTokens: ${maxTokens})`);
+  
+  // Діагностика API ключа
+  if (!ai || !import.meta.env.VITE_API_KEY) {
+    console.error('❌ [DIAGNOSTIC] API Key missing or AI not initialized');
+    console.error('📍 [DIAGNOSTIC] API Key exists:', !!import.meta.env.VITE_API_KEY);
+    console.error('📍 [DIAGNOSTIC] AI instance exists:', !!ai);
+    throw new Error('API ключ недоступний або AI не ініціалізовано');
+  }
 
   // Отримуємо детальний аналіз самопочуття для розумного AI промпту
   const wellnessAnalysis = analyzeWellnessState(wellnessCheck);
@@ -1390,7 +1400,7 @@ ${JSON.stringify(originalPlan.exercises.map(ex => ({
     "focus": "maintenance|recovery|performance",
     "reason": "Комплексне пояснення адаптації з урахуванням ВСІХ параметрів самопочуття"
   }
-`;;
+`;
 
   console.log('📝 [ADAPTIVE WORKOUT] Enhanced AI prompt prepared:', {
     promptLength: adaptivePrompt.length,
@@ -1404,19 +1414,24 @@ ${JSON.stringify(originalPlan.exercises.map(ex => ({
   });
 
   try {
-    // Оптимізовані налаштування для швидшої обробки (тільки AI-генерація)
     const model = ai.getGenerativeModel({
-      model: selectedModel, // Динамічний вибір моделі
+      model: selectedModel,
       generationConfig: {
         temperature: 0.2, // Менша температура для більш консистентних результатів
-        topK: 20, // Менше значення для більш предиктабельності
+        topK: 20,
         topP: 0.8,
-        maxOutputTokens: isComplexPlan ? 3000 : 2500, // Більше токенів для складних планів та надійності
+        maxOutputTokens: maxTokens,
         responseMimeType: "application/json"
       }
     } as any);
     
-    console.log('🚀 [ADAPTIVE WORKOUT] Making API call (AI-only mode)...');
+    console.log(`🚀 [ADAPTIVE WORKOUT] Making API call with config:`, {
+      model: selectedModel,
+      maxTokens,
+      exerciseCount,
+      isComplexPlan
+    });
+    
     const response = await model.generateContent(adaptivePrompt);
     const result = await response.response;
     let jsonStr = result.text().trim();
@@ -1524,6 +1539,7 @@ ${JSON.stringify(originalPlan.exercises.map(ex => ({
       // JSON parsing failed - throw error to force AI retry
       console.error('❌ [ADAPTIVE WORKOUT] JSON parsing failed, rejecting fallback plan');
       console.error('🔍 [ADAPTIVE WORKOUT] Parse error details:', parseError);
+      console.error('🔍 [ADAPTIVE WORKOUT] Problematic JSON string:', jsonStr.substring(0, 500));
       
       throw new Error('Не вдалося розпізнати відповідь AI. Спробуйте ще раз через кілька секунд для отримання адаптивного плану.');
     }
@@ -1538,18 +1554,28 @@ ${JSON.stringify(originalPlan.exercises.map(ex => ({
       isRateLimitError: error.message?.includes('rate limit') || error.message?.includes('exceeded')
     });
     
-    // Only for quota errors, throw error to trigger user choice
-    if (
-      (error.response && error.response.status === 429) ||
-      (error.message && (
-        error.message.toLowerCase().includes("quota") ||
-        error.message.toLowerCase().includes("rate limit") ||
-        error.message.toLowerCase().includes("exceeded") ||
-        error.message.toLowerCase().includes("429")
-      ))
-    ) {
-      console.warn('⚠️ [ADAPTIVE WORKOUT] Quota exceeded, letting user choose');
-      throw new Error('Перевищено ліміт запитів до AI. Спробуйте через 1-2 хвилини або пропустіть перевірку самопочуття для швидкого старту.');
+    // Enhanced error diagnostics
+    if (error.message) {
+      // Check for specific error types
+      if (error.message.includes('429') || error.message.includes('quota')) {
+        console.warn('⚠️ [ADAPTIVE WORKOUT] Quota exceeded error detected');
+        throw new Error('Перевищено ліміт запитів до AI. Спробуйте через 1-2 хвилини або пропустіть перевірку самопочуття для швидкого старту.');
+      }
+      
+      if (error.message.includes('503') || error.message.includes('Service Unavailable')) {
+        console.warn('⚠️ [ADAPTIVE WORKOUT] Service unavailable error detected');
+        throw new Error('Сервіс AI тимчасово недоступний. Спробуйте ще раз через кілька хвилин.');
+      }
+      
+      if (error.message.includes('API_KEY') || error.message.includes('API key')) {
+        console.warn('⚠️ [ADAPTIVE WORKOUT] API key error detected');
+        throw new Error('Помилка API ключа. Перевірте налаштування API ключа.');
+      }
+      
+      if (error.message.includes('INVALID_ARGUMENT') || error.message.includes('Request payload size exceeds the limit')) {
+        console.warn('⚠️ [ADAPTIVE WORKOUT] Request size error detected');
+        throw new Error('Запит занадто великий. Спробуйте з меншою кількістю вправ.');
+      }
     }
     
     // For other errors (network, parsing, etc.), throw error to force AI-only approach

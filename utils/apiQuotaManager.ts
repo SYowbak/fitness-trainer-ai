@@ -693,6 +693,30 @@ if (typeof window !== 'undefined' && import.meta.env.DEV) {
       console.log('canMakeRequest():', quotaManager.canMakeRequest());
       console.log('getQuotaStatus():', quotaManager.getQuotaStatus());
       console.log('isServiceOverloaded():', quotaManager.isServiceOverloaded());
+    },
+    // Add function to simulate quota exhaustion for testing
+    simulateQuotaExceeded: () => {
+      const status = quotaManager.getQuotaStatus();
+      status.requestCount = status.dailyLimit + 50; // Exceed limit
+      status.isExceeded = true;
+      localStorage.setItem('gemini_quota_status', JSON.stringify(status));
+      console.log('🚨 Simulated quota exceeded state');
+      return status;
+    },
+    // Add function to check current model selection
+    checkModelSelection: (preferredModel: string) => {
+      console.log('🧠 Checking smart model selection...');
+      const status = quotaManager.getQuotaStatus();
+      const usagePercent = (status.requestCount / status.dailyLimit) * 100;
+      const selectedModel = getSmartModel(preferredModel);
+      console.log('📊 Model selection results:', {
+        preferredModel,
+        selectedModel,
+        requestCount: status.requestCount,
+        dailyLimit: status.dailyLimit,
+        usagePercent: usagePercent.toFixed(2) + '%'
+      });
+      return selectedModel;
     }
   };
   console.log('🛠️ Quota debug functions available at window.quotaDebug');
@@ -713,5 +737,29 @@ if (typeof window !== 'undefined' && import.meta.env.DEV) {
     console.log('📊 Final quota status:', getQuotaStatus());
   }, 1000);
 }
+
+// Add a function to check if we're close to quota limits
+export const checkQuotaWarning = () => {
+  const status = quotaManager.getQuotaStatus();
+  const usagePercent = (status.requestCount / status.dailyLimit) * 100;
+  
+  if (usagePercent >= 90) {
+    console.warn('🚨 QUOTA WARNING: Usage at ' + usagePercent.toFixed(1) + '% of daily limit');
+    return {
+      level: 'critical',
+      message: 'Critical quota usage: ' + usagePercent.toFixed(1) + '%',
+      requestsRemaining: status.dailyLimit - status.requestCount
+    };
+  } else if (usagePercent >= 75) {
+    console.warn('⚠️ QUOTA WARNING: Usage at ' + usagePercent.toFixed(1) + '% of daily limit');
+    return {
+      level: 'warning',
+      message: 'High quota usage: ' + usagePercent.toFixed(1) + '%',
+      requestsRemaining: status.dailyLimit - status.requestCount
+    };
+  }
+  
+  return null;
+};
 
 export default ApiQuotaManager;
