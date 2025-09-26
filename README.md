@@ -18,13 +18,15 @@
 - **Backend:** Firebase (Authentication, Firestore, Realtime Database)
 - **AI:** Google Gemini API
 - **Build:** Vite
-- **Deployment:** Vercel
+- **Hosting:** Vercel
+- **CDN:** Vercel Edge Network
+- **CI/CD:** GitHub + Vercel автодеплой
 
 ## Встановлення
 
 1. Клонування репозиторію:
 ```bash
-git clone <repository-url>
+git clone https://github.com/SYowbak/fitness-trainer-ai.git
 cd fitness-trainer-ai
 ```
 
@@ -37,7 +39,12 @@ npm install
 ```bash
 # Створіть .env файл з наступними змінними:
 VITE_API_KEY=your_gemini_api_key
-VITE_FIREBASE_CONFIG=your_firebase_config
+VITE_FIREBASE_API_KEY=your_firebase_api_key
+VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your_project_id
+VITE_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+VITE_FIREBASE_APP_ID=your_app_id
 ```
 
 4. Запуск в режимі розробки:
@@ -112,6 +119,23 @@ npm run preview  # Попередній перегляд збірки
 - ESLint для якості коду
 - Prettier для форматування
 - Компонентна архітектура
+
+## Деплоймент
+
+### Production Хостинг
+**Vercel** - сучасна платформа для розгортання React додатків
+
+**Переваги:**
+- Автоматичний деплой при push в Git
+- Global CDN для швидкої доставки
+- Автоматичні SSL сертифікати
+- Масштабування під навантаженням
+- Моніторинг та аналітика
+
+**Конфігурація:**
+- `vercel.json` - налаштування маршрутів SPA
+- Environment variables для API ключів
+- Автоматична оптимізація збірки
 
 ## Контрибуція
 

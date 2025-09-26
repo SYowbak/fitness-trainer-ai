@@ -101,17 +101,28 @@ App.tsx (головний компонент)
 - Google Generative AI 0.24.1
 - TypeScript 5.3.3
 
+#### 5.3 Хостинг та деплоймент
+- **Production хостинг:** Vercel (автоматичний деплой з Git)
+- **База даних:** Firebase (Cloud Firestore, Realtime Database)
+- **Автентифікація:** Firebase Authentication
+- **CDN:** Vercel Edge Network для швидкої доставки контенту
+- **Environment:** Node.js 18+ для збірки
+- **CI/CD:** GitHub Actions інтеграція з Vercel
+
 ### 6. Обмеження та припущення
 
 #### 6.1 Обмеження
 - Потрібне підключення до інтернету
 - Залежність від Google Gemini API
 - Підтримка сучасних браузерів
+- Обмеження Vercel: 100GB бандвідт на місяць (безкоштовний план)
 
 #### 6.2 Припущення
 - Користувачі мають базові знання про фітнес
 - Доступність Firebase сервісів
 - Стабільність Gemini API
+- Vercel забезпечує 99.9% uptime
+- Наявність SSL сертифікатів через Vercel
 
 ### 7. Критерії прийняття
 
