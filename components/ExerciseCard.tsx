@@ -7,6 +7,7 @@ interface ExerciseCardProps {
   isActive: boolean;
   onLogExercise: (loggedSets: LoggedSetWithAchieved[], success: boolean) => void;
   onSkipExercise: () => void;
+  onUndoSkipExercise?: () => void; // Додаємо новий пропс для скасування пропуску
   recommendations?: {
     exerciseName: string;
     recommendation: string;
@@ -24,6 +25,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   isActive,
   onLogExercise,
   onSkipExercise,
+  onUndoSkipExercise, // Додаємо новий пропс
   recommendations = [],
   variations = [],
   onSelectVariation
@@ -195,7 +197,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
       ...newLoggedSetsData[setIndex], 
       [field]: value === '' ? null : parseFloat(value),
       // Автоматично встановлюємо правильний weightContext
-      weightContext: newLoggedSetsData[setIndex]?.weightContext || getAutomaticWeightContext(exercise.weightType)
+      weightContext: getAutomaticWeightContext(exercise.weightType)
     };
     setLoggedSetsData(newLoggedSetsData);
   };
@@ -484,36 +486,56 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
             <div className="mt-2 flex items-center justify-between">
               {isCompleted && <p className="text-xs sm:text-sm text-green-200 font-medium"><i className="fas fa-check-double mr-1"></i>Вправу успішно залоговано!</p>}
               {isSkipped && <p className="text-xs sm:text-sm text-orange-200 font-medium"><i className="fas fa-forward mr-1"></i>Вправу пропущено!</p>}
-              {isActive && !isSkipped && ( // Дозволяємо редагувати лише якщо не пропущено
-                <button
-                  onClick={() => {
-                    // Перевідкрити форму з уже внесеними даними
-                    if (exercise.sessionLoggedSets && exercise.sessionLoggedSets.length > 0) {
-                      setLoggedSetsData(exercise.sessionLoggedSets.map(set => ({
-                        repsAchieved: set.repsAchieved !== undefined ? set.repsAchieved : null,
-                        weightUsed: set.weightUsed !== undefined ? set.weightUsed : null,
-                        completed: set.completed ?? false,
-                        weightContext: set.weightContext || getAutomaticWeightContext(exercise.weightType),
-                      })));
-                      setNumSets(exercise.sessionLoggedSets.length);
-                    } else {
-                      const initialSets = parseInt(exercise.sets.toString()) || 3;
-                      const initialLoggedSets = Array(initialSets).fill({
-                        repsAchieved: null,
-                        weightUsed: exercise.weightType === 'bodyweight' ? 0 : null,
-                        completed: false,
-                        weightContext: getAutomaticWeightContext(exercise.weightType),
-                      });
-                      setLoggedSetsData(initialLoggedSets);
-                      setNumSets(initialSets);
-                    }
-                    setIsCompleted(false);
-                    setShowLogForm(true);
-                  }}
-                  className="text-xs sm:text-sm px-2 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded"
-                >
-                  Редагувати
-                </button>
+              {isActive && (
+                <div className="flex space-x-2">
+                  {!isSkipped && ( // Дозволяємо редагувати лише якщо не пропущено
+                    <button
+                      onClick={() => {
+                        // Перевідкрити форму з уже внесеними даними
+                        if (exercise.sessionLoggedSets && exercise.sessionLoggedSets.length > 0) {
+                          setLoggedSetsData(exercise.sessionLoggedSets.map(set => ({
+                            repsAchieved: set.repsAchieved !== undefined ? set.repsAchieved : null,
+                            weightUsed: set.weightUsed !== undefined ? set.weightUsed : null,
+                            completed: set.completed ?? false,
+                            weightContext: set.weightContext || getAutomaticWeightContext(exercise.weightType),
+                          })));
+                          setNumSets(exercise.sessionLoggedSets.length);
+                        } else {
+                          const initialSets = parseInt(exercise.sets.toString()) || 3;
+                          const initialLoggedSets = Array(initialSets).fill({
+                            repsAchieved: null,
+                            weightUsed: exercise.weightType === 'bodyweight' ? 0 : null,
+                            completed: false,
+                            weightContext: getAutomaticWeightContext(exercise.weightType),
+                          });
+                          setLoggedSetsData(initialLoggedSets);
+                          setNumSets(initialSets);
+                        }
+                        setIsCompleted(false);
+                        setShowLogForm(true);
+                      }}
+                      className="text-xs sm:text-sm px-2 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded"
+                    >
+                      Редагувати
+                    </button>
+                  )}
+                  {isSkipped && ( // Додаємо кнопку "Скасувати пропуск"
+                    <button
+                      onClick={() => {
+                        // Скасовуємо пропуск вправи
+                        setIsSkipped(false);
+                        setIsCompleted(false);
+                        // Викликаємо функцію скасування пропуску у батьківському компоненті
+                        if (onUndoSkipExercise) {
+                          onUndoSkipExercise();
+                        }
+                      }}
+                      className="text-xs sm:text-sm px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded flex items-center"
+                    >
+                      <i className="fas fa-undo mr-1"></i> Скасувати
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -603,7 +625,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                               required={exercise.weightType !== 'bodyweight'}
                               disabled={exercise.weightType === 'bodyweight'}
                             />
-                            <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-[10px] text-gray-400 pointer-events-none font-medium">
+                            <div className={`absolute right-2 top-1/2 transform -translate-y-1/2 text-[10px] text-gray-400 pointer-events-none font-medium ${(loggedSetsData[setIndex]?.weightUsed !== null && loggedSetsData[setIndex]?.weightUsed !== undefined && loggedSetsData[setIndex]?.weightUsed !== 0) ? 'opacity-0' : ''}`}>
                               {getWeightDisplayHint(exercise.weightType, exercise.name)}
                             </div>
                           </div>

@@ -18,6 +18,7 @@ interface WorkoutDisplayProps {
   onEndWorkout: () => void;
   onLogExercise: (exerciseIndex: number, loggedSets: LoggedSetWithAchieved[], success: boolean) => void;
   onSkipExercise: (exerciseIndex: number) => void;
+  onUndoSkipExercise?: (exerciseIndex: number) => void; // Додаємо новий пропс
   workoutTimerDisplay: string;
   isApiKeyMissing: boolean;
   onSaveWorkoutPlan: (plan: DailyWorkoutPlan[]) => void;
@@ -43,6 +44,7 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
   onEndWorkout,
   onLogExercise,
   onSkipExercise,
+  onUndoSkipExercise, // Додаємо новий пропс
   workoutTimerDisplay,
   isApiKeyMissing,
   onSaveWorkoutPlan,
@@ -524,6 +526,7 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
                     onLogExercise(index, loggedSets, success);
                   }}
                   onSkipExercise={() => onSkipExercise(index)}
+                  onUndoSkipExercise={() => onUndoSkipExercise?.(index)} // Додаємо новий пропс
                   recommendations={exerciseRecommendations}
                   variations={variations}
                   onSelectVariation={async (variation) => {
@@ -556,6 +559,7 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
                   onLogExercise(index, loggedSets, success);
                 }}
                 onSkipExercise={() => onSkipExercise(index)}
+                onUndoSkipExercise={() => onUndoSkipExercise?.(index)} // Додаємо новий пропс
                 recommendations={exerciseRecommendations}
                 variations={variations}
                 onSelectVariation={async (variation) => {

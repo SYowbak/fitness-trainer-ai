@@ -103,8 +103,17 @@ export const analyzeProgressTrends = (workoutHistory: WorkoutLog[]): {
     return dateB.getTime() - dateA.getTime();
   });
 
-  // Беремо останні 10 тренувань для аналізу
-  const recentWorkouts = sortedWorkouts.slice(0, 10);
+  // Фільтруємо тренування з надто великою тривалістю (більше 3 годин) - ймовірно забуті
+  const filteredWorkouts = sortedWorkouts.filter(workout => {
+    // Якщо тривалість більше 3 годин (10800 секунд), вважаємо її підозрілою
+    return workout.duration && workout.duration <= 10800;
+  });
+
+  // Якщо після фільтрації залишилося менше 2 тренувань, використовуємо оригінальні
+  const validWorkouts = filteredWorkouts.length >= 2 ? filteredWorkouts : sortedWorkouts;
+  
+  // Беремо останні 10 тренувань для аналізу (або менше, якщо їх менше)
+  const recentWorkouts = validWorkouts.slice(0, Math.min(10, validWorkouts.length));
   
   // Розділяємо на дві групи для порівняння
   const newerHalf = recentWorkouts.slice(0, Math.ceil(recentWorkouts.length / 2));
@@ -124,7 +133,7 @@ export const analyzeProgressTrends = (workoutHistory: WorkoutLog[]): {
         workout.loggedExercises.forEach(exercise => {
           if (exercise.loggedSets && Array.isArray(exercise.loggedSets)) {
             exercise.loggedSets.forEach(set => {
-              if (set.weightUsed && set.repsAchieved && set.completed) {
+              if (set.weightUsed !== null && set.repsAchieved !== null && set.completed) {
                 totalWeight += set.weightUsed;
                 totalReps += set.repsAchieved;
                 totalSets++;
@@ -151,15 +160,15 @@ export const analyzeProgressTrends = (workoutHistory: WorkoutLog[]): {
   // Розраховуємо відсоток покращення
   const weightImprovement = olderMetrics.avgWeightPerSet > 0 
     ? ((newerMetrics.avgWeightPerSet - olderMetrics.avgWeightPerSet) / olderMetrics.avgWeightPerSet) * 100 
-    : 0;
+    : (newerMetrics.avgWeightPerSet > 0 ? 100 : 0); // Якщо старе значення 0, а нове > 0, то покращення 100%
   
   const repsImprovement = olderMetrics.avgRepsPerSet > 0 
     ? ((newerMetrics.avgRepsPerSet - olderMetrics.avgRepsPerSet) / olderMetrics.avgRepsPerSet) * 100 
-    : 0;
+    : (newerMetrics.avgRepsPerSet > 0 ? 100 : 0); // Якщо старе значення 0, а нове > 0, то покращення 100%
     
   const volumeImprovement = olderMetrics.avgVolumePerSet > 0 
     ? ((newerMetrics.avgVolumePerSet - olderMetrics.avgVolumePerSet) / olderMetrics.avgVolumePerSet) * 100 
-    : 0;
+    : (newerMetrics.avgVolumePerSet > 0 ? 100 : 0); // Якщо старе значення 0, а нове > 0, то покращення 100%
 
   // Визначаємо загальний тренд на основі покращень
   let overallProgress: 'improving' | 'plateau' | 'declining';

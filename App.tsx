@@ -263,6 +263,10 @@ const App: React.FC = () => {
   const handleSkipExercise = useCallback((exerciseIndex: number) => {
     updateExercise(exerciseIndex, [], false, true); // Позначаємо як пропущену, без логування, isSkipped = true
   }, [updateExercise]);
+
+  const handleUndoSkipExercise = useCallback((exerciseIndex: number) => {
+    updateExercise(exerciseIndex, [], false, false); // Скасовуємо пропуск, isSkipped = false
+  }, [updateExercise]);
   
   const handleEndWorkout = useCallback(async () => {
     if (session.activeDay === null || !currentWorkoutPlan || !Array.isArray(currentWorkoutPlan) || !session.startTime || !userProfile || !user) {
@@ -714,6 +718,7 @@ const App: React.FC = () => {
               onStartWorkout={handleStartWorkoutWithWellnessCheck}
               onLogExercise={handleLogSingleExercise}
               onSkipExercise={handleSkipExercise}
+              onUndoSkipExercise={handleUndoSkipExercise} // Додаємо новий пропс
               onEndWorkout={handleEndWorkout}
               userProfile={userProfile}
               onGenerateNewPlan={handleGenerateNewPlan}
@@ -728,10 +733,7 @@ const App: React.FC = () => {
               onSelectVariation={handleSelectVariation}
               progressTrends={progressTrends}
               wellnessCheck={session.wellnessCheck}
-              adaptiveWorkoutPlan={session.adaptiveWorkoutPlan ? {
-                ...session.adaptiveWorkoutPlan,
-                adaptations: session.adaptiveWorkoutPlan.adaptations || []
-              } : null}
+              adaptiveWorkoutPlan={session.adaptiveWorkoutPlan}
               onAddExerciseClick={() => setIsAddExerciseOpen(true)}
               onReorderExercises={handleReorderExercises}
               onSaveExerciseOrder={handleSaveExerciseOrder}
