@@ -93,5 +93,7 @@
       "type": "image/png",
       "form_factor": "narrow"
     }
-  ]
+  ],
+  "prefer_related_applications": false,
+  "related_applications": []
 }

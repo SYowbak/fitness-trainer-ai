@@ -34,6 +34,9 @@ window.addEventListener('beforeinstallprompt', (e) => {
   console.log('📱 PWA готово до встановлення');
   e.preventDefault();
   deferredPrompt = e;
+  
+  // Показуємо користувачу що можна встановити
+  console.log('💡 Для встановлення: меню браузера → "Додати на головний екран"');
 });
 
 // Обробник після встановлення
@@ -41,6 +44,11 @@ window.addEventListener('appinstalled', () => {
   console.log('🎉 PWA успішно встановлено!');
   deferredPrompt = null;
 });
+
+// Перевіряємо чи PWA вже встановлено
+if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) {
+  console.log('✅ PWA запущено як встановлений додаток');
+}
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
