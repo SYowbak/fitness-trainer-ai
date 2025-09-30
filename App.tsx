@@ -9,6 +9,7 @@ import Spinner from './components/Spinner';
 import ErrorMessage from './components/ErrorMessage';
 import TrainerChat from './components/TrainerChat';
 import QuotaStatus from './components/QuotaStatus';
+import OfflineIndicator from './components/OfflineIndicator';
 import { generateWorkoutPlan as apiGenerateWorkoutPlan, generateWellnessRecommendations } from './services/geminiService';
 import { generateNewAdaptiveWorkout } from './services/newAdaptiveWorkout';
 import { useAuth } from './hooks/useAuth';
@@ -867,6 +868,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-900 via-slate-800 to-purple-900">
+      <OfflineIndicator />
       <header className="bg-gray-800/70 backdrop-blur-md shadow-lg p-3 sm:p-4 sticky top-0 z-50">
         <div className="container mx-auto flex flex-col sm:flex-row justify-between items-center">
           <div className="flex items-center space-x-4 mb-2 sm:mb-0">

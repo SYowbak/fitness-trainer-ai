@@ -1,24 +1,37 @@
-const CACHE_NAME = 'fitness-trainer-ai-v1';
-const urlsToCache = [
+const CACHE_NAME = 'fitness-trainer-ai-v2';
+const STATIC_CACHE = 'fitness-static-v2';
+const DYNAMIC_CACHE = 'fitness-dynamic-v2';
+
+// Критично важливі файли для офлайн роботи
+const CORE_FILES = [
   '/',
-  '/static/js/bundle.js',
-  '/static/css/main.css',
   '/manifest.json',
-  '/sounds/',
-  // Додаємо основні маршрути
-  '/?tab=workout',
-  '/?tab=profile',
-  '/?tab=progress'
+  '/index.html',
+  // Іконки для PWA
+  '/icon-192.png',
+  '/icon-512.png',
+  '/favicon.png'
 ];
+
+// Файли які кешуються динамічно
+const CACHE_STRATEGIES = {
+  // Статичні ресурси - кеш спочатку
+  static: ['.js', '.css', '.png', '.jpg', '.jpeg', '.svg', '.woff', '.woff2'],
+  // API запити - мережа спочатку, потім кеш
+  api: ['firebase', 'googleapis', 'generativelanguage']
+};
 
 // Встановлення Service Worker
 self.addEventListener('install', (event) => {
-  console.log('🔧 Service Worker: Встановлення...');
+  console.log('🔧 Service Worker: Встановлення v2...');
   event.waitUntil(
-    caches.open(CACHE_NAME)
+    caches.open(STATIC_CACHE)
       .then((cache) => {
-        console.log('📦 Service Worker: Кешування файлів...');
-        return cache.addAll(urlsToCache.map(url => new Request(url, {cache: 'reload'})));
+        console.log('📦 Service Worker: Кешування критичних файлів...');
+        return cache.addAll(CORE_FILES);
+      })
+      .then(() => {
+        console.log('✅ Service Worker: Критичні файли закешовано');
       })
       .catch((error) => {
         console.error('❌ Service Worker: Помилка кешування:', error);
@@ -30,12 +43,13 @@ self.addEventListener('install', (event) => {
 
 // Активація Service Worker
 self.addEventListener('activate', (event) => {
-  console.log('✅ Service Worker: Активація...');
+  console.log('✅ Service Worker: Активація v2...');
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
+          // Видаляємо старі кеші
+          if (cacheName !== STATIC_CACHE && cacheName !== DYNAMIC_CACHE) {
             console.log('🗑️ Service Worker: Видалення старого кешу:', cacheName);
             return caches.delete(cacheName);
           }
@@ -47,48 +61,99 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// Допоміжні функції для кешування
+function isStaticResource(url) {
+  return CACHE_STRATEGIES.static.some(ext => url.includes(ext));
+}
+
+function isAPIRequest(url) {
+  return CACHE_STRATEGIES.api.some(api => url.includes(api));
+}
+
+// Стратегія "Cache First" для статичних ресурсів
+async function cacheFirst(request) {
+  const cached = await caches.match(request);
+  if (cached) {
+    console.log('📋 Завантаження з кешу:', request.url);
+    return cached;
+  }
+  
+  try {
+    const response = await fetch(request);
+    if (response.status === 200) {
+      const cache = await caches.open(STATIC_CACHE);
+      cache.put(request, response.clone());
+    }
+    return response;
+  } catch (error) {
+    console.log('❌ Офлайн, файл не в кеші:', request.url);
+    return new Response('Офлайн режим', { status: 503 });
+  }
+}
+
+// Стратегія "Network First" для API запитів
+async function networkFirst(request) {
+  try {
+    const response = await fetch(request);
+    if (response.status === 200) {
+      const cache = await caches.open(DYNAMIC_CACHE);
+      cache.put(request, response.clone());
+    }
+    return response;
+  } catch (error) {
+    console.log('🔄 Мережа недоступна, шукаємо в кеші:', request.url);
+    const cached = await caches.match(request);
+    if (cached) {
+      return cached;
+    }
+    return new Response('Дані недоступні офлайн', { 
+      status: 503,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: 'Офлайн режим', offline: true })
+    });
+  }
+}
+
 // Перехоплення запитів
 self.addEventListener('fetch', (event) => {
-  // Ігноруємо запити до Firebase та інших API
-  if (event.request.url.includes('firebase') || 
-      event.request.url.includes('googleapis') ||
-      event.request.url.includes('generativelanguage') ||
-      event.request.method !== 'GET') {
+  const { request } = event;
+  const url = request.url;
+
+  // Ігноруємо не-GET запити
+  if (request.method !== 'GET') {
     return;
   }
 
   event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        // Повертаємо кешовану версію якщо є
-        if (response) {
-          console.log('📋 Service Worker: Завантаження з кешу:', event.request.url);
+    (async () => {
+      // Статичні ресурси - Cache First
+      if (isStaticResource(url)) {
+        return cacheFirst(request);
+      }
+      
+      // API запити - Network First
+      if (isAPIRequest(url)) {
+        return networkFirst(request);
+      }
+      
+      // HTML сторінки - спочатку мережа, потім кеш
+      if (request.destination === 'document') {
+        try {
+          const response = await fetch(request);
           return response;
+        } catch (error) {
+          console.log('📄 Показуємо кешовану сторінку');
+          const cached = await caches.match('/');
+          return cached || new Response('Додаток недоступний офлайн', { 
+            status: 503,
+            headers: { 'Content-Type': 'text/html' }
+          });
         }
-
-        // Інакше завантажуємо з мережі
-        return fetch(event.request).then((response) => {
-          // Перевіряємо чи відповідь валідна
-          if (!response || response.status !== 200 || response.type !== 'basic') {
-            return response;
-          }
-
-          // Клонуємо відповідь для кешування
-          const responseToCache = response.clone();
-
-          caches.open(CACHE_NAME)
-            .then((cache) => {
-              cache.put(event.request, responseToCache);
-            });
-
-          return response;
-        }).catch(() => {
-          // Якщо офлайн і немає в кеші, показуємо базову сторінку
-          if (event.request.destination === 'document') {
-            return caches.match('/');
-          }
-        });
-      })
+      }
+      
+      // Інші запити - стандартна обробка
+      return fetch(request);
+    })()
   );
 });
 
