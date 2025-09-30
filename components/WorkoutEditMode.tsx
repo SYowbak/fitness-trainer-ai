@@ -182,20 +182,20 @@ const WorkoutEditMode: React.FC<WorkoutEditModeProps> = ({
   return (
     <div className="p-4 bg-gray-800/80 rounded-lg shadow-xl backdrop-blur-sm">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 space-y-4 md:space-y-0">
-        <h2 className="text-2xl font-bold text-purple-300">{UI_TEXT.editWorkoutPlanTitle}</h2>
+        <h2 className="heading-primary text-2xl font-bold">{UI_TEXT.editWorkoutPlanTitle}</h2>
       </div>
 
       {/* Контейнер кнопок збереження/скасування */}
       <div className="flex space-x-2 mb-6 justify-center md:justify-start">
         <button
           onClick={() => onSavePlan(editedPlan)}
-          className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+          className="btn-primary px-4 py-2"
         >
           Зберегти зміни
         </button>
         <button
           onClick={onCancel}
-          className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
+          className="btn-secondary px-4 py-2"
         >
           Скасувати
         </button>
@@ -253,7 +253,7 @@ const WorkoutEditMode: React.FC<WorkoutEditModeProps> = ({
                   )}
                   <button
                     onClick={() => handleRegenerateExercise(selectedDay, index)}
-                    className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex-shrink-0 flex items-center justify-center min-w-[70px] h-[24px]"
+                    className="btn-primary px-2 py-1 text-xs flex-shrink-0 flex items-center justify-center min-w-[70px] h-[24px]"
                     title="Перегенерувати вправу"
                   >
                     Перегенерувати

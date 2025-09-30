@@ -961,17 +961,18 @@ const App: React.FC = () => {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center min-h-screen text-xl text-purple-400">Завантаження автентифікації...</div>;
+    return <div className="flex items-center justify-center min-h-screen bg-black text-xl text-readable accent-glow">Завантаження автентифікації...</div>;
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-900 via-slate-800 to-purple-900">
+    <div className="min-h-screen flex flex-col bg-gradient-black-glow">
       <OfflineIndicator />
-      <header className="bg-gray-800/70 backdrop-blur-md shadow-lg p-3 sm:p-4 sticky top-0 z-50">
+      <header className="header-animated p-3 sm:p-4 sticky top-0 z-50 border-b border-fitness-gold-600/30">
         <div className="container mx-auto flex flex-col sm:flex-row justify-between items-center">
           <div className="flex items-center space-x-4 mb-2 sm:mb-0">
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">
-              <i className="fas fa-dumbbell mr-2"></i>{UI_TEXT.appName}
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold flex items-center">
+              <i className="fas fa-dumbbell mr-2 icon-glow"></i>
+              <span className="title-shimmer">{UI_TEXT.appName}</span>
             </h1>
             {user && <QuotaStatus className="" />}
           </div>
@@ -987,14 +988,13 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <main className="flex-grow container mx-auto p-3 sm:p-4 md:p-6">
+      <main className="flex-grow container mx-auto p-3 sm:p-4 md:p-6 content-glow">
         {error && !isLoading && <ErrorMessage message={error} onClear={() => setError(null)} />}
          {renderView()}
         {/* Плаваюча кнопка чату (видима лише авторизованим користувачам на всіх вкладках крім профілю) */}
         {user && currentView !== 'profile' && (
           <button
-            className="fixed bottom-6 right-6 z-50 bg-purple-600 hover:bg-purple-700 text-white rounded-full shadow-lg p-4 flex items-center justify-center text-2xl transition-colors"
-            style={{ boxShadow: '0 4px 24px rgba(80,0,120,0.25)' }}
+            className="btn-primary fixed bottom-6 right-6 z-50 rounded-full p-4 flex items-center justify-center text-2xl accent-glow"
             onClick={() => setIsTrainerChatOpen(true)}
             aria-label="Відкрити чат з тренером"
           >
@@ -1010,10 +1010,10 @@ const App: React.FC = () => {
               onClick={() => setIsTrainerChatOpen(false)}
             />
             {/* Chat container */}
-            <div className="relative w-full max-w-md sm:max-w-lg h-[80vh] sm:h-[70vh] bg-gray-900 border border-purple-700 rounded-xl shadow-2xl flex flex-col overflow-hidden">
-              <div className="flex justify-between items-center p-3 sm:p-4 border-b border-purple-700 bg-purple-900/80 rounded-t-xl">
-                <span className="text-lg font-semibold text-purple-200"><i className="fas fa-robot mr-2"></i>Чат з тренером</span>
-                <button onClick={() => setIsTrainerChatOpen(false)} className="text-gray-400 hover:text-white text-xl transition-colors" aria-label="Закрити чат">
+            <div className="card relative w-full max-w-md sm:max-w-lg h-[80vh] sm:h-[70vh] flex flex-col overflow-hidden">
+              <div className="flex justify-between items-center p-3 sm:p-4 border-b border-fitness-gold-600/30 bg-gradient-gold-dark rounded-t-xl">
+                <span className="text-lg font-semibold text-readable"><i className="fas fa-robot mr-2 text-fitness-gold-400 accent-glow"></i>Чат з тренером</span>
+                <button onClick={() => setIsTrainerChatOpen(false)} className="text-fitness-gold-400 hover:text-fitness-gold-200 text-xl transition-colors interactive-glow" aria-label="Закрити чат">
                   <i className="fas fa-times"></i>
                 </button>
               </div>
@@ -1045,7 +1045,7 @@ const App: React.FC = () => {
         )}
       </main>
 
-      <footer className="bg-gray-800/50 text-center p-3 sm:p-4 text-xs sm:text-sm text-gray-400 mt-auto">
+      <footer className="bg-fitness-dark-800/60 backdrop-blur-sm text-center p-3 sm:p-4 text-xs sm:text-sm text-muted mt-auto border-t border-fitness-gold-600/30 interactive-glow">
         © {new Date().getFullYear()} {UI_TEXT.appName}. Усі права захищено.
       </footer>
 

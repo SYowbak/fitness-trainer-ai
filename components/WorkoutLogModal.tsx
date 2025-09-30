@@ -44,7 +44,7 @@ const AccordionSection: React.FC<AccordionSectionProps> = ({ title, icon, childr
     <div className="border-b border-gray-700">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex justify-between items-center p-4 text-left text-purple-300 hover:bg-gray-700/50 transition-colors"
+        className="w-full flex justify-between items-center p-4 text-left text-fitness-gold-300 hover:bg-gray-700/50 transition-colors"
       >
         <div className="flex items-center">
           <i className={`fas ${icon} mr-3 w-5 text-center`}></i>
@@ -113,7 +113,7 @@ export const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({
       case 'energy': return 'fas fa-bolt text-yellow-400';
       case 'recovery': return 'fas fa-bed text-blue-400';
       case 'motivation': return 'fas fa-fire text-orange-400';
-      case 'stress': return 'fas fa-brain text-purple-400';
+      case 'stress': return 'fas fa-brain text-fitness-gold-400';
       default: return 'fas fa-heartbeat text-red-400';
     }
   };
@@ -128,7 +128,7 @@ export const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-5 border-b border-gray-700 sticky top-0 bg-gray-800 z-10">
-          <h2 className="text-xl sm:text-2xl font-bold text-center text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">
+          <h2 className="heading-primary text-xl sm:text-2xl font-bold text-center">
             Тренування за {logDate.toLocaleDateString('uk-UA', { year: 'numeric', month: 'long', day: 'numeric' })}
           </h2>
           <button onClick={onClose} className="absolute top-3 right-3 text-gray-400 hover:text-white transition-colors">
@@ -154,7 +154,7 @@ export const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({
                     <button 
                       onClick={() => onAnalyzeWorkout(log)} 
                       disabled={isCurrentLogAnalyzing}
-                      className="px-3 py-1.5 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors text-xs font-semibold disabled:bg-gray-500 disabled:cursor-not-allowed flex items-center"
+                      className="btn-primary px-3 py-1.5 text-xs font-semibold disabled:bg-gray-500 disabled:cursor-not-allowed flex items-center"
                     >
                       {isCurrentLogAnalyzing ? (
                         <>
@@ -172,38 +172,38 @@ export const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({
                   <AccordionSection title="Самопочуття" icon="fa-heartbeat" defaultOpen={true}>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <p className="text-purple-300 mb-1">
+                        <p className="text-fitness-gold-300 mb-1">
                           <i className="fas fa-bolt mr-2"></i>Енергія
                         </p>
                         <p className="pl-6">{getEnergyLevelText(log.wellnessCheck.energyLevel)}</p>
                       </div>
                       <div>
-                        <p className="text-purple-300 mb-1">
+                        <p className="text-fitness-gold-300 mb-1">
                           <i className="fas fa-bed mr-2"></i>Сон
                         </p>
                         <p className="pl-6">{getSleepQualityText(log.wellnessCheck.sleepQuality)}</p>
                       </div>
                       <div>
-                        <p className="text-purple-300 mb-1">
+                        <p className="text-fitness-gold-300 mb-1">
                           <i className="fas fa-brain mr-2"></i>Стрес
                         </p>
                         <p className="pl-6">{getStressLevelText(log.wellnessCheck.stressLevel)}</p>
                       </div>
                       <div>
-                        <p className="text-purple-300 mb-1">
+                        <p className="text-fitness-gold-300 mb-1">
                           <i className="fas fa-fire mr-2"></i>Мотивація
                         </p>
                         <p className="pl-6">{log.wellnessCheck.motivation}/10</p>
                       </div>
                       <div>
-                        <p className="text-purple-300 mb-1">
+                        <p className="text-fitness-gold-300 mb-1">
                           <i className="fas fa-tired mr-2"></i>Втома
                         </p>
                         <p className="pl-6">{log.wellnessCheck.fatigue}/10</p>
                       </div>
                       {log.wellnessCheck.notes && (
                         <div className="col-span-2">
-                          <p className="text-purple-300 mb-1">
+                          <p className="text-fitness-gold-300 mb-1">
                             <i className="fas fa-sticky-note mr-2"></i>Нотатки
                           </p>
                           <p className="pl-6">{log.wellnessCheck.notes}</p>

@@ -467,8 +467,9 @@ export const HealthProfileManager: FC<HealthProfileManagerProps> = ({
         {!isAddingCondition ? (
           <button
             onClick={() => setIsAddingCondition(true)}
-            className="w-full py-3 px-4 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors text-sm"
+            className="btn-secondary w-full text-sm"
           >
+            <i className="fas fa-plus mr-2"></i>
             Додати проблему здоров'я
           </button>
         ) : (
@@ -546,7 +547,7 @@ export const HealthProfileManager: FC<HealthProfileManagerProps> = ({
                 <button
                   type="button"
                   onClick={handleAddCondition}
-                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm"
+                  className="btn-primary px-4 py-2 text-sm"
                 >
                   Додати
                 </button>

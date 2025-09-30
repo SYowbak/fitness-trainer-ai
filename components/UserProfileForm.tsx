@@ -98,12 +98,12 @@ const UserProfileForm: React.FC<UserProfileFormProps> = ({
     );
   };
   
-  const commonSelectClasses = "w-full p-3 md:p-4 bg-gray-700 border border-gray-600 rounded-lg shadow-sm focus:ring-purple-500 focus:border-purple-500 text-gray-200 placeholder-gray-400 text-base";
-  const commonLabelClasses = "block text-sm font-medium text-purple-300 mb-2";
+  const commonSelectClasses = "input-field w-full text-base";
+  const commonLabelClasses = "block text-sm font-medium text-fitness-gold-300 mb-2";
 
   return (
     <div className="max-w-4xl mx-auto px-4">
-      <h2 className="text-2xl md:text-3xl font-bold text-center mb-6 text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">
+      <h2 className="heading-primary text-2xl md:text-3xl text-center mb-6">
         👤 {UI_TEXT.tabProfile}
       </h2>
       <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
@@ -143,7 +143,7 @@ const UserProfileForm: React.FC<UserProfileFormProps> = ({
                   key={option.value} 
                   className={`flex flex-col p-3 rounded-lg cursor-pointer transition-colors
                     ${bodyType === option.value
-                      ? 'bg-purple-600/30 border-purple-500 ring-2 ring-purple-500/50' 
+                      ? 'bg-fitness-gold-600/30 border-fitness-gold-500 ring-2 ring-fitness-gold-500/50' 
                       : 'bg-gray-800/50 border-gray-600 hover:bg-gray-700 hover:border-gray-500'
                     } border`}
                 >
@@ -153,7 +153,7 @@ const UserProfileForm: React.FC<UserProfileFormProps> = ({
                       name="bodyType"
                       checked={bodyType === option.value}
                       onChange={() => setBodyType(option.value)}
-                      className="mr-3 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-600"
+                      className="mr-3 h-4 w-4 text-fitness-gold-600 focus:ring-fitness-gold-500 border-gray-600"
                     />
                     <span className="text-gray-200 font-medium text-sm">{option.label}</span>
                   </div>
@@ -239,7 +239,7 @@ const UserProfileForm: React.FC<UserProfileFormProps> = ({
                   key={option.value} 
                   className={`flex flex-col p-3 rounded-lg cursor-pointer transition-colors
                     ${experienceLevel === option.value
-                      ? 'bg-purple-600/30 border-purple-500 ring-2 ring-purple-500/50' 
+                      ? 'bg-fitness-gold-600/30 border-fitness-gold-500 ring-2 ring-fitness-gold-500/50' 
                       : 'bg-gray-800/50 border-gray-600 hover:bg-gray-700 hover:border-gray-500'
                     } border`}
                 >
@@ -249,7 +249,7 @@ const UserProfileForm: React.FC<UserProfileFormProps> = ({
                       name="experienceLevel"
                       checked={experienceLevel === option.value}
                       onChange={() => setExperienceLevel(option.value)}
-                      className="mr-3 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-600"
+                      className="mr-3 h-4 w-4 text-fitness-gold-600 focus:ring-fitness-gold-500 border-gray-600"
                     />
                     <span className="text-gray-200 font-medium text-sm">{option.label}</span>
                   </div>
@@ -281,13 +281,13 @@ const UserProfileForm: React.FC<UserProfileFormProps> = ({
                   return (
                     <span 
                       key={group}
-                      className="inline-flex items-center px-2 py-1 rounded-md text-xs bg-purple-600/20 text-purple-200 border border-purple-500/50"
+                      className="inline-flex items-center px-2 py-1 rounded-md text-xs bg-fitness-gold-600/20 text-fitness-gold-200 border border-fitness-gold-500/50"
                     >
                       {option?.label}
                       <button
                         type="button"
                         onClick={() => handleMuscleGroupChange(group)}
-                        className="ml-1 text-purple-300 hover:text-purple-100 text-sm"
+                        className="ml-1 text-fitness-gold-300 hover:text-fitness-gold-100 text-sm"
                       >
                         ×
                       </button>
@@ -302,7 +302,7 @@ const UserProfileForm: React.FC<UserProfileFormProps> = ({
                   key={option.value} 
                   className={`flex flex-col p-3 rounded-lg cursor-pointer transition-colors
                     ${targetMuscleGroups.includes(option.value as MuscleGroup) 
-                      ? 'bg-purple-600/30 border-purple-500 ring-2 ring-purple-500/50' 
+                      ? 'bg-fitness-gold-600/30 border-fitness-gold-500 ring-2 ring-fitness-gold-500/50' 
                       : 'bg-gray-800/50 border-gray-600 hover:bg-gray-700 hover:border-gray-500'
                     } border`}
                 >
@@ -311,7 +311,7 @@ const UserProfileForm: React.FC<UserProfileFormProps> = ({
                       type="checkbox"
                       checked={targetMuscleGroups.includes(option.value as MuscleGroup)}
                       onChange={() => handleMuscleGroupChange(option.value as MuscleGroup)}
-                      className="mr-3 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-600 rounded"
+                      className="mr-3 h-4 w-4 text-fitness-gold-600 focus:ring-fitness-gold-500 border-gray-600 rounded"
                     />
                     <span className="text-gray-200 font-medium text-sm">{option.label}</span>
                   </div>
@@ -441,8 +441,8 @@ const UserProfileForm: React.FC<UserProfileFormProps> = ({
         <button 
           type="submit" 
           disabled={apiKeyMissing || isLoading}
-          className={`w-full font-semibold py-4 px-6 rounded-lg shadow-md transition duration-300 ease-in-out text-white flex items-center justify-center text-base md:text-lg
-                      ${apiKeyMissing || isLoading ? 'bg-gray-500 cursor-not-allowed' : 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 active:scale-95'}`}
+          className={`w-full flex items-center justify-center text-base md:text-lg py-4 px-6 font-semibold
+                      ${apiKeyMissing || isLoading ? 'bg-gray-500 cursor-not-allowed text-gray-300 rounded-lg' : 'btn-primary accent-glow'}`}
         >
           {isLoading ? (
             <>
@@ -453,7 +453,10 @@ const UserProfileForm: React.FC<UserProfileFormProps> = ({
               Обробка...
             </>
           ) : (
-            <>Згенерувати план тренувань</>
+            <>
+              <i className="fas fa-dumbbell mr-2"></i>
+              Згенерувати план тренувань
+            </>
           )}
         </button>
         {apiKeyMissing && <p className="text-red-400 text-sm mt-3 text-center"><i className="fas fa-exclamation-triangle mr-1"></i>{UI_TEXT.apiKeyMissing}</p>}

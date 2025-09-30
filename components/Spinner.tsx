@@ -34,22 +34,22 @@ const Spinner: React.FC<SpinnerProps> = ({
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[200px] sm:min-h-[300px] p-4 text-center my-6">
-      <div className="w-12 h-12 sm:w-16 sm:h-16 border-4 border-purple-400 border-t-transparent border-solid rounded-full animate-spin mb-4"></div>
-      <p className="text-lg sm:text-xl text-gray-300 mb-2">{message}</p>
+      <div className="w-12 h-12 sm:w-16 sm:h-16 border-4 border-fitness-gold-400 border-t-transparent border-solid rounded-full animate-spin mb-4 shadow-gold"></div>
+      <p className="text-lg sm:text-xl text-fitness-gold-100 mb-2">{message}</p>
       
       {processingStep && (
-        <p className="text-sm text-purple-300 mb-2">
-          <i className="fas fa-cog animate-spin mr-2"></i>
+        <p className="text-sm text-fitness-gold-300 mb-2">
+          <i className="fas fa-cog animate-spin mr-2 text-fitness-gold-400"></i>
           {processingStep}
         </p>
       )}
       
       {showTimer && (
-        <div className="mt-3 p-3 bg-gray-800/50 rounded-lg border border-gray-600">
-          <p className="text-sm text-gray-400 mb-1">Час обробки:</p>
-          <p className="text-xl font-mono text-yellow-400">{formatTime(elapsedTime)}</p>
+        <div className="mt-3 p-3 bg-fitness-dark-800/50 rounded-lg border border-fitness-gold-600/30">
+          <p className="text-sm text-fitness-gold-400 mb-1">Час обробки:</p>
+          <p className="text-xl font-mono text-fitness-gold-300">{formatTime(elapsedTime)}</p>
           {elapsedTime > 30 && (
-            <p className="text-xs text-orange-400 mt-1">
+            <p className="text-xs text-fitness-gold-400 mt-1">
               <i className="fas fa-clock mr-1"></i>
               AI обробляє складний запит...
             </p>

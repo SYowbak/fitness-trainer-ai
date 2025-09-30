@@ -68,7 +68,7 @@ const WellnessCheckModal: React.FC<WellnessCheckModalProps> = ({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold text-purple-300">
+          <h2 className="heading-primary text-xl font-bold">
             <i className="fas fa-heart mr-2"></i>
             {UI_TEXT.wellnessCheck}
           </h2>
@@ -94,7 +94,7 @@ const WellnessCheckModal: React.FC<WellnessCheckModalProps> = ({
                   onClick={() => setWellnessCheck(prev => ({ ...prev, energyLevel: level }))}
                   className={`flex-1 text-center p-3 rounded text-xs sm:text-sm transition-colors ${
                     wellnessCheck.energyLevel === level
-                      ? 'bg-purple-600 text-white'
+                      ? 'btn-primary'
                       : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                   }`}
                 >
@@ -169,7 +169,7 @@ const WellnessCheckModal: React.FC<WellnessCheckModalProps> = ({
             />
             <div className="flex justify-between text-xs text-gray-400 mt-1">
               <span>1</span>
-              <span className="text-purple-400 font-medium">{wellnessCheck.motivation}</span>
+              <span className="text-fitness-gold-400 font-medium">{wellnessCheck.motivation}</span>
               <span>10</span>
             </div>
           </div>
@@ -211,7 +211,7 @@ const WellnessCheckModal: React.FC<WellnessCheckModalProps> = ({
                 notes: e.target.value 
               }))}
               placeholder="Додаткові коментарі про самопочуття..."
-              className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-300 placeholder-gray-400 focus:outline-none focus:border-purple-500"
+              className="input-field w-full"
               rows={3}
             />
           </div>
@@ -241,7 +241,7 @@ const WellnessCheckModal: React.FC<WellnessCheckModalProps> = ({
             </button>
             <button
               onClick={handleSubmit}
-              className="w-full sm:w-auto px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium"
+              className="btn-primary w-full sm:w-auto px-6 py-3 font-medium"
             >
               <i className="fas fa-magic mr-2"></i>
               Генерувати AI план

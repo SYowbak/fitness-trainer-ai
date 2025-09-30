@@ -153,12 +153,12 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
     return (
       <div className="text-center p-6 sm:p-8 bg-gray-800/80 rounded-lg shadow-xl mt-6 sm:mt-10 backdrop-blur-sm">
         <i className="fas fa-exclamation-circle text-4xl sm:text-5xl text-yellow-400 mb-4 sm:mb-6"></i>
-        <h2 className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4 text-purple-300">{UI_TEXT.noWorkoutPlan}</h2>
+        <h2 className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4 text-fitness-gold-300">{UI_TEXT.noWorkoutPlan}</h2>
         {userProfile && !isLoading && (
           <button
             onClick={onGenerateNewPlan}
             disabled={isApiKeyMissing}
-            className={`font-bold py-2.5 px-5 sm:py-3 sm:px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 flex items-center mx-auto text-sm sm:text-base ${isApiKeyMissing ? 'bg-gray-500 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700 text-white'}`}
+            className={`flex items-center mx-auto text-sm sm:text-base ${isApiKeyMissing ? 'bg-gray-500 cursor-not-allowed text-gray-300 font-bold py-2.5 px-5 sm:py-3 sm:px-6 rounded-lg' : 'btn-primary'}`}
           >
             <i className="fas fa-magic mr-2"></i>{UI_TEXT.generateWorkout}
           </button>
@@ -217,7 +217,7 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
 
     return (
       <div className="mb-6 p-4 bg-gray-800/50 border border-gray-600 rounded-lg">
-        <h3 className="text-lg font-semibold text-purple-300 mb-3">
+        <h3 className="text-lg font-semibold text-fitness-gold-300 mb-3">
           <i className="fas fa-chart-line mr-2"></i>
           Аналіз прогресу
         </h3>
@@ -244,7 +244,7 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
             <p className="text-xs text-gray-400">{progressTrends.enduranceProgress}</p>
           </div>
           <div className="text-center">
-            <div className="text-2xl text-purple-400 mb-1">
+            <div className="text-2xl text-fitness-gold-400 mb-1">
               <i className="fas fa-calendar-check"></i>
             </div>
             <p className="text-sm text-gray-300">Консистентність</p>
@@ -443,7 +443,7 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
                 className={
                   `px-4 py-2 rounded transition-colors text-sm sm:text-base ` +
                   (selectedDayForView === day.day
-                    ? 'bg-purple-600 text-white shadow-lg'
+                    ? 'btn-primary'
                     : 'bg-gray-700 text-gray-300 hover:bg-gray-600')
                 }
               >
@@ -469,7 +469,7 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
               disabled={selectedDayForView === null}
               className={`w-full md:w-auto px-4 py-2 rounded transition-colors ${
                 selectedDayForView === null
-                  ? 'bg-gray-500 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700 text-white'
+                  ? 'bg-gray-500 cursor-not-allowed' : 'bg-gradient-gold hover:bg-fitness-gold-600 text-fitness-dark-900'
               }`}
               >
               {UI_TEXT.startWorkout}
@@ -478,7 +478,7 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
             </div>
       ) : (
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl sm:text-2xl font-bold text-purple-300">
+          <h2 className="text-xl sm:text-2xl font-bold text-fitness-gold-300">
             <i className="fas fa-dumbbell mr-2"></i>
             {UI_TEXT.activeWorkoutDay} {activeDay}
           </h2>

@@ -281,7 +281,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
     return {
       bgClasses: "bg-gray-700/60 hover:bg-gray-700/80",
       textClasses: "text-yellow-300",
-      borderClasses: "border-l-4 border-purple-600"
+      borderClasses: "border-l-4 border-fitness-gold-600"
     };
   };
   
@@ -301,13 +301,13 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
         <h5 className={`text-md sm:text-lg font-semibold ${completedTextClasses} hover:text-yellow-200 ${isCompleted ? 'line-through' : (isSkipped ? 'line-through' : '')}`}>
           {exercise.name} {isCompleted && <i className="fas fa-check-circle text-green-300 ml-2"></i>} {isSkipped && <i className="fas fa-forward text-orange-300 ml-2"></i>}
         </h5>
-        <i className={`fas ${isExpanded ? 'fa-chevron-up' : 'fa-chevron-down'} text-purple-300 text-lg sm:text-xl transition-transform duration-200`}></i>
+        <i className={`fas ${isExpanded ? 'fa-chevron-up' : 'fa-chevron-down'} text-fitness-gold-300 text-lg sm:text-xl transition-transform duration-200`}></i>
       </button>
       
       {isExpanded && (
         <div id={`exercise-details-${exercise.name.replace(/\s+/g, '-')}`} className="mt-3 space-y-3 border-t border-gray-500/50 pt-3">
           <div>
-            <strong className="text-purple-200 block mb-1 text-xs sm:text-sm">
+            <strong className="text-fitness-gold-200 block mb-1 text-xs sm:text-sm">
               <i className="fas fa-info-circle mr-1"></i>{UI_TEXT.exerciseInstructions}
             </strong>
             <div className="mt-2 text-xs sm:text-sm text-gray-300 whitespace-pre-line">
@@ -317,7 +317,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
 
           {exercise.videoSearchQuery && (
             <div className="mt-3">
-              <strong className="text-purple-200 block mb-1 text-xs sm:text-sm">
+              <strong className="text-fitness-gold-200 block mb-1 text-xs sm:text-sm">
                 <i className="fab fa-youtube mr-1"></i>{UI_TEXT.videoSuggestion}
               </strong>
               <a 
@@ -358,12 +358,12 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
 
           {/* Варіації вправ */}
           {hasVariations && (
-            <div className="mb-4 p-4 bg-purple-900/30 border border-purple-500/30 rounded-lg">
+            <div className="mb-4 p-4 bg-fitness-gold-900/30 border border-fitness-gold-500/30 rounded-lg">
               <div className="flex items-start space-x-3">
-                <i className="fas fa-random text-purple-400 mt-1"></i>
+                <i className="fas fa-random text-fitness-gold-400 mt-1"></i>
                 <div className="flex-1">
-                  <h4 className="text-purple-300 font-semibold mb-2">Варіації вправи</h4>
-                  <p className="text-purple-200 text-sm mb-3">
+                  <h4 className="text-fitness-gold-300 font-semibold mb-2">Варіації вправи</h4>
+                  <p className="text-fitness-gold-200 text-sm mb-3">
                     Спробуйте варіацію для уникнення плато та підтримки прогресу
                   </p>
                   <div className="space-y-2">
@@ -382,19 +382,19 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                             setIsSelectingVariation(false);
                           }
                         }}
-                        className={`w-full text-left p-3 rounded border border-purple-600/30 transition-colors ${isSelectingVariation ? 'bg-purple-800/30 cursor-wait' : 'bg-purple-800/50 hover:bg-purple-700/50'}`}
+                        className={`w-full text-left p-3 rounded border border-fitness-gold-600/30 transition-colors ${isSelectingVariation ? 'bg-fitness-gold-800/30 cursor-wait' : 'bg-fitness-gold-800/50 hover:bg-fitness-gold-700/50'}`}
                       >
                         <div className="flex justify-between items-start">
                           <div className="flex-1">
-                            <h5 className="text-purple-200 font-medium">{variation.name}</h5>
-                            <p className="text-purple-300 text-xs mt-1">
+                            <h5 className="text-fitness-gold-200 font-medium">{variation.name}</h5>
+                            <p className="text-fitness-gold-300 text-xs mt-1">
                               {variation.sets} підходів × {variation.reps} повторень
                             </p>
                             {variation.notes && (
-                              <p className="text-purple-400 text-xs mt-1">{variation.notes}</p>
+                              <p className="text-fitness-gold-400 text-xs mt-1">{variation.notes}</p>
                             )}
                           </div>
-                          <i className="fas fa-arrow-right text-purple-400 ml-2"></i>
+                          <i className="fas fa-arrow-right text-fitness-gold-400 ml-2"></i>
                         </div>
                       </button>
                     ))}
@@ -406,19 +406,19 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
 
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs sm:text-sm">
             <div className="bg-gray-600/70 p-2 rounded shadow">
-              <strong className="block text-purple-200 mb-0.5"><i className="fas fa-layer-group mr-1"></i>{UI_TEXT.sets}</strong>
+              <strong className="block text-fitness-gold-200 mb-0.5"><i className="fas fa-layer-group mr-1"></i>{UI_TEXT.sets}</strong>
               <span className="text-gray-100">{typeof exercise.sets === 'string' ? exercise.sets : exercise.sets?.toString()}</span>
             </div>
             <div className="bg-gray-600/70 p-2 rounded shadow">
-              <strong className="block text-purple-200 mb-0.5"><i className="fas fa-redo mr-1"></i>{UI_TEXT.reps}</strong>
+              <strong className="block text-fitness-gold-200 mb-0.5"><i className="fas fa-redo mr-1"></i>{UI_TEXT.reps}</strong>
               <span className="text-gray-100">{exercise.targetReps ?? exercise.reps}</span>
             </div>
             <div className="bg-gray-600/70 p-2 rounded shadow col-span-2 sm:col-span-1">
-              <strong className="block text-purple-200 mb-0.5"><i className="fas fa-stopwatch mr-1"></i>{UI_TEXT.rest}</strong>
+              <strong className="block text-fitness-gold-200 mb-0.5"><i className="fas fa-stopwatch mr-1"></i>{UI_TEXT.rest}</strong>
               <span className="text-gray-100">{exercise.rest || '-'}</span>
             </div>
             {exercise.targetWeight !== undefined && exercise.targetWeight !== null && (
-                 <div className="bg-purple-700/60 p-2 rounded shadow col-span-full">
+                 <div className="bg-fitness-gold-700/60 p-2 rounded shadow col-span-full">
                     <strong className="block text-yellow-200 mb-0.5"><i className="fas fa-bullseye mr-1"></i>{UI_TEXT.targetWeight}</strong>
                     <span className="text-gray-100 font-semibold">{exercise.targetWeight} kg</span>
                  </div>
@@ -550,7 +550,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
       {showLogForm && !isCompleted && !isSkipped && isActive && (
         <div className="fixed inset-0 bg-gray-900/80 backdrop-blur-sm flex items-center justify-center p-3 z-[100]" onClick={() => setShowLogForm(false)}>
           <div className="bg-gray-700 p-3 sm:p-5 rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg sm:text-xl font-semibold text-purple-300 mb-3">{UI_TEXT.logExercise}: {exercise.name}</h3>
+            <h3 className="text-lg sm:text-xl font-semibold text-fitness-gold-300 mb-3">{UI_TEXT.logExercise}: {exercise.name}</h3>
             <p className="text-xs sm:text-sm text-gray-300 mb-1">План: {exercise.sets} підходів по {exercise.targetReps ?? exercise.reps} повторень.</p>
             {exercise.targetWeight !== null && exercise.targetWeight !== undefined && <p className="text-xs sm:text-sm text-gray-300 mb-2">Цільова вага: {exercise.targetWeight} кг.</p>}
             
@@ -588,7 +588,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                   <p className="text-xs sm:text-sm font-medium text-yellow-300">Підхід {setIndex + 1}</p>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label htmlFor={`reps-${setIndex}`} className="block text-xs text-purple-200 mb-1">{UI_TEXT.repsAchieved}</label>
+                      <label htmlFor={`reps-${setIndex}`} className="block text-xs text-fitness-gold-200 mb-1">{UI_TEXT.repsAchieved}</label>
                       <input
                         type="number"
                         id={`reps-${setIndex}`}
@@ -605,7 +605,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                     {correctedWeightType !== 'none' && (
                       <>
                         <div>
-                          <label htmlFor={`weight-${setIndex}`} className="block text-xs text-purple-200 mb-1">
+                          <label htmlFor={`weight-${setIndex}`} className="block text-xs text-fitness-gold-200 mb-1">
                             {getWeightLabel(correctedWeightType)}
                           </label>
                           <div className="relative">

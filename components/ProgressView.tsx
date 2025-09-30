@@ -162,7 +162,7 @@ const ProgressView: React.FC<ProgressViewProps> = ({
       <div className="mb-6 space-y-4">
         {/* Аналіз прогресу */}
         <div className="p-4 bg-gray-800/50 border border-gray-600 rounded-lg">
-          <h3 className="text-lg font-semibold text-purple-300 mb-3">
+          <h3 className="text-lg font-semibold text-fitness-gold-300 mb-3">
             <i className="fas fa-chart-line mr-2"></i>
             Аналіз прогресу
           </h3>
@@ -189,7 +189,7 @@ const ProgressView: React.FC<ProgressViewProps> = ({
               <p className="text-xs text-gray-400">{progressAnalysis.enduranceProgress}</p>
             </div>
             <div className="text-center">
-              <div className="text-2xl text-purple-400 mb-1">
+              <div className="text-2xl text-fitness-gold-400 mb-1">
                 <i className="fas fa-calendar-check"></i>
               </div>
               <p className="text-sm text-gray-300">Консистентність</p>
@@ -241,11 +241,11 @@ const ProgressView: React.FC<ProgressViewProps> = ({
               <p className="text-lg font-bold text-red-200">{workoutStats.avgSetsPerWorkout}</p>
             </div>
             <div className="text-center">
-              <div className="text-2xl text-purple-400 mb-1">
+              <div className="text-2xl text-fitness-gold-400 mb-1">
                 <i className="fas fa-star"></i>
               </div>
               <p className="text-sm text-gray-300">Найдовше тренування</p>
-              <p className="text-lg font-bold text-purple-200">{workoutStats.bestWorkoutDuration} хв</p>
+              <p className="text-lg font-bold text-fitness-gold-200">{workoutStats.bestWorkoutDuration} хв</p>
             </div>
           </div>
         </div>
@@ -255,7 +255,7 @@ const ProgressView: React.FC<ProgressViewProps> = ({
 
   return (
     <div className="p-4 sm:p-6 bg-gray-900/50 rounded-xl shadow-2xl backdrop-blur-sm">
-      <h2 className="text-2xl sm:text-3xl font-bold text-center mb-4 text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">
+      <h2 className="text-2xl sm:text-3xl font-bold text-center mb-4 text-transparent bg-clip-text bg-gradient-gold">
         <i className="fas fa-chart-line mr-3"></i>{UI_TEXT.progressTitle}
       </h2>
       
@@ -281,7 +281,7 @@ const ProgressView: React.FC<ProgressViewProps> = ({
                     </span>
                   )}
                   {rec.suggestedReps && (
-                    <span className="px-2 py-1 bg-purple-600/30 text-purple-200 rounded">
+                    <span className="px-2 py-1 bg-fitness-gold-600/30 text-fitness-gold-200 rounded">
                       Повторення: {rec.suggestedReps}
                     </span>
                   )}

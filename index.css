@@ -2,59 +2,90 @@
 @tailwind components;
 @tailwind utilities; 
 
-/* Стилі для слайдерів */
-.slider {
-  -webkit-appearance: none;
-  appearance: none;
-  background: transparent;
-  cursor: pointer;
+/* Глобальні стилі для золото-чорної теми */
+@layer base {
+  body {
+    @apply bg-black text-fitness-gold-100;
+  }
+  
+  /* Кастомні CSS змінні для теми */
+  :root {
+    --fitness-gold: #f59e0b;
+    --fitness-gold-dark: #d97706;
+    --fitness-dark: #1e293b;
+    --fitness-dark-light: #334155;
+    --fitness-black: #0f172a;
+  }
 }
 
-.slider::-webkit-slider-track {
-  background: #374151;
+/* Стилі для слайдерів з новою темою */
+.slider, input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  background: #334155; /* fitness-dark-light */
+  border-radius: 4px;
+  outline: none;
+  cursor: pointer;
+  border: 1px solid #475569;
+}
+
+.slider::-webkit-slider-track, input[type="range"]::-webkit-slider-track {
+  -webkit-appearance: none;
+  appearance: none;
+  background: #334155; /* fitness-dark-light */
   height: 8px;
   border-radius: 4px;
+  border: 1px solid #475569;
 }
 
-.slider::-webkit-slider-thumb {
+.slider::-webkit-slider-thumb, input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  background: #8b5cf6;
+  background: #f59e0b; /* fitness-gold */
   height: 20px;
   width: 20px;
   border-radius: 50%;
   cursor: pointer;
   transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+  border: 2px solid #d97706;
+  margin-top: -8px; /* Збільшено для кращого центрування */
 }
 
-.slider::-webkit-slider-thumb:hover {
-  background: #7c3aed;
+.slider::-webkit-slider-thumb:hover, input[type="range"]::-webkit-slider-thumb:hover {
+  background: #d97706; /* fitness-gold-dark */
   transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.5);
 }
 
-.slider::-moz-range-track {
-  background: #374151;
+.slider::-moz-range-track, input[type="range"]::-moz-range-track {
+  background: #334155; /* fitness-dark-light */
   height: 8px;
   border-radius: 4px;
-  border: none;
+  border: 1px solid #475569;
 }
 
-.slider::-moz-range-thumb {
-  background: #8b5cf6;
-  height: 20px;
-  width: 20px;
+.slider::-moz-range-thumb, input[type="range"]::-moz-range-thumb {
+  background: #f59e0b; /* fitness-gold */
+  height: 18px; /* Трохи менше для Firefox */
+  width: 18px;
   border-radius: 50%;
   cursor: pointer;
-  border: none;
+  border: 2px solid #d97706;
   transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+  margin-top: 0; /* Firefox має інше позиціонування */
 }
 
-.slider::-moz-range-thumb:hover {
-  background: #7c3aed;
+.slider::-moz-range-thumb:hover, input[type="range"]::-moz-range-thumb:hover {
+  background: #d97706; /* fitness-gold-dark */
   transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.5);
 }
 
-/* Анімації для модальних вікон */
+/* Анімації для модальних вікон з золотими акцентами */
 .modal-enter {
   opacity: 0;
   transform: scale(0.9);
@@ -75,4 +106,253 @@
   opacity: 0;
   transform: scale(0.9);
   transition: opacity 200ms ease-in, transform 200ms ease-in;
+}
+
+/* Преміальні стилі для золото-чорної теми з ефектами світіння */
+@layer components {
+  /* Основні кнопки з золотим світінням */
+  .btn-primary {
+    @apply bg-gradient-gold text-fitness-dark-900 font-semibold py-3 px-6 rounded-lg shadow-gold hover:shadow-gold-lg transition-all duration-300 hover:scale-105;
+    box-shadow: 0 4px 14px 0 rgba(245, 158, 11, 0.4), 0 0 20px rgba(245, 158, 11, 0.2);
+  }
+  
+  .btn-primary:hover {
+    box-shadow: 0 8px 25px 0 rgba(245, 158, 11, 0.6), 0 0 30px rgba(245, 158, 11, 0.4);
+    text-shadow: 0 0 8px rgba(15, 23, 42, 0.8);
+  }
+  
+  /* Вторинні кнопки з тонким золотим світінням */
+  .btn-secondary {
+    @apply bg-fitness-dark-700/80 text-fitness-gold-100 font-semibold py-3 px-6 rounded-lg border border-fitness-gold-600/40 hover:bg-fitness-dark-600/90 hover:border-fitness-gold-500/60 transition-all duration-300 backdrop-blur-sm;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.3), inset 0 1px 0 rgba(245, 158, 11, 0.1);
+  }
+  
+  .btn-secondary:hover {
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.4), 0 0 15px rgba(245, 158, 11, 0.2), inset 0 1px 0 rgba(245, 158, 11, 0.2);
+  }
+  
+  /* Картки з тонким світінням для чорного фону */
+  .card {
+    @apply bg-fitness-dark-800/80 border border-fitness-gold-600/30 rounded-xl p-5 backdrop-blur-md;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 2px rgba(245, 158, 11, 0.15), inset 0 1px 0 rgba(245, 158, 11, 0.08);
+  }
+  
+  .card:hover {
+    border-color: rgba(245, 158, 11, 0.4);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7), 0 0 4px rgba(245, 158, 11, 0.25), inset 0 1px 0 rgba(245, 158, 11, 0.12);
+  }
+  
+  /* Поля вводу з золотим фокусом */
+  .input-field {
+    @apply bg-fitness-dark-700/80 border border-fitness-gold-600/30 text-fitness-gold-100 rounded-lg px-4 py-3 backdrop-blur-sm transition-all duration-300;
+    box-shadow: inset 0 2px 4px rgba(15, 23, 42, 0.3);
+  }
+  
+  .input-field:focus {
+    @apply border-fitness-gold-500/70 ring-2 ring-fitness-gold-500/30;
+    box-shadow: inset 0 2px 4px rgba(15, 23, 42, 0.3), 0 0 0 3px rgba(245, 158, 11, 0.1), 0 0 15px rgba(245, 158, 11, 0.15);
+  }
+  
+  /* Заголовки з золотим градієнтом та світінням */
+  .heading-primary {
+    @apply text-transparent bg-clip-text bg-gradient-gold font-bold;
+    text-shadow: 0 0 30px rgba(245, 158, 11, 0.3);
+    filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.2));
+  }
+  
+  /* Текст з покращеною читабельністю на чорному фоні з золотим світінням */
+  .text-readable {
+    @apply text-gray-50;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 10px rgba(245, 158, 11, 0.1);
+  }
+  
+  .text-muted {
+    @apply text-gray-200;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8), 0 0 8px rgba(245, 158, 11, 0.05);
+  }
+  
+  /* Додаткові класи для кращої читабельності */
+  .text-contrast {
+    @apply text-white;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 1), 0 0 15px rgba(245, 158, 11, 0.2);
+  }
+  
+  /* Акцентні елементи з пульсуючим світінням */
+  .accent-glow {
+    animation: golden-pulse 2s ease-in-out infinite alternate;
+  }
+  
+  /* Інтерактивні елементи */
+  .interactive-glow:hover {
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.3);
+    transition: box-shadow 0.3s ease;
+  }
+  
+  /* Анімована шапка з переливанням та золотим світінням */
+  .header-animated {
+    animation: header-glow 4s ease-in-out infinite;
+    backdrop-filter: blur(12px);
+    position: relative;
+  }
+  
+  /* Додаткове золоте світіння під шапкою - м'якіше */
+  .header-animated::after {
+    content: '';
+    position: absolute;
+    bottom: -5px;
+    left: 10%;
+    right: 10%;
+    height: 15px;
+    background: radial-gradient(ellipse at center, rgba(245, 158, 11, 0.1) 0%, transparent 70%);
+    pointer-events: none;
+    animation: golden-glow-pulse 3s ease-in-out infinite alternate;
+    filter: blur(8px);
+  }
+  
+  /* Іконка без фону з золотим світінням */
+  .icon-glow {
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: #f59e0b !important;
+    text-shadow: 0 0 10px rgba(245, 158, 11, 0.8), 0 0 20px rgba(245, 158, 11, 0.4), 0 0 30px rgba(245, 158, 11, 0.2);
+    animation: golden-fire 3s ease-in-out infinite;
+    filter: drop-shadow(0 0 12px rgba(245, 158, 11, 0.6));
+  }
+  
+  /* Додатково прибираємо всі можливі фони з іконки */
+  .icon-glow::before,
+  .icon-glow::after {
+    background: none !important;
+    background-color: transparent !important;
+  }
+  
+  /* Спеціально для FontAwesome іконок */
+  .icon-glow.fas,
+  .icon-glow.far,
+  .icon-glow.fab {
+    background-image: none !important;
+    background: transparent !important;
+    -webkit-background-clip: unset !important;
+    background-clip: unset !important;
+  }
+  
+  /* Заголовок з переливанням */
+  .title-shimmer {
+    background: linear-gradient(
+      90deg,
+      #f59e0b 0%,
+      #fbbf24 25%,
+      #f59e0b 50%,
+      #d97706 75%,
+      #f59e0b 100%
+    );
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: golden-shimmer 3s linear infinite;
+    text-shadow: none;
+  }
+  
+  /* Покращені кнопки навігації для анімованого фону */
+  .nav-button {
+    @apply bg-fitness-dark-700/90 text-fitness-gold-100 font-semibold py-2 px-4 rounded-lg border border-fitness-gold-600/40 hover:bg-fitness-gold-500 hover:text-black transition-all duration-300 backdrop-blur-md;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(245, 158, 11, 0.1);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  }
+  
+  .nav-button:hover {
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3), 0 0 15px rgba(245, 158, 11, 0.2);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  }
+  
+  .nav-button.active {
+    @apply bg-fitness-gold-500 text-black border-fitness-gold-400;
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  }
+  
+  /* Контейнер контенту з тонким золотим світінням */
+  .content-glow {
+    box-shadow: 0 0 50px rgba(245, 158, 11, 0.03), inset 0 0 50px rgba(245, 158, 11, 0.01);
+  }
+}
+
+/* Анімації */
+@keyframes golden-pulse {
+  0% {
+    box-shadow: 0 0 5px rgba(245, 158, 11, 0.2);
+  }
+  100% {
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.4), 0 0 30px rgba(245, 158, 11, 0.2);
+  }
+}
+
+/* Анімація переливання золота */
+@keyframes golden-shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+/* Анімація горіння золота */
+@keyframes golden-fire {
+  0%, 100% {
+    box-shadow: 
+      0 0 20px rgba(245, 158, 11, 0.3),
+      0 0 40px rgba(245, 158, 11, 0.2),
+      0 0 60px rgba(245, 158, 11, 0.1);
+  }
+  50% {
+    box-shadow: 
+      0 0 30px rgba(245, 158, 11, 0.5),
+      0 0 60px rgba(245, 158, 11, 0.3),
+      0 0 90px rgba(245, 158, 11, 0.2);
+  }
+}
+
+/* Анімація переливання фону шапки з золотим світінням знизу */
+@keyframes header-glow {
+  0%, 100% {
+    background: linear-gradient(135deg, 
+      rgba(0, 0, 0, 0.95) 0%, 
+      rgba(15, 23, 42, 0.98) 50%, 
+      rgba(0, 0, 0, 0.95) 100%);
+    box-shadow: 
+      0 4px 20px rgba(0, 0, 0, 0.6), 
+      0 0 40px rgba(245, 158, 11, 0.08),
+      0 8px 32px rgba(245, 158, 11, 0.15),
+      0 12px 48px rgba(245, 158, 11, 0.1);
+  }
+  50% {
+    background: linear-gradient(135deg, 
+      rgba(0, 0, 0, 0.98) 0%, 
+      rgba(15, 23, 42, 0.95) 30%,
+      rgba(245, 158, 11, 0.03) 50%,
+      rgba(15, 23, 42, 0.95) 70%,
+      rgba(0, 0, 0, 0.98) 100%);
+    box-shadow: 
+      0 4px 25px rgba(0, 0, 0, 0.7), 
+      0 0 50px rgba(245, 158, 11, 0.12),
+      0 8px 40px rgba(245, 158, 11, 0.25),
+      0 16px 64px rgba(245, 158, 11, 0.15),
+      inset 0 1px 0 rgba(245, 158, 11, 0.08);
+  }
+}
+
+/* Анімація пульсуючого золотого світіння під шапкою - м'якша */
+@keyframes golden-glow-pulse {
+  0% {
+    opacity: 0.4;
+    background: radial-gradient(ellipse at center, rgba(245, 158, 11, 0.08) 0%, transparent 70%);
+  }
+  100% {
+    opacity: 0.7;
+    background: radial-gradient(ellipse at center, rgba(245, 158, 11, 0.12) 0%, transparent 70%);
+  }
 } 
