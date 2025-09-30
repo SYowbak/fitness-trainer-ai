@@ -47,6 +47,44 @@ export enum ExperienceLevel {
   ADVANCED = 'advanced'
 }
 
+// Типи для системи здоров'я та травм
+export interface HealthCondition {
+  id: string;
+  type: 'chronic' | 'temporary' | 'recovering';
+  condition: string; // "травма спини", "артрит колін", тощо
+  severity: 'mild' | 'moderate' | 'severe';
+  affectedAreas: string[]; // ["спина", "поперек", "хребет"]
+  startDate: Date;
+  expectedRecoveryDate?: Date;
+  notes?: string;
+  isActive: boolean;
+}
+
+export interface HealthProfile {
+  conditions: HealthCondition[];
+  currentLimitations: string[]; // поточні обмеження для AI
+  recoveryProgress: {
+    [conditionId: string]: {
+      progressPercentage: number; // 0-100%
+      lastUpdated: Date;
+      milestones: string[];
+    }
+  };
+  systemMemory: {
+    rememberedFacts: string[]; // що система запам'ятала про користувача
+    adaptationHistory: {
+      date: Date;
+      reason: string;
+      adaptations: string[];
+    }[];
+  };
+  planAdaptationStatus?: {
+    lastAdaptedDate: Date;
+    adaptedConditions: string[]; // які проблеми були враховані в поточному плані
+    needsReAdaptation: boolean; // чи потрібна повторна адаптація
+  };
+}
+
 export interface UserProfile {
   uid?: string;              // ID користувача (автоматично)
   email?: string;            // Email користувача
@@ -61,7 +99,8 @@ export interface UserProfile {
   weight: number;            // Вага у кг
   age: number;               // Вік у роках
   experienceLevel: ExperienceLevel; // Рівень досвіду
-  healthConstraints?: string[]; // Стислі обмеження/травми (наприклад, "коліно", "спина")
+  healthConstraints?: string[]; // ЗАСТАРІЛЕ: Стислі обмеження/травми (для зворотньої сумісності)
+  healthProfile?: HealthProfile; // НОВА система здоров'я
 }
 
 export type WeightType = 'total' | 'single' | 'bodyweight' | 'none';

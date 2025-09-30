@@ -304,7 +304,7 @@ export async function withQuotaManagement<T>(
   const { skipOnQuotaExceeded = false, bypassQuotaInDev = false } = options;
 
   // Development bypass mode
-  if (import.meta.env.DEV && bypassQuotaInDev) {
+  if ((import.meta as any).env.DEV && bypassQuotaInDev) {
     try {
       const result = await apiCall();
       return result;
@@ -620,7 +620,7 @@ export const emergencyBypass = () => {
 };
 
 // Make quota functions available globally in development
-if (typeof window !== 'undefined' && import.meta.env.DEV) {
+if (typeof window !== 'undefined' && (import.meta as any).env.DEV) {
   (window as any).quotaDebug = {
     getStatus: getQuotaStatus,
     clearQuotaExceeded,

@@ -66,6 +66,7 @@ export const useUserData = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
   const [workoutPlan, setWorkoutPlan] = useState<DailyWorkoutPlan[] | null>(null);
+  const [justSaved, setJustSaved] = useState(false);
 
   // Завантаження профілю
   useEffect(() => {
@@ -76,12 +77,24 @@ export const useUserData = () => {
         return;
       }
 
+      // Якщо ми щойно зберегли профіль, не перезавантажуємо його
+      if (justSaved) {
+        console.log('🟡 [useUserData.loadProfile] Пропускаємо завантаження - профіль щойно збережено');
+        setJustSaved(false);
+        setLoading(false);
+        return;
+      }
+
       try {
         const docRef = doc(db, 'users', user.uid);
         const docSnap = await getDoc(docRef);
         
         if (docSnap.exists()) {
-          setProfile(docSnap.data() as UserProfile);
+          const loadedProfile = docSnap.data() as UserProfile;
+          console.log('🔄 [useUserData.loadProfile] Завантажено профіль з Firebase:', loadedProfile.healthProfile?.conditions?.length || 0, 'умов');
+          setProfile(loadedProfile);
+        } else {
+          console.log('🔄 [useUserData.loadProfile] Профіль не знайдено в Firebase');
         }
       } catch (error) {
         console.error('Error loading profile:', error);
@@ -91,7 +104,7 @@ export const useUserData = () => {
     };
 
     loadProfile();
-  }, [user]);
+  }, [user, justSaved]);
 
   // Завантаження логів тренувань
   useEffect(() => {
@@ -150,18 +163,45 @@ export const useUserData = () => {
         console.error('Error loading workout plan:', error);
       }
     };
+
     loadWorkoutPlan();
   }, [user]);
 
+  // Функція для очищення undefined значень
+  const cleanUndefinedValues = (obj: any): any => {
+    if (obj === null || obj === undefined) return null;
+    if (obj instanceof Date) return obj;
+    if (Array.isArray(obj)) return obj.map(cleanUndefinedValues);
+    if (typeof obj === 'object') {
+      const cleaned: any = {};
+      for (const [key, value] of Object.entries(obj)) {
+        if (value !== undefined) {
+          cleaned[key] = cleanUndefinedValues(value);
+        }
+      }
+      return cleaned;
+    }
+    return obj;
+  };
+
   // Збереження профілю
   const saveProfile = async (profile: UserProfile) => {
+    console.log('🔵 [useUserData.saveProfile] Початок збереження профілю:', profile.healthProfile?.conditions?.length || 0, 'умов');
+    
     if (!user) throw new Error('User not authenticated');
 
     try {
-      await setDoc(doc(db, 'users', user.uid), profile);
+      console.log('🔄 [useUserData.saveProfile] Зберігаємо в Firestore');
+      const cleanedProfile = cleanUndefinedValues(profile);
+      console.log('🧹 [useUserData.saveProfile] Очищено undefined значення');
+      await setDoc(doc(db, 'users', user.uid), cleanedProfile);
+      console.log('🟡 [useUserData.saveProfile] Оновлюємо локальний стан setProfile');
       setProfile(profile);
+      console.log('🟡 [useUserData.saveProfile] Встановлюємо флаг justSaved');
+      setJustSaved(true);
+      console.log('✅ [useUserData.saveProfile] Профіль успішно збережено');
     } catch (error) {
-      console.error('Error saving profile:', error);
+      console.error('❌ [useUserData.saveProfile] Помилка при збереженні:', error);
       throw error;
     }
   };

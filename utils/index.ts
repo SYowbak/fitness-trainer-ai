@@ -1,5 +1,4 @@
 // Re-export all utilities from a central location
-export { logger } from './logger';
 
 // Time utilities
 export const formatDuration = (seconds: number): string => {
@@ -7,6 +6,9 @@ export const formatDuration = (seconds: number): string => {
   const minutes = Math.floor((seconds % 3600) / 60);
   const remainingSeconds = seconds % 60;
 
+  const hoursString = hours > 0 ? `${hours.toString().padStart(2, '0')}:` : '';
+  const minutesString = `${minutes.toString().padStart(2, '0')}:`;
+  const secondsString = `${remainingSeconds.toString().padStart(2, '0')}`;
   if (hours > 0) {
     return `${hours}:${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
   }

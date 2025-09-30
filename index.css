@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* Стилі для слайдерів */
 .slider {
   -webkit-appearance: none;

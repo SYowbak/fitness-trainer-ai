@@ -4,7 +4,7 @@ import { UI_TEXT, GEMINI_MODELS } from '../constants';
 import { withQuotaManagement, shouldEnableAIFeature, getSmartModel } from '../utils/apiQuotaManager';
 import { generateNewExercise, regenerateExercise } from './workoutEditService';
 
-const ai = new GoogleGenerativeAI(import.meta.env.VITE_API_KEY || '');
+const ai = new GoogleGenerativeAI((import.meta as any).env.VITE_API_KEY || '');
 
 interface TrainerAction {
   type: 'chat' | 'modify_workout' | 'replace_exercise' | 'add_exercise' | 'remove_exercise';

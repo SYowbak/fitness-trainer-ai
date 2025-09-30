@@ -9,7 +9,8 @@ import Spinner from './components/Spinner';
 import ErrorMessage from './components/ErrorMessage';
 import TrainerChat from './components/TrainerChat';
 import QuotaStatus from './components/QuotaStatus';
-import { generateWorkoutPlan as apiGenerateWorkoutPlan, generateAdaptiveWorkout, generateWellnessRecommendations } from './services/geminiService';
+import { generateWorkoutPlan as apiGenerateWorkoutPlan, generateWellnessRecommendations } from './services/geminiService';
+import { generateNewAdaptiveWorkout } from './services/newAdaptiveWorkout';
 import { useAuth } from './hooks/useAuth';
 import { AuthForm } from './components/AuthForm';
 import { useUserData } from './hooks/useUserData';
@@ -17,15 +18,13 @@ import { deleteUser } from 'firebase/auth';
 import { db } from './config/firebase';
 import { collection, doc, deleteDoc, getDocs, query, where } from 'firebase/firestore';
 import { analyzeWorkout, getExerciseVariations, analyzeProgressTrends } from './services/workoutAnalysisService';
+import { addBaseRecommendations, validateWorkoutSafety } from './services/injuryValidationService';
 import { useWorkoutSync } from './hooks/useWorkoutSync';
 import WellnessCheckModal from './components/WellnessCheckModal';
 import WellnessRecommendations from './components/WellnessRecommendations';
 import { WellnessCheck, AdaptiveWorkoutPlan, WellnessRecommendation } from './types';
 import WorkoutCompleteModal from './components/WorkoutCompleteModal';
 import AddExerciseModal from './components/AddExerciseModal';
-
-// Immediate test log to verify console is working
-console.log('🚀 [SYSTEM] App.tsx file loaded at:', new Date().toISOString());
 
 type View = 'profile' | 'workout' | 'progress';
 
@@ -53,7 +52,6 @@ const App: React.FC = () => {
   
   // Debug wellness modal state changes
   useEffect(() => {
-    // console.log('💫 [APP] wellnessCheckModalOpen changed to:', wellnessCheckModalOpen);
   }, [wellnessCheckModalOpen]);
   const [wellnessRecommendationsModalOpen, setWellnessRecommendationsModalOpen] = useState<boolean>(false);
   const [wellnessRecommendations, setWellnessRecommendations] = useState<WellnessRecommendation[]>([]);
@@ -97,7 +95,7 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (typeof import.meta.env === 'undefined' || !import.meta.env.VITE_API_KEY) {
+    if (typeof (import.meta as any).env === 'undefined' || !(import.meta as any).env.VITE_API_KEY) {
       setApiKeyMissing(true);
     }
   }, []);
@@ -198,6 +196,97 @@ const App: React.FC = () => {
     loadExerciseVariations();
   }, [loadExerciseVariations]);
 
+  // Оновлення профілю БЕЗ генерації плану (тільки збереження)
+  const handleProfileUpdate = useCallback(async (profile: UserProfile) => {
+    console.log('🔵 [App.handleProfileUpdate] Оновлення профілю (тільки збереження):', profile.healthProfile?.conditions?.length || 0, 'умов');
+    
+    if (apiKeyMissing) {
+      setError(UI_TEXT.apiKeyMissing);
+      return;
+    }
+    setIsLoading(true);
+    setError(null);
+    try {
+      const profileToSave: UserProfile = {
+        ...profile,
+        targetMuscleGroups: profile.targetMuscleGroups || [],
+      };
+      console.log('🔄 [App.handleProfileUpdate] Зберігаємо профіль');
+      await saveProfile(profileToSave);
+      console.log('✅ [App.handleProfileUpdate] Профіль успішно збережено');
+    } catch (e: any) {
+      console.error("❌ [App.handleProfileUpdate] Помилка при оновленні профілю:", e);
+      setError(e.message || 'Помилка при оновленні профілю');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [apiKeyMissing, saveProfile]);
+
+  // Адаптація існуючого плану під проблеми здоров'я
+  const handleAdaptExistingPlan = useCallback(async (profile: UserProfile) => {
+    console.log('🔄 [App.handleAdaptExistingPlan] Адаптація існуючого плану під проблеми здоров\'я:', profile.healthProfile?.conditions?.length || 0, 'умов');
+    
+    if (apiKeyMissing) {
+      setError(UI_TEXT.apiKeyMissing);
+      return;
+    }
+    
+    if (!currentWorkoutPlan || currentWorkoutPlan.length === 0) {
+      setError("Немає існуючого плану для адаптації. Спочатку створіть план тренувань.");
+      return;
+    }
+    
+    // Перевіряємо чи є активне тренування
+    if (session.activeDay !== null) {
+      if(!confirm("У вас є активне тренування. Адаптація плану завершить його без збереження. Продовжити?")) return;
+      endWorkout(); // Завершуємо активну сесію Firebase
+    }
+    
+    setIsLoading(true);
+    setError(null);
+    try {
+      const profileToSave: UserProfile = {
+        ...profile,
+        targetMuscleGroups: profile.targetMuscleGroups || [],
+      };
+      
+      // Оновлюємо статус адаптації плану
+      const activeConditions = profileToSave.healthProfile?.conditions?.filter(c => c.isActive) || [];
+      const updatedProfileWithStatus = {
+        ...profileToSave,
+        healthProfile: {
+          ...profileToSave.healthProfile,
+          conditions: profileToSave.healthProfile?.conditions || [],
+          currentLimitations: profileToSave.healthProfile?.currentLimitations || [],
+          recoveryProgress: profileToSave.healthProfile?.recoveryProgress || {},
+          systemMemory: profileToSave.healthProfile?.systemMemory || { rememberedFacts: [], adaptationHistory: [] },
+          planAdaptationStatus: {
+            lastAdaptedDate: new Date(),
+            adaptedConditions: activeConditions.map(c => c.condition),
+            needsReAdaptation: false
+          }
+        }
+      };
+      
+      // Спочатку зберігаємо оновлений профіль зі статусом адаптації
+      console.log('🔄 [App.handleAdaptExistingPlan] Зберігаємо оновлений профіль зі статусом адаптації');
+      await saveProfile(updatedProfileWithStatus);
+      
+      // Потім генеруємо новий план з урахуванням проблем здоров'я
+      console.log('🏋️ [App.handleAdaptExistingPlan] Генеруємо адаптований план');
+      const adaptedPlan = await apiGenerateWorkoutPlan(updatedProfileWithStatus, GEMINI_MODEL_TEXT);
+      await saveWorkoutPlan(adaptedPlan);
+      
+      console.log('✅ [App.handleAdaptExistingPlan] План успішно адаптовано');
+      setCurrentView('workout'); // Переходимо до плану тренувань
+    } catch (e: any) {
+      console.error("❌ [App.handleAdaptExistingPlan] Помилка при адаптації плану:", e);
+      setError(e.message || 'Помилка при адаптації плану');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [apiKeyMissing, saveProfile, saveWorkoutPlan, currentWorkoutPlan, session.activeDay, endWorkout]);
+
   const handleProfileSave = useCallback(async (profile: UserProfile) => {
     if (apiKeyMissing) {
       setError(UI_TEXT.apiKeyMissing);
@@ -213,7 +302,6 @@ const App: React.FC = () => {
       await saveProfile(profileToSave); // Зберігаємо в Firestore через useUserData
       const plan = await apiGenerateWorkoutPlan(profileToSave, GEMINI_MODEL_TEXT);
       await saveWorkoutPlan(plan);
-      // setActiveWorkoutDay(null); // Це вже не потрібно, оскільки useWorkoutSync керує activeDay
       setCurrentView('workout');
     } catch (e: any) {
       console.error("Error generating workout plan:", e);
@@ -463,12 +551,22 @@ const App: React.FC = () => {
         return;
       }
 
-      await analyzeWorkout(
+      const analysisResult = await analyzeWorkout(
         userProfile,
         currentDayPlan,
         logToAnalyze,
         workoutLogs.filter(log => log.id !== logToAnalyze.id)
       );
+      
+      // Update the workout log with the analysis result
+      if (analysisResult.recommendation) {
+        const updatedLog = { ...logToAnalyze, recommendation: analysisResult.recommendation };
+        const savedLog = await saveWorkoutLog(updatedLog);
+        setWorkoutLogs(prev => prev.map(l => (l.id === savedLog.id ? savedLog : l)));
+      }
+      
+      // Also update the exercise recommendations in the UI
+      setExerciseRecommendations(analysisResult.dailyRecommendations || []);
     } catch (error) {
       console.error("Помилка при повторному аналізі:", error);
       setError("Не вдалося проаналізувати тренування. Спробуйте ще раз.");
@@ -521,22 +619,20 @@ const App: React.FC = () => {
           setUserProfile(updatedProfile);
         }
       }
-
       // Генеруємо адаптивний план тренування
       setWellnessProcessingStep('Адаптуємо план тренування...');
-      
-      const adaptivePlan = await generateAdaptiveWorkout(
+      const adaptiveWorkout = await generateNewAdaptiveWorkout(
         userProfile!,
         currentWorkoutPlan.find(d => d.day === pendingWorkoutDay) || currentWorkoutPlan[0],
         wellnessCheck,
         workoutLogs
       );
       
-      if (!adaptivePlan) {
+      if (!adaptiveWorkout) {
         throw new Error('Не вдалося згенерувати адаптивний план');
       }
       
-      setAdaptiveWorkoutPlan(adaptivePlan);
+      setAdaptiveWorkoutPlan(adaptiveWorkout);
 
       // Generate wellness recommendations in background (OPTIONAL - skip if quota issues)
       setWellnessProcessingStep('Готуємо рекомендації...');
@@ -577,18 +673,18 @@ const App: React.FC = () => {
       // Оновлюємо план тренувань з адаптивним планом
       setWellnessProcessingStep('Зберігаємо план...');
       const updatedPlan = currentWorkoutPlan.map(dayPlan => 
-        dayPlan.day === adaptivePlan.day ? adaptivePlan : dayPlan
+        dayPlan.day === adaptiveWorkout.day ? adaptiveWorkout : dayPlan
       );
       setCurrentWorkoutPlan(updatedPlan);
       await saveWorkoutPlan(updatedPlan);
 
       // АВТОМАТИЧНО СТАРТУЄМО ТРЕНУВАННЯ
       setWellnessProcessingStep('Запускаємо тренування...');
-      await startWorkout(adaptivePlan.day, adaptivePlan.exercises);
+      await startWorkout(adaptiveWorkout.day, adaptiveWorkout.exercises);
       
       // ОНОВЛЮЄМО LIVE-СЕСІЮ з wellnessCheck, adaptiveWorkoutPlan та wellnessRecommendations
       await updateWellnessCheck(wellnessCheck);
-      await updateAdaptiveWorkoutPlan(adaptivePlan);
+      await updateAdaptiveWorkoutPlan(adaptiveWorkout);
       // Оновлення wellnessRecommendations відбудеться після фонового отримання
       
       setPendingWorkoutDay(null);
@@ -696,16 +792,21 @@ const App: React.FC = () => {
               <UserProfileForm
                 existingProfile={userProfile}
                 onSave={handleProfileSave}
+                onUpdateProfile={handleProfileUpdate}
+                onAdaptExistingPlan={handleAdaptExistingPlan}
+                hasExistingPlan={!!(currentWorkoutPlan && currentWorkoutPlan.length > 0)}
                 apiKeyMissing={apiKeyMissing}
                 isLoading={isLoading}
                 onLogout={logout}
                 onDeleteAccount={handleDeleteAccount}
               />
               {user && (
-                <QuotaStatus 
-                  className="" 
-                  showDetailed={true}
-                />
+                <div className="max-w-4xl mx-auto px-4">
+                  <QuotaStatus 
+                    className="" 
+                    showDetailed={true}
+                  />
+                </div>
               )}
             </div>
           </div>
@@ -749,6 +850,9 @@ const App: React.FC = () => {
               onDeleteLog={handleDeleteLog}
               isAnalyzing={isAnalyzing}
               analyzingLogId={analyzingLogId}
+              exerciseRecommendations={exerciseRecommendations}
+              progressTrends={progressTrends}
+              onGenerateNewPlan={handleGenerateNewPlan}
             />
           </div>
         );

@@ -12,6 +12,14 @@ interface ProgressViewProps {
   onDeleteLog: (log: WorkoutLog) => void;
   isAnalyzing: boolean;
   analyzingLogId: string | null;
+  exerciseRecommendations?: any[];
+  progressTrends?: {
+    overallProgress: 'improving' | 'plateau' | 'declining';
+    strengthProgress: number;
+    enduranceProgress: number;
+    consistencyScore: number;
+  } | null;
+  onGenerateNewPlan?: () => Promise<void>;
 }
 
 const ProgressView: React.FC<ProgressViewProps> = ({ 
@@ -19,7 +27,10 @@ const ProgressView: React.FC<ProgressViewProps> = ({
   onAnalyzeWorkout, 
   onDeleteLog, 
   isAnalyzing,
-  analyzingLogId
+  analyzingLogId,
+  exerciseRecommendations = [],
+  progressTrends = null,
+  onGenerateNewPlan
 }) => {
   const [modalLogs, setModalLogs] = useState<WorkoutLog[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -72,14 +83,21 @@ const ProgressView: React.FC<ProgressViewProps> = ({
   // Розраховуємо прогрес для відображення
   const progressAnalysis = useMemo(() => {
     if (workoutLogs.length < 2) return null;
-    return analyzeProgressTrends(workoutLogs);
+    try {
+      return analyzeProgressTrends(workoutLogs);
+    } catch (error) {
+      console.error('Error analyzing progress trends:', error);
+      return null;
+    }
   }, [workoutLogs]);
 
   // Розраховуємо додаткові статистики
   const workoutStats = useMemo(() => {
     if (workoutLogs.length === 0) return null;
 
-    const totalWorkouts = workoutLogs.length;
+    // Фільтруємо сесії з надмірною тривалістю (> 3 годин), якщо користувач забув завершити
+    const saneWorkouts = workoutLogs.filter(log => !log.duration || log.duration <= 10800);
+    const totalWorkouts = saneWorkouts.length;
     const last30Days = workoutLogs.filter(log => {
       const logDate = log.date instanceof Date ? log.date : new Date(log.date.seconds * 1000);
       const thirtyDaysAgo = new Date();
@@ -92,7 +110,7 @@ const ProgressView: React.FC<ProgressViewProps> = ({
     let totalSets = 0;
     let bestWorkoutDuration = 0;
     
-    workoutLogs.forEach(log => {
+    saneWorkouts.forEach(log => {
       if (log.duration) totalDuration += log.duration;
       if (log.loggedExercises) {
         totalExercises += log.loggedExercises.length;
@@ -243,6 +261,55 @@ const ProgressView: React.FC<ProgressViewProps> = ({
       
       {/* Відображення аналізу прогресу */}
       {renderProgressAnalysis()}
+      
+      {/* Рекомендації після завершення тренування */}
+      {exerciseRecommendations && exerciseRecommendations.length > 0 && (
+        <div className="mb-6 p-4 bg-green-900/20 border border-green-500/30 rounded-lg">
+          <h3 className="text-lg font-semibold text-green-300 mb-3">
+            <i className="fas fa-lightbulb mr-2"></i>
+            Рекомендації після останнього тренування
+          </h3>
+          <div className="space-y-3">
+            {exerciseRecommendations.map((rec, index) => (
+              <div key={index} className="bg-gray-800/50 p-3 rounded-lg border border-gray-600">
+                <h4 className="font-medium text-green-200 mb-1">{rec.exerciseName}</h4>
+                <p className="text-sm text-gray-300 mb-2">{rec.recommendation}</p>
+                <div className="flex flex-wrap gap-2 text-xs">
+                  {rec.suggestedWeight && (
+                    <span className="px-2 py-1 bg-blue-600/30 text-blue-200 rounded">
+                      Вага: {rec.suggestedWeight}кг
+                    </span>
+                  )}
+                  {rec.suggestedReps && (
+                    <span className="px-2 py-1 bg-purple-600/30 text-purple-200 rounded">
+                      Повторення: {rec.suggestedReps}
+                    </span>
+                  )}
+                  {rec.suggestedSets && (
+                    <span className="px-2 py-1 bg-orange-600/30 text-orange-200 rounded">
+                      Підходи: {rec.suggestedSets}
+                    </span>
+                  )}
+                  {rec.action && (
+                    <span className={`px-2 py-1 rounded ${
+                      rec.action === 'increase' ? 'bg-green-600/30 text-green-200' :
+                      rec.action === 'decrease' ? 'bg-red-600/30 text-red-200' :
+                      'bg-yellow-600/30 text-yellow-200'
+                    }`}>
+                      {rec.action === 'increase' ? '📈 Збільшити' :
+                       rec.action === 'decrease' ? '📉 Зменшити' : 
+                       '➡️ Залишити'}
+                    </span>
+                  )}
+                </div>
+                {rec.reason && (
+                  <p className="text-xs text-gray-400 mt-2 italic">{rec.reason}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       
       <p className="text-center text-gray-400 mb-6 sm:mb-8 text-sm">
         Оберіть день на календарі, щоб переглянути деталі тренувань.

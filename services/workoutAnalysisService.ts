@@ -1,4 +1,4 @@
-import { UserProfile, DailyWorkoutPlan, WorkoutLog, WorkoutAnalysisResult, Exercise } from '../types';
+import { UserProfile, DailyWorkoutPlan, WorkoutLog, WorkoutAnalysisResult, Exercise, ExerciseRecommendation } from '../types';
 import { generateWorkoutAnalysis, generateExerciseVariations, shouldVaryExercise } from './geminiService';
 
 export const analyzeWorkout = async (
@@ -23,13 +23,21 @@ export const analyzeWorkout = async (
 
     console.log('✅ Workout analysis completed successfully');
     
+    // Ensure all recommendations have the required action field
+    const processedRecommendations: ExerciseRecommendation[] = analysis.dailyRecommendations.map(rec => ({
+      exerciseName: rec.exerciseName,
+      recommendation: rec.recommendation,
+      suggestedWeight: rec.suggestedWeight,
+      suggestedReps: rec.suggestedReps,
+      suggestedSets: rec.suggestedSets,
+      reason: rec.reason,
+      action: (rec as any).action || 'maintain' // Ensure action field exists
+    }));
+    
     return {
       updatedPlan: analysis.updatedPlan,
       recommendation: analysis.recommendation,
-      dailyRecommendations: analysis.dailyRecommendations.map(rec => ({
-        ...rec,
-        action: 'maintain' as const // Додаємо обов'язкове поле action з дефолтним значенням
-      }))
+      dailyRecommendations: processedRecommendations
     };
   } catch (error) {
     console.error('⚠️ Error during workout analysis:', error);
@@ -47,7 +55,7 @@ export const analyzeWorkout = async (
       dailyRecommendations: dayPlan.exercises.map(ex => ({
         exerciseName: ex.name,
         recommendation: 'Продовжуйте виконання за попереднім планом',
-        action: 'maintain' as const,
+        action: 'maintain',
         reason: 'Аналіз недоступний'
       }))
     };
@@ -65,12 +73,11 @@ export const getExerciseVariations = async (
 ): Promise<Exercise[]> => {
   try {
     // Перевіряємо чи потрібно варіювати вправу
-    if (shouldVaryExercise(exercise.name, workoutHistory)) {
+    if (shouldVaryExercise(exercise.name, userProfile, workoutHistory)) {
       const variations = await generateExerciseVariations(
+        exercise.name,
         userProfile,
-        exercise,
-        workoutHistory,
-        targetMuscleGroup
+        `variation for ${targetMuscleGroup}`
       );
       return variations;
     }
@@ -133,7 +140,8 @@ export const analyzeProgressTrends = (workoutHistory: WorkoutLog[]): {
         workout.loggedExercises.forEach(exercise => {
           if (exercise.loggedSets && Array.isArray(exercise.loggedSets)) {
             exercise.loggedSets.forEach(set => {
-              if (set.weightUsed !== null && set.repsAchieved !== null && set.completed) {
+              // Перевіряємо, чи встановлені значення, навіть якщо completed не визначено
+              if (set.weightUsed !== null && set.weightUsed !== undefined && set.repsAchieved !== null && set.repsAchieved !== undefined) {
                 totalWeight += set.weightUsed;
                 totalReps += set.repsAchieved;
                 totalSets++;
