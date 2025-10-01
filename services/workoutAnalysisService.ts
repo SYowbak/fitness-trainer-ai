@@ -113,7 +113,8 @@ export const analyzeProgressTrends = (workoutHistory: WorkoutLog[]): {
   // Фільтруємо тренування з надто великою тривалістю (більше 3 годин) - ймовірно забуті
   const filteredWorkouts = sortedWorkouts.filter(workout => {
     // Якщо тривалість більше 3 годин (10800 секунд), вважаємо її підозрілою
-    return workout.duration && workout.duration <= 10800;
+    // Також включаємо тренування без тривалості (старі записи)
+    return !workout.duration || workout.duration <= 10800;
   });
 
   // Якщо після фільтрації залишилося менше 2 тренувань, використовуємо оригінальні
@@ -184,6 +185,15 @@ export const analyzeProgressTrends = (workoutHistory: WorkoutLog[]): {
   // Комбінований показник прогресу (вага має більший вплив для силових тренувань)
   const combinedProgress = (weightImprovement * 0.4) + (repsImprovement * 0.3) + (volumeImprovement * 0.3);
   
+  console.log('📊 Progress Analysis:', {
+    weightImprovement: Math.round(weightImprovement * 100) / 100,
+    repsImprovement: Math.round(repsImprovement * 100) / 100,
+    volumeImprovement: Math.round(volumeImprovement * 100) / 100,
+    combinedProgress: Math.round(combinedProgress * 100) / 100,
+    newerMetrics,
+    olderMetrics
+  });
+  
   if (combinedProgress > 5) {
     overallProgress = 'improving';
   } else if (combinedProgress < -5) {
@@ -197,8 +207,8 @@ export const analyzeProgressTrends = (workoutHistory: WorkoutLog[]): {
 
   return {
     overallProgress,
-    strengthProgress: Math.round(newerMetrics.avgWeightPerSet * 10) / 10, // Округлюємо до 1 знака після коми
-    enduranceProgress: Math.round(newerMetrics.avgRepsPerSet * 10) / 10,
+    strengthProgress: Math.round(weightImprovement * 10) / 10, // Відсоток покращення ваги
+    enduranceProgress: Math.round(repsImprovement * 10) / 10, // Відсоток покращення повторень
     consistencyScore: Math.round(consistencyScore)
   };
 }; 

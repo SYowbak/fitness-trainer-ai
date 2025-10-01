@@ -80,8 +80,14 @@ const ProgressView: React.FC<ProgressViewProps> = ({
     setSelectedDate(null); // Скидаємо вибрану дату
   };
 
-  // Розраховуємо прогрес для відображення
+  // Використовуємо прогрес з пропсів або розраховуємо локально як fallback
   const progressAnalysis = useMemo(() => {
+    // Якщо є progressTrends з пропсів - використовуємо їх
+    if (progressTrends) {
+      return progressTrends;
+    }
+    
+    // Fallback: розраховуємо локально якщо немає пропсів
     if (workoutLogs.length < 2) return null;
     try {
       return analyzeProgressTrends(workoutLogs);
@@ -89,7 +95,7 @@ const ProgressView: React.FC<ProgressViewProps> = ({
       console.error('Error analyzing progress trends:', error);
       return null;
     }
-  }, [workoutLogs]);
+  }, [progressTrends, workoutLogs]);
 
   // Розраховуємо додаткові статистики
   const workoutStats = useMemo(() => {
@@ -178,15 +184,25 @@ const ProgressView: React.FC<ProgressViewProps> = ({
               <div className="text-2xl text-blue-400 mb-1">
                 <i className="fas fa-dumbbell"></i>
               </div>
-              <p className="text-sm text-gray-300">Середня вага на підхід</p>
-              <p className="text-xs text-gray-400">{progressAnalysis.strengthProgress} кг</p>
+              <p className="text-sm text-gray-300">Прогрес сили</p>
+              <p className={`text-xs font-medium ${
+                progressAnalysis.strengthProgress > 5 ? 'text-green-400' : 
+                progressAnalysis.strengthProgress < -5 ? 'text-red-400' : 'text-yellow-400'
+              }`}>
+                {progressAnalysis.strengthProgress > 0 ? '+' : ''}{progressAnalysis.strengthProgress}%
+              </p>
             </div>
             <div className="text-center">
               <div className="text-2xl text-green-400 mb-1">
                 <i className="fas fa-running"></i>
               </div>
-              <p className="text-sm text-gray-300">Середні повторення на підхід</p>
-              <p className="text-xs text-gray-400">{progressAnalysis.enduranceProgress}</p>
+              <p className="text-sm text-gray-300">Прогрес витривалості</p>
+              <p className={`text-xs font-medium ${
+                progressAnalysis.enduranceProgress > 5 ? 'text-green-400' : 
+                progressAnalysis.enduranceProgress < -5 ? 'text-red-400' : 'text-yellow-400'
+              }`}>
+                {progressAnalysis.enduranceProgress > 0 ? '+' : ''}{progressAnalysis.enduranceProgress}%
+              </p>
             </div>
             <div className="text-center">
               <div className="text-2xl text-fitness-gold-400 mb-1">
