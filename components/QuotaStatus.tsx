@@ -34,7 +34,7 @@ const QuotaStatus: React.FC<QuotaStatusProps> = ({
   }, []);
 
   const getStatusColor = () => {
-    if (quotaStatus.isExceeded) return 'text-red-400';
+    if (quotaStatus.isExceeded) return 'text-gray-400';
     if (quotaManager.isServiceOverloaded()) return 'text-orange-400';
     
     const usagePercent = (quotaStatus.requestCount / quotaStatus.dailyLimit) * 100;
@@ -89,7 +89,7 @@ const QuotaStatus: React.FC<QuotaStatusProps> = ({
           {quotaStatus.requestCount}/{quotaStatus.dailyLimit}
         </span>
         {quotaStatus.isExceeded && (
-          <span className="text-xs text-red-400">Ліміт</span>
+          <span className="text-xs text-gray-400">Ліміт</span>
         )}
       </div>
     );
@@ -117,7 +117,7 @@ const QuotaStatus: React.FC<QuotaStatusProps> = ({
             <div
               className={`h-2 rounded-full transition-all duration-300 ${
                 quotaStatus.isExceeded 
-                  ? 'bg-red-500' 
+                  ? 'bg-gray-500' 
                   : getUsagePercent() >= 80 
                     ? 'bg-orange-500' 
                     : getUsagePercent() >= 60 
@@ -141,10 +141,10 @@ const QuotaStatus: React.FC<QuotaStatusProps> = ({
 
         {/* Warning Messages */}
         {quotaStatus.isExceeded && (
-          <div className="bg-red-900/30 border border-red-700 rounded p-3 mt-3">
+          <div className="bg-gray-800/50 border border-gray-600 rounded p-3 mt-3">
             <div className="flex items-center space-x-2">
-              <span className="text-red-400">⚠️</span>
-              <span className="text-red-300 text-sm">
+              <span className="text-gray-400">⚠️</span>
+              <span className="text-gray-300 text-sm">
                 Ліміт перевищено. Оновлення через {getTimeUntilReset()}
               </span>
             </div>

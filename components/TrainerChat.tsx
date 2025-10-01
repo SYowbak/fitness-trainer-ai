@@ -249,7 +249,7 @@ const TrainerChat: React.FC<TrainerChatProps> = ({
                 clearChat();
               }
             }}
-            className="text-sm text-red-400 hover:text-red-300 transition-colors px-3 py-1 rounded border border-red-600 hover:border-red-500"
+            className="text-sm text-gray-400 hover:text-gray-300 transition-colors px-3 py-1 rounded border border-gray-600 hover:border-gray-500"
             title="Очистити всю історію"
           >
             <i className="fas fa-trash mr-1"></i>
@@ -284,7 +284,7 @@ const TrainerChat: React.FC<TrainerChatProps> = ({
                   {/* Delete button */}
                   <button
                     onClick={() => setShowDeleteConfirm(message.id)}
-                    className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center text-xs"
+                    className="absolute -top-2 -right-2 w-6 h-6 bg-gray-500 hover:bg-gray-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center text-xs"
                     title="Видалити повідомлення"
                   >
                     <i className="fas fa-times"></i>
@@ -299,7 +299,7 @@ const TrainerChat: React.FC<TrainerChatProps> = ({
                             deleteMessage(message.id);
                             setShowDeleteConfirm(null);
                           }}
-                          className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs"
+                          className="bg-gray-500 hover:bg-gray-600 text-white px-2 py-1 rounded text-xs"
                         >
                           Так
                         </button>
@@ -344,7 +344,7 @@ const TrainerChat: React.FC<TrainerChatProps> = ({
           </div>
         )}
         {error && (
-          <div className="text-red-400 text-sm p-2 bg-red-900/50 rounded border border-red-700">
+          <div className="text-gray-400 text-sm p-2 bg-gray-800/50 rounded border border-gray-600">
             {error}
           </div>
         )}

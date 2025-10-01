@@ -4,6 +4,7 @@ export interface OfflineData {
   workoutLogs: any[];
   userProfile: any;
   workoutPlan: any[];
+  currentSession?: any;
   lastSync: number;
 }
 

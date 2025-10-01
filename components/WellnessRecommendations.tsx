@@ -17,13 +17,13 @@ const WellnessRecommendations: React.FC<WellnessRecommendationsProps> = ({
       case 'recovery': return 'fas fa-bed text-blue-400';
       case 'motivation': return 'fas fa-fire text-orange-400';
       case 'stress': return 'fas fa-brain text-purple-400';
-      default: return 'fas fa-heart text-red-400';
+      default: return 'fas fa-heart text-gray-400';
     }
   };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'high': return 'border-red-500 bg-red-900/20';
+      case 'high': return 'border-gray-500 bg-gray-800/30';
       case 'medium': return 'border-yellow-500 bg-yellow-900/20';
       case 'low': return 'border-green-500 bg-green-900/20';
       default: return 'border-gray-500 bg-gray-900/20';
@@ -77,7 +77,7 @@ const WellnessRecommendations: React.FC<WellnessRecommendationsProps> = ({
                         {recommendation.title}
                       </h3>
                       <span className={`text-xs px-2 py-1 rounded ${
-                        recommendation.priority === 'high' ? 'bg-red-600 text-white' :
+                        recommendation.priority === 'high' ? 'bg-gray-600 text-white' :
                         recommendation.priority === 'medium' ? 'bg-yellow-600 text-white' :
                         'bg-green-600 text-white'
                       }`}>

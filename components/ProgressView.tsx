@@ -144,7 +144,7 @@ const ProgressView: React.FC<ProgressViewProps> = ({
       switch (progress) {
         case 'improving': return 'fas fa-arrow-up text-green-400';
         case 'plateau': return 'fas fa-minus text-yellow-400';
-        case 'declining': return 'fas fa-arrow-down text-red-400';
+        case 'declining': return 'fas fa-arrow-down text-gray-400';
         default: return 'fas fa-minus text-gray-400';
       }
     };
@@ -234,11 +234,11 @@ const ProgressView: React.FC<ProgressViewProps> = ({
               <p className="text-lg font-bold text-orange-200">{workoutStats.avgExercisesPerWorkout}</p>
             </div>
             <div className="text-center">
-              <div className="text-2xl text-red-400 mb-1">
+              <div className="text-2xl text-gray-400 mb-1">
                 <i className="fas fa-layer-group"></i>
               </div>
               <p className="text-sm text-gray-300">Середньо підходів на тренування</p>
-              <p className="text-lg font-bold text-red-200">{workoutStats.avgSetsPerWorkout}</p>
+              <p className="text-lg font-bold text-gray-200">{workoutStats.avgSetsPerWorkout}</p>
             </div>
             <div className="text-center">
               <div className="text-2xl text-fitness-gold-400 mb-1">
@@ -293,7 +293,7 @@ const ProgressView: React.FC<ProgressViewProps> = ({
                   {rec.action && (
                     <span className={`px-2 py-1 rounded ${
                       rec.action === 'increase' ? 'bg-green-600/30 text-green-200' :
-                      rec.action === 'decrease' ? 'bg-red-600/30 text-red-200' :
+                      rec.action === 'decrease' ? 'bg-gray-600/30 text-gray-200' :
                       'bg-yellow-600/30 text-yellow-200'
                     }`}>
                       {rec.action === 'increase' ? '📈 Збільшити' :

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { ref, onValue, set, remove, get } from 'firebase/database';
 import { database } from '../config/firebase';
 import { Exercise, LoggedSetWithAchieved, WellnessCheck, AdaptiveWorkoutPlan, WellnessRecommendation } from '../types';
+import { isOnline, saveOfflineData, getOfflineData } from '../utils/offlineUtils';
 
 // Утиліта для очищення undefined значень для Firebase Realtime Database
 function removeUndefined(obj: any): any {
@@ -47,6 +48,15 @@ export const useWorkoutSync = (userId: string) => {
   useEffect(() => {
     if (!userId) {
       return;
+    }
+
+    // Завантажуємо офлайн сесію якщо є
+    if (!isOnline()) {
+      const offlineData = getOfflineData();
+      if (offlineData.currentSession) {
+        console.log('📵 Завантажуємо активну сесію з офлайн кешу');
+        setSession(offlineData.currentSession);
+      }
     }
     const sessionRef = ref(database, `workoutSessions/${userId}`);
     
@@ -154,6 +164,7 @@ export const useWorkoutSync = (userId: string) => {
 
   const startWorkout = async (dayNumber: number, exercises: Exercise[]) => {
     if (!userId) { console.error("startWorkout: userId відсутній."); return; }
+    
     const newSession: WorkoutSession = {
       activeDay: dayNumber,
       sessionExercises: exercises.map(ex => ({
@@ -181,13 +192,29 @@ export const useWorkoutSync = (userId: string) => {
       wellnessRecommendations: null
     };
 
-    const cleanedSession = removeUndefined(newSession);
-    const sessionPath = `workoutSessions/${userId}`;
-    try {
-      await set(ref(database, sessionPath), cleanedSession);
-    } catch (error) {
-      console.error("Помилка при збереженні сесії у Firebase:", error);
-      throw error;
+    // Оновлюємо локальний стан одразу
+    setSession(newSession);
+
+    // Зберігаємо в офлайн кеш
+    const offlineData = getOfflineData();
+    saveOfflineData({
+      ...offlineData,
+      currentSession: newSession
+    });
+
+    // Якщо онлайн - зберігаємо в Firebase
+    if (isOnline()) {
+      const cleanedSession = removeUndefined(newSession);
+      const sessionPath = `workoutSessions/${userId}`;
+      try {
+        await set(ref(database, sessionPath), cleanedSession);
+        console.log('🌐 Тренування збережено в Firebase');
+      } catch (error) {
+        console.error("Помилка при збереженні сесії у Firebase:", error);
+        console.log('📵 Продовжуємо офлайн - сесія збережена локально');
+      }
+    } else {
+      console.log('📵 Офлайн режим - тренування розпочато локально');
     }
   };
 
@@ -197,7 +224,6 @@ export const useWorkoutSync = (userId: string) => {
       repsAchieved: set.repsAchieved ?? null,
       weightUsed: set.weightUsed ?? null,
       completed: set.completed ?? false,
-      weightContext: set.weightContext
     }));
 
     const updatedExercises = session.sessionExercises.map((ex, idx) =>
@@ -212,18 +238,33 @@ export const useWorkoutSync = (userId: string) => {
         : ex
     );
 
-    const cleanedExercises = removeUndefined(updatedExercises);
-    const sessionPath = `workoutSessions/${userId}/sessionExercises`;
-    try {
-      await set(ref(database, sessionPath), cleanedExercises);
-    } catch (error) {
-      console.error("Помилка при оновленні вправи у Firebase:", error);
-      throw error;
+    // Оновлюємо локальний стан одразу
+    const updatedSession = { ...session, sessionExercises: updatedExercises };
+    setSession(updatedSession);
+
+    // Зберігаємо в офлайн кеш
+    const offlineData = getOfflineData();
+    saveOfflineData({
+      ...offlineData,
+      currentSession: updatedSession
+    });
+
+    // Якщо онлайн - зберігаємо в Firebase
+    if (isOnline()) {
+      const cleanedExercises = removeUndefined(updatedExercises);
+      const sessionPath = `workoutSessions/${userId}/sessionExercises`;
+      try {
+        await set(ref(database, sessionPath), cleanedExercises);
+      } catch (error) {
+        console.error("Помилка при оновленні вправи у Firebase:", error);
+        console.log('📵 Продовжуємо офлайн - зміни збережено локально');
+      }
     }
   };
 
   const addCustomExercise = async (exercise: Exercise) => {
     if (!userId) { console.error("addCustomExercise: userId відсутній."); return; }
+    
     const newExercise: Exercise = {
       id: exercise.id,
       name: exercise.name,
@@ -257,20 +298,39 @@ export const useWorkoutSync = (userId: string) => {
   const endWorkout = async () => {
     if (!userId) { console.error("endWorkout: userId відсутній."); return; }
     
-    const sessionRef = ref(database, `workoutSessions/${userId}`);
-    const snapshot = await get(sessionRef);
-    
-    if (!snapshot.exists()) {
-      console.log("Сесія вже завершена або не існує");
-      return;
-    }
-    
-    try {
-      await remove(sessionRef);
-      console.log("Сесія успішно завершена");
-    } catch (error) {
-      console.error("Помилка при завершенні тренування у Firebase:", error);
-      throw error;
+    // Очищуємо локальний стан одразу
+    setSession({
+      activeDay: null,
+      sessionExercises: [],
+      startTime: null,
+      workoutTimer: 0,
+      wellnessCheck: null,
+      adaptiveWorkoutPlan: null,
+      wellnessRecommendations: null
+    });
+
+    // Очищуємо офлайн кеш
+    const offlineData = getOfflineData();
+    saveOfflineData({
+      ...offlineData,
+      currentSession: null
+    });
+
+    // Якщо онлайн - видаляємо з Firebase
+    if (isOnline()) {
+      const sessionRef = ref(database, `workoutSessions/${userId}`);
+      try {
+        const snapshot = await get(sessionRef);
+        if (snapshot.exists()) {
+          await remove(sessionRef);
+          console.log("🌐 Сесія успішно завершена в Firebase");
+        }
+      } catch (error) {
+        console.error("Помилка при завершенні тренування у Firebase:", error);
+        console.log('📵 Сесія завершена локально');
+      }
+    } else {
+      console.log('📵 Офлайн режим - тренування завершено локально');
     }
   };
 

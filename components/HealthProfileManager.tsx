@@ -216,7 +216,7 @@ export const HealthProfileManager: FC<HealthProfileManagerProps> = ({
           {safeHealthProfile.currentLimitations.length > 0 ? (
             <div className="flex flex-wrap gap-2">
               {safeHealthProfile.currentLimitations.map((limitation, index) => (
-                <span key={index} className="px-2 py-1 bg-red-600/30 text-red-200 border border-red-500 rounded-full text-xs">
+                <span key={index} className="px-2 py-1 bg-gray-600/30 text-gray-200 border border-gray-500 rounded-full text-xs">
                   {limitation}
                 </span>
               ))}
@@ -311,7 +311,7 @@ export const HealthProfileManager: FC<HealthProfileManagerProps> = ({
               <div className="flex justify-end mb-2">
                 <button
                   onClick={() => handleClearMemory('facts')}
-                  className="text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded border border-red-400 hover:border-red-300"
+                  className="text-gray-400 hover:text-gray-300 text-xs px-2 py-1 rounded border border-gray-400 hover:border-gray-300"
                   title="Очистити запам'ятовані факти"
                 >
                   Очистити факти
@@ -338,7 +338,7 @@ export const HealthProfileManager: FC<HealthProfileManagerProps> = ({
               <div className="flex justify-end mb-2">
                 <button
                   onClick={() => handleClearMemory('history')}
-                  className="text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded border border-red-400 hover:border-red-300"
+                  className="text-gray-400 hover:text-gray-300 text-xs px-2 py-1 rounded border border-gray-400 hover:border-gray-300"
                   title="Очистити історію адаптацій"
                 >
                   Очистити історію
@@ -362,14 +362,14 @@ export const HealthProfileManager: FC<HealthProfileManagerProps> = ({
         {/* Загальне очищення пам'яті */}
         {(safeHealthProfile.systemMemory.rememberedFacts.length > 0 || 
           safeHealthProfile.systemMemory.adaptationHistory.length > 0) && (
-          <div className="bg-red-900/20 rounded-lg p-4 mb-4 border border-red-800">
-            <h4 className="font-medium text-red-300 mb-2 text-sm">Повне очищення пам'яті</h4>
-            <p className="text-sm text-red-200 mb-3">
+          <div className="bg-gray-800/30 rounded-lg p-4 mb-4 border border-gray-600">
+            <h4 className="font-medium text-gray-300 mb-2 text-sm">Повне очищення пам'яті</h4>
+            <p className="text-sm text-gray-200 mb-3">
               Це видалить всю пам'ять системи про вас. Система забуде всі факти та історію адаптацій.
             </p>
             <button
               onClick={() => handleClearMemory('all')}
-              className="w-full py-2 px-4 bg-red-600 hover:bg-red-700 text-white rounded transition-colors text-sm"
+              className="w-full py-2 px-4 bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors text-sm"
             >
               Очистити всю пам'ять системи
             </button>
@@ -417,7 +417,7 @@ export const HealthProfileManager: FC<HealthProfileManagerProps> = ({
                   }
                 }
               }}
-              className="text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded border border-red-400 hover:border-red-300"
+              className="text-gray-400 hover:text-gray-300 text-xs px-2 py-1 rounded border border-gray-400 hover:border-gray-300"
             >
               Очистити всі
             </button>
@@ -445,7 +445,7 @@ export const HealthProfileManager: FC<HealthProfileManagerProps> = ({
                     condition.type === 'temporary' ? 'Тимчасове' : 'Відновлення'
                   }</span></p>
                   <p>Тяжкість: <span className={
-                    condition.severity === 'severe' ? 'text-red-400' :
+                    condition.severity === 'severe' ? 'text-gray-400' :
                     condition.severity === 'moderate' ? 'text-yellow-400' : 'text-green-400'
                   }>{
                     condition.severity === 'severe' ? 'Серйозна' :
@@ -589,7 +589,7 @@ export const HealthProfileManager: FC<HealthProfileManagerProps> = ({
                     }
                   }
                 }}
-                className="text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded border border-red-400 hover:border-red-300"
+                className="text-gray-400 hover:text-gray-300 text-xs px-2 py-1 rounded border border-gray-400 hover:border-gray-300"
               >
                 Очистити вирішені
               </button>
@@ -642,7 +642,7 @@ export const HealthProfileManager: FC<HealthProfileManagerProps> = ({
                             handleDeleteCondition(condition.id!);
                           }
                         }}
-                        className="text-red-400 hover:text-red-300 text-xs px-1 py-0.5 rounded border border-red-400 hover:border-red-300"
+                        className="text-gray-400 hover:text-gray-300 text-xs px-1 py-0.5 rounded border border-gray-400 hover:border-gray-300"
                         title="Видалити назавжди"
                       >
                         🗑️ Видалити

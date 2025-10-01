@@ -142,8 +142,8 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
   if (isApiKeyMissing && !userProfile && !workoutPlan) {
     return (
        <div className="text-center p-6 sm:p-8 bg-gray-800/80 rounded-lg shadow-xl mt-6 sm:mt-10 backdrop-blur-sm">
-        <i className="fas fa-exclamation-triangle text-4xl sm:text-5xl text-red-400 mb-4 sm:mb-6"></i>
-        <h2 className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4 text-red-300">{UI_TEXT.apiKeyMissing}</h2>
+        <i className="fas fa-exclamation-triangle text-4xl sm:text-5xl text-gray-400 mb-4 sm:mb-6"></i>
+        <h2 className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4 text-gray-300">{UI_TEXT.apiKeyMissing}</h2>
         <p className="text-gray-400 text-sm sm:text-base">{UI_TEXT.getStarted}</p>
       </div>
     );
@@ -201,7 +201,7 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
       switch (progress) {
         case 'improving': return 'fas fa-arrow-up text-green-400';
         case 'plateau': return 'fas fa-minus text-yellow-400';
-        case 'declining': return 'fas fa-arrow-down text-red-400';
+        case 'declining': return 'fas fa-arrow-down text-gray-400';
         default: return 'fas fa-minus text-gray-400';
       }
     };
@@ -335,7 +335,7 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
 
     const getEnergyIcon = (level: string) => {
       switch (level) {
-        case 'very_low': return 'fas fa-battery-empty text-red-400';
+        case 'very_low': return 'fas fa-battery-empty text-gray-400';
         case 'low': return 'fas fa-battery-quarter text-orange-400';
         case 'normal': return 'fas fa-battery-half text-yellow-400';
         case 'high': return 'fas fa-battery-three-quarters text-green-400';
@@ -392,7 +392,7 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
                 <p className="text-blue-200 text-xs">{wellnessCheck.motivation}/10</p>
               </div>
               <div className="text-center">
-                <i className="fas fa-tired text-red-400 text-2xl mb-1"></i>
+                <i className="fas fa-tired text-gray-400 text-2xl mb-1"></i>
                 <p className="text-blue-300 font-medium">Втома</p>
                 <p className="text-blue-200 text-xs">{wellnessCheck.fatigue}/10</p>
               </div>
@@ -489,7 +489,7 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
             </span>
             <button
               onClick={handleEndWorkoutWithOrderCheck}
-              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+              className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
             >
               {UI_TEXT.endWorkout}
             </button>

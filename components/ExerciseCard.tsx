@@ -570,7 +570,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                     type="button"
                     onClick={handleRemoveSet}
                     disabled={numSets <= 1}
-                    className="px-2 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-xs sm:text-sm disabled:bg-gray-500 disabled:cursor-not-allowed"
+                    className="px-2 py-1 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-xs sm:text-sm disabled:bg-gray-500 disabled:cursor-not-allowed"
                   >
                     <i className="fas fa-minus"></i>
                   </button>

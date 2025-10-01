@@ -22,6 +22,7 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, onViewChange }) => {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstallable, setIsInstallable] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   useEffect(() => {
     // Перевіряємо чи PWA вже встановлено
@@ -38,23 +39,29 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, onViewChange }) => {
 
     // Слухаємо подію після встановлення
     const handleAppInstalled = () => {
-      setIsInstalled(true);
       setIsInstallable(false);
       setDeferredPrompt(null);
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    window.addEventListener('appinstalled', handleAppInstalled);
+
+    // Слухаємо зміни мережі
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-      window.removeEventListener('appinstalled', handleAppInstalled);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
     };
   }, []);
 
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
-
+    
     // Показуємо prompt встановлення
     deferredPrompt.prompt();
     
@@ -91,6 +98,16 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, onViewChange }) => {
         onClick={() => onViewChange('progress')}
         iconClass="fas fa-chart-line"
       />
+      
+      {/* Індикатор мережі */}
+      <div className={`px-2 py-1 rounded-md text-xs font-medium flex items-center space-x-1 ${
+        isOnline 
+          ? 'bg-green-600/20 text-green-400 border border-green-500/30' 
+          : 'bg-orange-600/20 text-orange-400 border border-orange-500/30 animate-pulse'
+      }`} title={isOnline ? 'Онлайн' : 'Офлайн режим'}>
+        <i className={`fas ${isOnline ? 'fa-wifi' : 'fa-wifi-slash'} text-xs`}></i>
+        <span className="hidden sm:inline">{isOnline ? 'Онлайн' : 'Офлайн'}</span>
+      </div>
       
       {/* Кнопка встановлення PWA */}
       {isInstallable && !isInstalled && (

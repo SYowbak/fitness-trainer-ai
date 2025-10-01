@@ -459,21 +459,21 @@ const UserProfileForm: React.FC<UserProfileFormProps> = ({
             </>
           )}
         </button>
-        {apiKeyMissing && <p className="text-red-400 text-sm mt-3 text-center"><i className="fas fa-exclamation-triangle mr-1"></i>{UI_TEXT.apiKeyMissing}</p>}
+        {apiKeyMissing && <p className="text-gray-400 text-sm mt-3 text-center"><i className="fas fa-exclamation-triangle mr-1"></i>{UI_TEXT.apiKeyMissing}</p>}
 
         {/* Кнопки виходу та видалення акаунту */}
         <div className="mt-8 pt-6 border-t border-gray-700 space-y-3">
           <button
             type="button"
             onClick={onLogout}
-            className="w-full font-semibold py-4 px-6 rounded-lg shadow-md transition duration-300 ease-in-out text-white flex items-center justify-center bg-red-600 hover:bg-red-700 active:scale-95 text-base"
+            className="w-full font-semibold py-4 px-6 rounded-lg shadow-md transition duration-300 ease-in-out text-white flex items-center justify-center bg-gray-600 hover:bg-gray-700 active:scale-95 text-base"
           >
             Вийти з акаунту
           </button>
           <button
             type="button"
             onClick={onDeleteAccount}
-            className="w-full font-semibold py-4 px-6 rounded-lg shadow-md transition duration-300 ease-in-out text-white flex items-center justify-center bg-gray-600 hover:bg-gray-700 border border-red-400 active:scale-95 text-base"
+            className="w-full font-semibold py-4 px-6 rounded-lg shadow-md transition duration-300 ease-in-out text-white flex items-center justify-center bg-gray-600 hover:bg-gray-700 border border-gray-400 active:scale-95 text-base"
           >
             Видалити акаунт
           </button>
