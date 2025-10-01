@@ -181,7 +181,7 @@ const ProgressView: React.FC<ProgressViewProps> = ({
               <p className="text-xs text-gray-400">{getTrendText(progressAnalysis.overallProgress)}</p>
             </div>
             <div className="text-center">
-              <div className="text-2xl text-blue-400 mb-1">
+              <div className="text-2xl text-fitness-gold-400 mb-1">
                 <i className="fas fa-dumbbell"></i>
               </div>
               <p className="text-sm text-gray-300">Прогрес сили</p>
@@ -215,18 +215,18 @@ const ProgressView: React.FC<ProgressViewProps> = ({
         </div>
 
         {/* Статистика тренувань */}
-        <div className="p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg">
-          <h3 className="text-lg font-semibold text-blue-300 mb-3">
+        <div className="p-4 bg-fitness-gold-500/10 border border-fitness-gold-500/30 rounded-lg">
+          <h3 className="text-lg font-semibold text-fitness-gold-300 mb-3">
             <i className="fas fa-chart-bar mr-2"></i>
             Статистика тренувань
           </h3>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             <div className="text-center">
-              <div className="text-2xl text-blue-400 mb-1">
+              <div className="text-2xl text-fitness-gold-400 mb-1">
                 <i className="fas fa-trophy"></i>
               </div>
               <p className="text-sm text-gray-300">Загальна кількість тренувань</p>
-              <p className="text-lg font-bold text-blue-200">{workoutStats.totalWorkouts}</p>
+              <p className="text-lg font-bold text-fitness-gold-200">{workoutStats.totalWorkouts}</p>
             </div>
             <div className="text-center">
               <div className="text-2xl text-green-400 mb-1">
@@ -292,7 +292,7 @@ const ProgressView: React.FC<ProgressViewProps> = ({
                 <p className="text-sm text-gray-300 mb-2">{rec.recommendation}</p>
                 <div className="flex flex-wrap gap-2 text-xs">
                   {rec.suggestedWeight && (
-                    <span className="px-2 py-1 bg-blue-600/30 text-blue-200 rounded">
+                    <span className="px-2 py-1 bg-fitness-gold-600/30 text-fitness-gold-200 rounded">
                       Вага: {rec.suggestedWeight}кг
                     </span>
                   )}
@@ -302,7 +302,7 @@ const ProgressView: React.FC<ProgressViewProps> = ({
                     </span>
                   )}
                   {rec.suggestedSets && (
-                    <span className="px-2 py-1 bg-orange-600/30 text-orange-200 rounded">
+                    <span className="px-2 py-1 bg-fitness-gold-600/30 text-fitness-gold-200 rounded">
                       Підходи: {rec.suggestedSets}
                     </span>
                   )}

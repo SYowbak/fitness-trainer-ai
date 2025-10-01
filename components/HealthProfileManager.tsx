@@ -440,7 +440,7 @@ export const HealthProfileManager: FC<HealthProfileManagerProps> = ({
                   </button>
                 </div>
                 <div className="text-xs text-gray-300 space-y-1">
-                  <p>Тип: <span className="text-purple-300">{
+                  <p>Тип: <span className="text-fitness-gold-300">{
                     condition.type === 'chronic' ? 'Хронічне' :
                     condition.type === 'temporary' ? 'Тимчасове' : 'Відновлення'
                   }</span></p>

@@ -102,6 +102,15 @@ const App: React.FC = () => {
     }
   }, []);
 
+  // Дебаг логування відключено для зменшення спаму
+  // useEffect(() => {
+  //   console.log('🔄 [App] Сесія змінилась:', { 
+  //     activeDay: session.activeDay, 
+  //     exercisesCount: session.sessionExercises.length,
+  //     hasStartTime: !!session.startTime 
+  //   });
+  // }, [session.activeDay, session.sessionExercises.length, session.startTime]);
+
   // Скидаємо стан ініціалізації при виході користувача
   useEffect(() => {
     if (!user) {
@@ -207,21 +216,26 @@ const App: React.FC = () => {
     }
   }, [user, currentWorkoutPlan, hasInitializedView]);
 
-  // Оновлюємо таймер на основі сесії з useWorkoutSync
+  // Firebase таймер: тільки онлайн для синхронізації між пристроями
   useEffect(() => {
     let timerInterval: number | null = null;
-    if (user && session.startTime && session.activeDay !== null) {
+    
+    if (user && session.startTime && session.activeDay !== null && navigator.onLine) {
       const startTime = session.startTime;
       timerInterval = window.setInterval(() => {
         const currentTime = Date.now();
         const elapsedTime = Math.floor((currentTime - startTime) / 1000);
         updateTimer(elapsedTime);
       }, 1000);
-    } else if (user) {
-      updateTimer(0); // Скидаємо таймер, якщо тренування не активне
+      console.log('⏱️ [App] Firebase таймер запущено (онлайн синхронізація)');
     }
+    // Видалено updateTimer(0) щоб уникнути циклу
+    
     return () => {
-      if (timerInterval) clearInterval(timerInterval);
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        console.log('⏱️ [App] Firebase таймер зупинено');
+      }
     };
   }, [user, session.startTime, session.activeDay, updateTimer]);
 
@@ -720,23 +734,51 @@ const App: React.FC = () => {
       }
       // Генеруємо адаптивний план тренування
       setWellnessProcessingStep('Адаптуємо план тренування...');
-      const adaptiveWorkout = await generateNewAdaptiveWorkout(
-        userProfile!,
-        currentWorkoutPlan.find(d => d.day === pendingWorkoutDay) || currentWorkoutPlan[0],
-        wellnessCheck,
-        workoutLogs
-      );
       
+      let adaptiveWorkout;
+      
+      // Перевіряємо чи є мережа для AI генерації
+      if (isOnline()) {
+        try {
+          adaptiveWorkout = await generateNewAdaptiveWorkout(
+            userProfile!,
+            currentWorkoutPlan.find(d => d.day === pendingWorkoutDay) || currentWorkoutPlan[0],
+            wellnessCheck,
+            workoutLogs
+          );
+        } catch (error) {
+          console.warn('⚠️ [APP] AI generation failed, using offline fallback:', error);
+          adaptiveWorkout = null;
+        }
+      }
+      
+      // Офлайн fallback - використовуємо оригінальний план
       if (!adaptiveWorkout) {
-        throw new Error('Не вдалося згенерувати адаптивний план');
+        console.log('📵 [APP] Using offline fallback - original workout plan');
+        const originalDay = currentWorkoutPlan.find(d => d.day === pendingWorkoutDay) || currentWorkoutPlan[0];
+        adaptiveWorkout = {
+          ...originalDay,
+          originalPlan: originalDay, // Додаємо обов'язкове поле
+          exercises: originalDay.exercises.map(ex => ({
+            ...ex,
+            notes: wellnessCheck.notes ? `Самопочуття: ${wellnessCheck.notes}` : ex.notes
+          }))
+        };
       }
       
       setAdaptiveWorkoutPlan(adaptiveWorkout);
 
-      // Generate wellness recommendations in background (OPTIONAL - skip if quota issues)
+      // Generate wellness recommendations in background (OPTIONAL - skip if quota issues or offline)
       setWellnessProcessingStep('Готуємо рекомендації...');
       (async () => {
         try {
+          // Skip if offline
+          if (!isOnline()) {
+            console.log('📵 [APP] Skipping wellness recommendations - offline mode');
+            setWellnessRecommendations([]);
+            return;
+          }
+          
           // Check quota before making another API call
           const { quotaManager } = await import('./utils/apiQuotaManager');
           

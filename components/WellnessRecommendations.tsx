@@ -16,7 +16,7 @@ const WellnessRecommendations: React.FC<WellnessRecommendationsProps> = ({
       case 'energy': return 'fas fa-bolt text-yellow-400';
       case 'recovery': return 'fas fa-bed text-blue-400';
       case 'motivation': return 'fas fa-fire text-orange-400';
-      case 'stress': return 'fas fa-brain text-purple-400';
+      case 'stress': return 'fas fa-brain text-fitness-gold-400';
       default: return 'fas fa-heart text-gray-400';
     }
   };
@@ -43,7 +43,7 @@ const WellnessRecommendations: React.FC<WellnessRecommendationsProps> = ({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-gray-800 rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold text-purple-300">
+          <h2 className="text-xl font-bold text-fitness-gold-300">
             <i className="fas fa-heart mr-2"></i>
             {UI_TEXT.wellnessRecommendations}
           </h2>
@@ -131,7 +131,7 @@ const WellnessRecommendations: React.FC<WellnessRecommendationsProps> = ({
         <div className="mt-6 flex justify-end">
           <button
             onClick={onClose}
-            className="px-6 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+            className="px-6 py-2 bg-fitness-gold-600 text-white rounded hover:bg-fitness-gold-700 transition-colors"
           >
             <i className="fas fa-check mr-2"></i>
             Зрозуміло

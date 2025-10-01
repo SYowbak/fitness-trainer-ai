@@ -145,17 +145,44 @@
 }
 
 .react-calendar__tile--active {
-  background: #f59e0b; /* bg-fitness-gold-500 */
-  color: white;
+  background: #f59e0b !important; /* bg-fitness-gold-500 */
+  color: white !important;
 }
 
 .react-calendar__tile--active:enabled:hover,
 .react-calendar__tile--active:enabled:focus {
-  background: #d97706; /* bg-fitness-gold-600 */
+  background: #d97706 !important; /* bg-fitness-gold-600 */
 }
 
-.react-calendar--selectRange .react-calendar__tile--hover {
-  background-color: #e5e7eb; /* bg-gray-200 */
+/* Перевизначаємо всі можливі фіолетові стилі */
+.react-calendar__tile--now.react-calendar__tile--active {
+  background: #f59e0b !important;
+  color: white !important;
+}
+
+.react-calendar__tile--hasActive.react-calendar__tile--active {
+  background: #f59e0b !important;
+  color: white !important;
+}
+/* КРИТИЧНО: Перевизначаємо ВСІ можливі активні стани */
+.react-calendar .react-calendar__tile--active,
+.react-calendar .react-calendar__tile--active:enabled:hover,
+.react-calendar .react-calendar__tile--active:enabled:focus,
+.react-calendar .react-calendar__tile--active:enabled:active,
+.react-calendar .react-calendar__tile--active:hover,
+.react-calendar .react-calendar__tile--active:focus,
+.react-calendar .react-calendar__tile--active:active {
+  background: #f59e0b !important;
+  background-color: #f59e0b !important;
+  color: white !important;
+  border: none !important;
+}
+
+/* Перевизначаємо стилі для обраних дат з тренуваннями */
+.react-calendar__tile--hasActive.react-calendar__tile--active,
+.react-calendar__tile--now.react-calendar__tile--active {
+  background: #f59e0b !important;
+  color: white !important;
 }
 
 /* Custom dot for workout days */

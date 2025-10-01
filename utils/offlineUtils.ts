@@ -21,7 +21,7 @@ export function saveOfflineData(data: Partial<OfflineData>): void {
       lastSync: Date.now()
     };
     localStorage.setItem(OFFLINE_STORAGE_KEY, JSON.stringify(updated));
-    console.log('💾 Дані збережено для офлайн використання');
+    // console.log('💾 Дані збережено для офлайн використання');
   } catch (error) {
     console.error('❌ Помилка збереження офлайн даних:', error);
   }

@@ -13,7 +13,7 @@ const WorkoutCompleteModal: React.FC<WorkoutCompleteModalProps> = ({ isOpen, onC
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div 
-        className="bg-gray-800 border border-purple-500/50 rounded-xl shadow-2xl max-w-md w-full p-8 text-center"
+        className="bg-gray-800 border border-fitness-gold-500/50 rounded-xl shadow-2xl max-w-md w-full p-8 text-center"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="text-green-400 mb-5">
@@ -28,7 +28,7 @@ const WorkoutCompleteModal: React.FC<WorkoutCompleteModalProps> = ({ isOpen, onC
         </p>
         <button
           onClick={onClose}
-          className="w-full bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors py-3 font-semibold text-lg"
+          className="w-full bg-fitness-gold-600 text-white rounded-lg hover:bg-fitness-gold-700 transition-colors py-3 font-semibold text-lg"
         >
           Перейти до Прогресу
         </button>

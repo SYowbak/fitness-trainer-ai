@@ -1,6 +1,8 @@
 @tailwind base;
 @tailwind components;
-@tailwind utilities; 
+@tailwind utilities;
+
+/* Theme Update v2.0 - Gold Theme */ 
 
 /* Глобальні стилі для золото-чорної теми */
 @layer base {

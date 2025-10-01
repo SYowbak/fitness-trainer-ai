@@ -42,37 +42,8 @@ const OfflineIndicator: React.FC = () => {
     }
   }, [showOfflineMessage, isOnline]);
 
-  if (!showOfflineMessage && isOnline) {
-    return null;
-  }
-
-  return (
-    <div className={`fixed top-4 left-1/2 transform -translate-x-1/2 z-50 transition-all duration-300 ${
-      showOfflineMessage ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'
-    }`}>
-      <div className={`px-4 py-2 rounded-lg shadow-lg flex items-center space-x-2 border-2 ${
-        isOnline 
-          ? 'bg-green-600 text-white border-green-400 shadow-green-500/50' 
-          : 'bg-orange-600 text-white border-orange-400 shadow-orange-500/50 animate-pulse'
-      }`}>
-        <i className={`fas ${isOnline ? 'fa-wifi' : 'fa-wifi-slash'}`}></i>
-        <span className="text-sm font-medium">
-          {isOnline 
-            ? '🌐 Мережа відновлена - синхронізація...' 
-            : '📵 Офлайн режим - можете тренуватися, дані зберігаються локально'
-          }
-        </span>
-        {!isOnline && (
-          <button
-            onClick={() => setShowOfflineMessage(false)}
-            className="ml-2 text-white hover:text-gray-200"
-          >
-            <i className="fas fa-times"></i>
-          </button>
-        )}
-      </div>
-    </div>
-  );
+  // Не показуємо повідомлення - тільки індикатор в навігації
+  return null;
 };
 
 export default OfflineIndicator;

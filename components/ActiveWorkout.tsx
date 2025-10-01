@@ -58,7 +58,7 @@ export const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ onComplete }) => {
       <div className="flex justify-end space-x-2">
         <button
           onClick={isRunning ? pause : resume}
-          className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
+          className="px-4 py-2 bg-fitness-gold-600 text-white rounded hover:bg-fitness-gold-700"
         >
           {isRunning ? 'Пауза' : 'Продовжити'}
         </button>

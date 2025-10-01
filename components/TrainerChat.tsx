@@ -33,6 +33,7 @@ const TrainerChat: React.FC<TrainerChatProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout>();
 
@@ -167,6 +168,13 @@ const TrainerChat: React.FC<TrainerChatProps> = ({
       
       // Handle workout modifications
       if (response.modifiedPlan && onWorkoutPlanModified) {
+        console.log('🔧 [TrainerChat] Отримано modifiedPlan:', {
+          hasModifiedPlan: !!response.modifiedPlan,
+          day: response.modifiedPlan?.day,
+          exercisesCount: response.modifiedPlan?.exercises?.length,
+          firstExercise: response.modifiedPlan?.exercises?.[0]?.name
+        });
+        
         onWorkoutPlanModified(response.modifiedPlan);
         
         // Add a system notification about the modification
@@ -237,9 +245,9 @@ const TrainerChat: React.FC<TrainerChatProps> = ({
 
   return (
     <div className="flex flex-col h-full bg-gray-900 text-white">
-      <div className="p-3 sm:p-4 border-b border-purple-700 flex justify-between items-center bg-purple-900/80">
+      <div className="p-3 sm:p-4 border-b border-fitness-gold-600/30 flex justify-between items-center bg-fitness-dark-800/80">
         <div>
-          <h2 className="text-lg sm:text-xl font-semibold text-purple-200">Чат з тренером</h2>
+          <h2 className="text-lg sm:text-xl font-semibold text-fitness-gold-300">Чат з тренером</h2>
           <p className="text-xs text-gray-400">{messages.length} повідомлень</p>
         </div>
         <div className="flex items-center space-x-2">
@@ -266,7 +274,7 @@ const TrainerChat: React.FC<TrainerChatProps> = ({
           >
             <div className="flex items-start space-x-2 max-w-[85%] sm:max-w-[80%]">
               {message.role === 'assistant' && (
-                <div className="flex-shrink-0 w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center mt-1">
+                <div className="flex-shrink-0 w-8 h-8 bg-fitness-gold-600 rounded-full flex items-center justify-center mt-1">
                   <i className="fas fa-dumbbell text-white text-xs"></i>
                 </div>
               )}
@@ -275,7 +283,7 @@ const TrainerChat: React.FC<TrainerChatProps> = ({
                 <div
                   className={`rounded-lg p-3 text-sm sm:text-base break-words relative ${
                     message.role === 'user'
-                      ? 'bg-purple-600 text-white'
+                      ? 'bg-fitness-gold-600 text-white'
                       : 'bg-gray-700 text-gray-200 border border-gray-600'
                   }`}
                 >
@@ -331,12 +339,12 @@ const TrainerChat: React.FC<TrainerChatProps> = ({
         {isLoading && (
           <div className="flex justify-start">
             <div className="flex items-start space-x-2 max-w-[85%] sm:max-w-[80%]">
-              <div className="flex-shrink-0 w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center mt-1">
+              <div className="flex-shrink-0 w-8 h-8 bg-fitness-gold-600 rounded-full flex items-center justify-center mt-1">
                 <i className="fas fa-dumbbell text-white text-xs"></i>
               </div>
               <div className="bg-gray-700 text-gray-200 rounded-lg p-3 border border-gray-600 text-sm sm:text-base">
                 <div className="flex items-center space-x-2">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-400"></div>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-fitness-gold-400"></div>
                   <span>Тренер набирає повідомлення...</span>
                 </div>
               </div>
@@ -351,13 +359,13 @@ const TrainerChat: React.FC<TrainerChatProps> = ({
         <div ref={messagesEndRef} />
       </div>
 
-      <form onSubmit={handleSendMessage} className="p-3 sm:p-4 border-t border-purple-700 bg-gray-800/50">
+      <form onSubmit={handleSendMessage} className="p-3 sm:p-4 border-t border-fitness-gold-600/30 bg-gray-800/50">
         <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
           <textarea
             value={inputMessage}
             onChange={handleInputChange}
             placeholder="Напишіть повідомлення..."
-            className="flex-1 p-2 sm:p-3 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 bg-gray-700 text-white placeholder-gray-400 resize-none min-h-[40px] max-h-[120px] text-sm sm:text-base"
+            className="flex-1 p-2 sm:p-3 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-fitness-gold-500 bg-gray-700 text-white placeholder-gray-400 resize-none min-h-[40px] max-h-[120px] text-sm sm:text-base"
             disabled={isLoading}
             rows={1}
             onKeyDown={(e) => {
@@ -370,7 +378,7 @@ const TrainerChat: React.FC<TrainerChatProps> = ({
           <button
             type="submit"
             disabled={isLoading || !inputMessage.trim()}
-            className="px-4 py-2 sm:py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm sm:text-base font-medium"
+            className="px-4 py-2 sm:py-3 bg-fitness-gold-600 text-white rounded-lg hover:bg-fitness-gold-700 focus:outline-none focus:ring-2 focus:ring-fitness-gold-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm sm:text-base font-medium"
           >
             Надіслати
           </button>

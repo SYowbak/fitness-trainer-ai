@@ -240,30 +240,33 @@ const WorkoutEditMode: React.FC<WorkoutEditModeProps> = ({
                   ) : (
                     <button
                       onClick={() => handleCompleteDetails(selectedDay, index)}
-                      className={`px-2 py-1 rounded transition-colors text-xs flex items-center justify-center min-w-[70px] h-[24px] ${
+                      className={`px-2 py-1 rounded text-xs ${
                         changedExerciseNames.has(`${selectedDay}-${index}`)
                           ? 'bg-green-600 hover:bg-green-700 text-white'
                           : 'bg-gray-500 cursor-not-allowed text-gray-400'
                       }`}
-                      title={UI_TEXT.completeExerciseDetails}
+                      title="Доповнити деталі"
                       disabled={!changedExerciseNames.has(`${selectedDay}-${index}`)}
                     >
-                      {UI_TEXT.completeExerciseDetails}
+                      <i className="fas fa-magic"></i>
+                      <span className="hidden sm:inline ml-1">Доповнити</span>
                     </button>
                   )}
                   <button
                     onClick={() => handleRegenerateExercise(selectedDay, index)}
-                    className="btn-primary px-2 py-1 text-xs flex-shrink-0 flex items-center justify-center min-w-[70px] h-[24px]"
+                    className="px-2 py-1 rounded text-xs bg-blue-600 hover:bg-blue-700 text-white"
                     title="Перегенерувати вправу"
                   >
-                    Перегенерувати
+                    <i className="fas fa-sync"></i>
+                    <span className="hidden sm:inline ml-1">Перегенерувати</span>
                   </button>
                   <button
                     onClick={() => handleDeleteExercise(selectedDay, index)}
-                    className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 transition-colors flex-shrink-0 flex items-center justify-center min-w-[70px] h-[24px]"
+                    className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
                     title="Видалити вправу"
                   >
-                    Видалити
+                    <i className="fas fa-trash"></i>
+                    <span className="hidden sm:inline ml-1">Видалити</span>
                   </button>
                 </div>
 
@@ -321,7 +324,7 @@ const WorkoutEditMode: React.FC<WorkoutEditModeProps> = ({
 
           <button
             onClick={() => handleAddExercise(selectedDay)}
-            className="w-full p-3 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors flex items-center justify-center"
+            className="w-full p-3 bg-fitness-gold-600 text-white rounded hover:bg-fitness-gold-700 transition-colors flex items-center justify-center"
           >
             <i className="fas fa-plus mr-2"></i>
             Додати нову вправу

@@ -169,7 +169,7 @@ const WellnessCheckModal: React.FC<WellnessCheckModalProps> = ({
             />
             <div className="flex justify-between text-xs text-gray-400 mt-1">
               <span>1</span>
-              <span className="text-fitness-gold-400 font-medium">{wellnessCheck.motivation}</span>
+              <span className="text-purple-400 font-medium">{wellnessCheck.motivation}</span>
               <span>10</span>
             </div>
           </div>

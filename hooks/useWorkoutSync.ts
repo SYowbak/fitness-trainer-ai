@@ -55,13 +55,42 @@ export const useWorkoutSync = (userId: string) => {
       const offlineData = getOfflineData();
       if (offlineData.currentSession) {
         console.log('📵 Завантажуємо активну сесію з офлайн кешу');
-        setSession(offlineData.currentSession);
+        
+        // Якщо є активне тренування, перераховуємо таймер на основі startTime
+        if (offlineData.currentSession.startTime && offlineData.currentSession.activeDay !== null) {
+          const currentTime = Date.now();
+          const elapsedSeconds = Math.floor((currentTime - offlineData.currentSession.startTime) / 1000);
+          console.log('⏱️ [Timer] Відновлюємо таймер:', elapsedSeconds, 'секунд');
+          
+          const restoredSession = {
+            ...offlineData.currentSession,
+            workoutTimer: elapsedSeconds
+          };
+          
+          setSession(restoredSession);
+          
+          // Оновлюємо офлайн кеш з новим часом
+          saveOfflineData({
+            ...offlineData,
+            currentSession: restoredSession
+          });
+        } else {
+          setSession(offlineData.currentSession);
+        }
       }
     }
     const sessionRef = ref(database, `workoutSessions/${userId}`);
     
     const unsubscribe = onValue(sessionRef, (snapshot) => {
       const data = snapshot.val();
+      console.log('🔥 [Firebase] onValue triggered:', { hasData: !!data, isOnline: isOnline() });
+      
+      // Якщо офлайн - ігноруємо Firebase дані, щоб не перезаписати локальну сесію
+      if (!isOnline()) {
+        console.log('📵 [Firebase] Офлайн - ігноруємо Firebase дані');
+        return;
+      }
+      
       if (data) {
         const cleanedData = removeUndefined(data);
 
@@ -143,15 +172,22 @@ export const useWorkoutSync = (userId: string) => {
           return newSession;
         });
       } else {
-        setSession({
-          activeDay: null,
-          sessionExercises: [],
-          startTime: null,
-          workoutTimer: 0,
-          wellnessCheck: null,
-          adaptiveWorkoutPlan: null,
-          wellnessRecommendations: null
-        });
+        // Не скидаємо сесію якщо офлайн - можливо є активне тренування
+        console.log('🔥 [Firebase] Немає даних, isOnline:', isOnline());
+        if (isOnline()) {
+          console.log('🌐 Firebase: немає активної сесії - скидаємо');
+          setSession({
+            activeDay: null,
+            sessionExercises: [],
+            startTime: null,
+            workoutTimer: 0,
+            wellnessCheck: null,
+            adaptiveWorkoutPlan: null,
+            wellnessRecommendations: null
+          });
+        } else {
+          console.log('📵 Firebase: немає даних, але офлайн - зберігаємо локальну сесію');
+        }
       }
     });
 
@@ -161,6 +197,128 @@ export const useWorkoutSync = (userId: string) => {
       }
     };
   }, [userId]);
+
+  // Локальний таймер: тільки офлайн для фонової роботи
+  useEffect(() => {
+    let timerInterval: NodeJS.Timeout | null = null;
+
+    if (session.startTime && session.activeDay !== null && !isOnline()) {
+      console.log('⏱️ [Timer] Запускаємо локальний таймер (офлайн режим)');
+      
+      timerInterval = setInterval(() => {
+        const currentTime = Date.now();
+        const elapsedSeconds = Math.floor((currentTime - session.startTime!) / 1000);
+        
+        setSession(prevSession => {
+          if (prevSession.startTime && prevSession.activeDay !== null) {
+            const newSession = { ...prevSession, workoutTimer: elapsedSeconds };
+            
+            // Зберігаємо в офлайн кеш
+            const offlineData = getOfflineData();
+            saveOfflineData({
+              ...offlineData,
+              currentSession: newSession
+            });
+            
+            return newSession;
+          }
+          return prevSession;
+        });
+      }, 1000); // Оновлюємо кожну секунду
+    } else if (session.startTime && session.activeDay !== null && isOnline()) {
+      console.log('⏱️ [Timer] Онлайн режим - локальний таймер не потрібен');
+    }
+
+    return () => {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        console.log('⏱️ [Timer] Локальний таймер очищено');
+      }
+    };
+  }, [session.startTime, session.activeDay]);
+
+  // Обробка повернення до додатку (після блокування телефону)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && session.startTime && session.activeDay !== null) {
+        // Користувач повернувся до додатку - перераховуємо таймер
+        const currentTime = Date.now();
+        const elapsedSeconds = Math.floor((currentTime - session.startTime) / 1000);
+        console.log('👁️ [Timer] Користувач повернувся - оновлюємо таймер:', elapsedSeconds, 'секунд');
+        
+        setSession(prevSession => {
+          const newSession = { ...prevSession, workoutTimer: elapsedSeconds };
+          
+          // Зберігаємо в офлайн кеш
+          const offlineData = getOfflineData();
+          saveOfflineData({
+            ...offlineData,
+            currentSession: newSession
+          });
+          
+          return newSession;
+        });
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [session.startTime, session.activeDay]);
+
+  // Синхронізація таймера при відновленні мережі
+  useEffect(() => {
+    const handleOnlineStatusChange = () => {
+      if (isOnline() && session.startTime && session.activeDay !== null) {
+        // Мережа відновилася під час активного тренування
+        const currentTime = Date.now();
+        const elapsedSeconds = Math.floor((currentTime - session.startTime) / 1000);
+        console.log('🌐 [Timer] Мережа відновлена під час тренування - синхронізуємо таймер:', elapsedSeconds, 'секунд');
+        
+        // Оновлюємо локальний стан
+        setSession(prevSession => {
+          const newSession = { ...prevSession, workoutTimer: elapsedSeconds };
+          
+          // Зберігаємо в офлайн кеш
+          const offlineData = getOfflineData();
+          saveOfflineData({
+            ...offlineData,
+            currentSession: newSession
+          });
+          
+          return newSession;
+        });
+        
+        // Синхронізуємо всю сесію з Firebase
+        setTimeout(() => {
+          setSession(currentSession => {
+            if (currentSession.startTime && currentSession.activeDay !== null) {
+              const sessionPath = `workoutSessions/${userId}`;
+              const cleanedSession = removeUndefined(currentSession);
+              
+              set(ref(database, sessionPath), cleanedSession)
+                .then(() => {
+                  console.log('🌐 [Timer] Вся сесія синхронізована з Firebase');
+                })
+                .catch((error) => {
+                  console.error('❌ [Timer] Помилка синхронізації сесії з Firebase:', error);
+                });
+            }
+            return currentSession;
+          });
+        }, 100); // Невелика затримка щоб стан встиг оновитися
+      }
+    };
+
+    // Слухаємо зміни статусу мережі
+    window.addEventListener('online', handleOnlineStatusChange);
+    
+    return () => {
+      window.removeEventListener('online', handleOnlineStatusChange);
+    };
+  }, [session.startTime, session.activeDay, userId]);
 
   const startWorkout = async (dayNumber: number, exercises: Exercise[]) => {
     if (!userId) { console.error("startWorkout: userId відсутній."); return; }
@@ -193,7 +351,9 @@ export const useWorkoutSync = (userId: string) => {
     };
 
     // Оновлюємо локальний стан одразу
+    console.log('🎯 [startWorkout] Оновлюємо сесію:', { activeDay: dayNumber, exercisesCount: exercises.length });
     setSession(newSession);
+    console.log('🎯 [startWorkout] Сесія оновлена, activeDay:', newSession.activeDay);
 
     // Зберігаємо в офлайн кеш
     const offlineData = getOfflineData();
@@ -336,13 +496,34 @@ export const useWorkoutSync = (userId: string) => {
 
   const updateTimer = async (time: number) => {
     if (!userId) { console.error("updateTimer: userId відсутній."); return; }
-    const cleanedTime = removeUndefined(time);
-    const sessionPath = `workoutSessions/${userId}/workoutTimer`;
-    try {
-      await set(ref(database, sessionPath), cleanedTime);
-    } catch (error) {
-      console.error("Помилка при оновленні таймера у Firebase:", error);
-      throw error;
+    
+    // Оновлюємо локальний стан одразу
+    setSession(prevSession => {
+      const newSession = { ...prevSession, workoutTimer: time };
+      
+      // Зберігаємо в офлайн кеш
+      const offlineData = getOfflineData();
+      saveOfflineData({
+        ...offlineData,
+        currentSession: newSession
+      });
+      
+      return newSession;
+    });
+    
+    // Якщо онлайн - зберігаємо в Firebase
+    if (isOnline()) {
+      const cleanedTime = removeUndefined(time);
+      const sessionPath = `workoutSessions/${userId}/workoutTimer`;
+      try {
+        await set(ref(database, sessionPath), cleanedTime);
+        // console.log('⏱️ [Timer] Оновлено в Firebase:', time);
+      } catch (error) {
+        console.error("Помилка при оновленні таймера у Firebase:", error);
+        console.log('⏱️ [Timer] Продовжуємо офлайн - таймер збережено локально');
+      }
+    } else {
+      // console.log('⏱️ [Timer] Офлайн режим - таймер оновлено локально');
     }
   };
 

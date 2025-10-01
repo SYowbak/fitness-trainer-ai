@@ -63,26 +63,25 @@ const AddExerciseModal: React.FC<AddExerciseModalProps> = ({ isOpen, onClose, on
     <div className="fixed inset-0 bg-gray-900/80 backdrop-blur-sm flex items-center justify-center p-3 z-[110]" onClick={onClose}>
       <div className="bg-gray-700 p-4 sm:p-5 rounded-lg shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-3">
-          <h3 className="text-lg sm:text-xl font-semibold text-purple-300">Додати вправу</h3>
+          <h3 className="text-lg sm:text-xl font-semibold text-fitness-gold-300">Додати вправу</h3>
           <button onClick={onClose} className="text-gray-300 hover:text-white">
             <i className="fas fa-times"></i>
           </button>
         </div>
         <div className="space-y-3">
           <div>
-            <label className="block text-xs text-purple-200 mb-1">Назва*</label>
+            <label className="block text-xs text-fitness-gold-200 mb-1">Назва*</label>
             <input
               value={name}
               onChange={(e) => {
                 setName(e.target.value);
               }}
               className="w-full p-2 bg-gray-600 border border-gray-500 rounded text-gray-100 text-sm"
-              placeholder="Наприклад: Жим гантелей сидячи"
-              required
+              placeholder="Назва вправи"
             />
           </div>
           <div>
-            <label className="block text-xs text-purple-200 mb-1">Опис (необов’язково)</label>
+            <label className="block text-xs text-fitness-gold-200 mb-1">Опис (необов'язково)</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -93,7 +92,7 @@ const AddExerciseModal: React.FC<AddExerciseModalProps> = ({ isOpen, onClose, on
           </div>
           <div className="grid grid-cols-3 gap-2">
             <div>
-              <label className="block text-xs text-purple-200 mb-1">Підходи</label>
+              <label className="block text-xs text-fitness-gold-200 mb-1">Підходи</label>
               <input
                 type="text"
                 value={sets}
@@ -103,7 +102,7 @@ const AddExerciseModal: React.FC<AddExerciseModalProps> = ({ isOpen, onClose, on
               />
             </div>
             <div>
-              <label className="block text-xs text-purple-200 mb-1">Повторення</label>
+              <label className="block text-xs text-fitness-gold-200 mb-1">Повторення</label>
               <input
                 value={reps}
                 onChange={(e) => setReps(e.target.value)}
@@ -112,7 +111,7 @@ const AddExerciseModal: React.FC<AddExerciseModalProps> = ({ isOpen, onClose, on
               />
             </div>
             <div>
-              <label className="block text-xs text-purple-200 mb-1">Відпочинок</label>
+              <label className="block text-xs text-fitness-gold-200 mb-1">Відпочинок</label>
               <input
                 value={rest}
                 onChange={(e) => setRest(e.target.value)}
@@ -123,7 +122,7 @@ const AddExerciseModal: React.FC<AddExerciseModalProps> = ({ isOpen, onClose, on
           </div>
           {weightType !== 'none' && (
             <div>
-              <label className="block text-xs text-purple-200 mb-1">
+              <label className="block text-xs text-fitness-gold-200 mb-1">
                 Цільова вага (кг) {weightType === 'total' ? '(загальна вага)' : weightType === 'single' ? '(1 снаряд)' : weightType === 'bodyweight' ? '(власна вага)' : ''}
               </label>
               <input
@@ -175,7 +174,7 @@ const AddExerciseModal: React.FC<AddExerciseModalProps> = ({ isOpen, onClose, on
                   setIsSubmitting(false);
                 }
               }}
-              className={`px-4 py-2 rounded text-white text-sm ${!name || isSubmitting ? 'bg-purple-700/60 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700'}`}
+              className={`px-4 py-2 rounded text-white text-sm ${!name || isSubmitting ? 'bg-fitness-gold-700/60 cursor-not-allowed' : 'bg-fitness-gold-600 hover:bg-fitness-gold-700'}`}
             >
               Додати
             </button>

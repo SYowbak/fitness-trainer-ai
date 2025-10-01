@@ -51,7 +51,7 @@ const SaveOrderModal: React.FC<SaveOrderModalProps> = ({
           <div className="bg-gray-700/50 p-3 rounded text-sm">
             {reorderedExercises.map((exercise, index) => (
               <div key={exercise.id} className="flex items-center mb-1 last:mb-0">
-                <span className="text-purple-300 font-mono mr-2">{index + 1}.</span>
+                <span className="text-fitness-gold-300 font-mono mr-2">{index + 1}.</span>
                 <span className="text-gray-200">{exercise.name}</span>
               </div>
             ))}
