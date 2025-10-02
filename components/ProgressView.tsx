@@ -35,25 +35,19 @@ const ProgressView: React.FC<ProgressViewProps> = ({
   const [modalLogs, setModalLogs] = useState<WorkoutLog[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isStatsExpanded, setIsStatsExpanded] = useState(false);
-
+  const [isRecommendationsExpanded, setIsRecommendationsExpanded] = useState(false);
   const workoutDates = useMemo(() => {
     const dates = new Set<string>();
-    console.log('📅 [ProgressView] Обробляємо логи для календаря:', workoutLogs.length);
     
     // Видаляємо дублікати по ID та даті
-    const uniqueLogs = workoutLogs.filter((log, index, self) => 
-      index === self.findIndex(l => l.id === log.id)
-    );
-    
-    console.log('📅 [ProgressView] Після видалення дублікатів:', uniqueLogs.length);
+    const uniqueLogs = Array.from(new Map(workoutLogs.map(log => [log.id, log])).values());
     
     uniqueLogs.forEach(log => {
       const logDate = log.date instanceof Date ? log.date : new Date(log.date.seconds * 1000);
       const dateString = logDate.toDateString();
-      console.log('📅 [ProgressView] Додаємо дату до календаря:', dateString, 'з логу:', log.id);
       dates.add(dateString);
     });
-    console.log('📅 [ProgressView] Всього дат у календарі:', dates.size, Array.from(dates));
+    
     return dates;
   }, [workoutLogs]);
 
@@ -76,20 +70,13 @@ const ProgressView: React.FC<ProgressViewProps> = ({
   };
   
   const handleDateClick = (value: Date) => {
-    console.log('📅 [ProgressView] Клік по даті:', value.toDateString());
     setSelectedDate(value);
     const logs = workoutLogs.filter(log => {
       const logDate = log.date instanceof Date ? log.date : new Date(log.date.seconds * 1000);
-      const matches = logDate.toDateString() === value.toDateString();
-      console.log('📅 [ProgressView] Перевіряємо лог:', log.id, 'дата логу:', logDate.toDateString(), 'співпадає:', matches);
-      return matches;
+      return logDate.toDateString() === value.toDateString();
     });
-    console.log('📅 [ProgressView] Знайдено логів для дати:', logs.length);
-    if (logs.length > 0) {
-      setModalLogs(logs);
-    } else {
-      setModalLogs([]); // Очищуємо, якщо логів немає
-    }
+    
+    setModalLogs(logs.length > 0 ? logs : []);
   };
 
   const handleCloseModal = () => {
@@ -105,11 +92,14 @@ const ProgressView: React.FC<ProgressViewProps> = ({
     }
     
     // Fallback: розраховуємо локально якщо немає пропсів
-    if (workoutLogs.length < 2) return null;
+    if (workoutLogs.length < 2) {
+      return null;
+    }
+    
     try {
       return analyzeProgressTrends(workoutLogs);
     } catch (error) {
-      console.error('Error analyzing progress trends:', error);
+      console.error('❌ [ProgressView] Помилка аналізу прогресу:', error);
       return null;
     }
   }, [progressTrends, workoutLogs]);
@@ -302,11 +292,18 @@ const ProgressView: React.FC<ProgressViewProps> = ({
       {/* Рекомендації після завершення тренування */}
       {exerciseRecommendations && exerciseRecommendations.length > 0 && (
         <div className="mb-6 p-4 bg-green-900/20 border border-green-500/30 rounded-lg">
-          <h3 className="text-lg font-semibold text-green-300 mb-3">
-            <i className="fas fa-lightbulb mr-2"></i>
-            Рекомендації після останнього тренування
-          </h3>
-          <div className="space-y-3">
+          <button 
+            onClick={() => setIsRecommendationsExpanded(!isRecommendationsExpanded)}
+            className="w-full flex items-center justify-between text-lg font-semibold text-green-300 mb-3 hover:text-green-200 transition-colors"
+          >
+            <span>
+              <i className="fas fa-lightbulb mr-2"></i>
+              Рекомендації після останнього тренування
+            </span>
+            <i className={`fas fa-chevron-${isRecommendationsExpanded ? 'up' : 'down'} transition-transform duration-200`}></i>
+          </button>
+          {isRecommendationsExpanded && (
+            <div className="space-y-3 animate-fadeIn">
             {exerciseRecommendations.map((rec, index) => (
               <div key={index} className="bg-gray-800/50 p-3 rounded-lg border border-gray-600">
                 <h4 className="font-medium text-green-200 mb-1">{rec.exerciseName}</h4>
@@ -344,7 +341,8 @@ const ProgressView: React.FC<ProgressViewProps> = ({
                 )}
               </div>
             ))}
-          </div>
+            </div>
+          )}
         </div>
       )}
       

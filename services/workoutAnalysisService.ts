@@ -1,69 +1,6 @@
-import { UserProfile, DailyWorkoutPlan, WorkoutLog, WorkoutAnalysisResult, Exercise, ExerciseRecommendation } from '../types';
-import { generateWorkoutAnalysis, generateExerciseVariations, shouldVaryExercise } from './geminiService';
+import { UserProfile, WorkoutLog, Exercise } from '../types';
+import { generateExerciseVariations, shouldVaryExercise } from './geminiService';
 
-export const analyzeWorkout = async (
-  userProfile: UserProfile,
-  dayPlan: DailyWorkoutPlan,
-  lastWorkoutLog: WorkoutLog | null,
-  previousWorkoutLogs: WorkoutLog[] = []
-): Promise<WorkoutAnalysisResult> => {
-  try {
-    console.log('🔍 Starting workout analysis...', {
-      dayNumber: dayPlan.day,
-      exerciseCount: dayPlan.exercises.length,
-      hasLastLog: !!lastWorkoutLog
-    });
-    
-    const analysis = await generateWorkoutAnalysis({
-      userProfile,
-      dayPlan,
-      lastWorkoutLog,
-      previousWorkoutLogs
-    });
-
-    console.log('✅ Workout analysis completed successfully');
-    
-    // Ensure all recommendations have the required action field
-    const processedRecommendations: ExerciseRecommendation[] = analysis.dailyRecommendations.map(rec => ({
-      exerciseName: rec.exerciseName,
-      recommendation: rec.recommendation,
-      suggestedWeight: rec.suggestedWeight,
-      suggestedReps: rec.suggestedReps,
-      suggestedSets: rec.suggestedSets,
-      reason: rec.reason,
-      action: (rec as any).action || 'maintain' // Ensure action field exists
-    }));
-    
-    return {
-      updatedPlan: analysis.updatedPlan,
-      recommendation: analysis.recommendation,
-      dailyRecommendations: processedRecommendations
-    };
-  } catch (error) {
-    console.error('⚠️ Error during workout analysis:', error);
-    
-    // Створюємо fallback відповідь замість викидання помилки
-    const fallbackResult: WorkoutAnalysisResult = {
-      updatedPlan: {
-        ...dayPlan,
-        notes: dayPlan.notes || 'План залишено без змін'
-      },
-      recommendation: {
-        text: 'Не вдалося провести аналіз тренування. Продовжуйте за попереднім планом.',
-        action: 'maintain'
-      },
-      dailyRecommendations: dayPlan.exercises.map(ex => ({
-        exerciseName: ex.name,
-        recommendation: 'Продовжуйте виконання за попереднім планом',
-        action: 'maintain',
-        reason: 'Аналіз недоступний'
-      }))
-    };
-    
-    console.log('🔄 Returning fallback analysis result');
-    return fallbackResult;
-  }
-};
 
 export const getExerciseVariations = async (
   userProfile: UserProfile,
@@ -179,16 +116,27 @@ export const analyzeProgressTrends = (workoutHistory: WorkoutLog[]): {
     ? ((newerMetrics.avgVolumePerSet - olderMetrics.avgVolumePerSet) / olderMetrics.avgVolumePerSet) * 100 
     : (newerMetrics.avgVolumePerSet > 0 ? 100 : 0); // Якщо старе значення 0, а нове > 0, то покращення 100%
 
+  // Обмежуємо екстремальні значення для більш реалістичного відображення
+  const clampedWeightImprovement = Math.max(-100, Math.min(100, weightImprovement));
+  const clampedRepsImprovement = Math.max(-100, Math.min(100, repsImprovement));
+  const clampedVolumeImprovement = Math.max(-100, Math.min(100, volumeImprovement));
+
   // Визначаємо загальний тренд на основі покращень
   let overallProgress: 'improving' | 'plateau' | 'declining';
   
   // Комбінований показник прогресу (вага має більший вплив для силових тренувань)
-  const combinedProgress = (weightImprovement * 0.4) + (repsImprovement * 0.3) + (volumeImprovement * 0.3);
+  const combinedProgress = (clampedWeightImprovement * 0.4) + (clampedRepsImprovement * 0.3) + (clampedVolumeImprovement * 0.3);
   
   console.log('📊 Progress Analysis:', {
+    workoutCount: workoutHistory.length,
+    validWorkoutsCount: validWorkouts.length,
+    recentWorkoutsCount: recentWorkouts.length,
     weightImprovement: Math.round(weightImprovement * 100) / 100,
+    clampedWeightImprovement: Math.round(clampedWeightImprovement * 100) / 100,
     repsImprovement: Math.round(repsImprovement * 100) / 100,
+    clampedRepsImprovement: Math.round(clampedRepsImprovement * 100) / 100,
     volumeImprovement: Math.round(volumeImprovement * 100) / 100,
+    clampedVolumeImprovement: Math.round(clampedVolumeImprovement * 100) / 100,
     combinedProgress: Math.round(combinedProgress * 100) / 100,
     newerMetrics,
     olderMetrics
@@ -207,8 +155,8 @@ export const analyzeProgressTrends = (workoutHistory: WorkoutLog[]): {
 
   return {
     overallProgress,
-    strengthProgress: Math.round(weightImprovement * 10) / 10, // Відсоток покращення ваги
-    enduranceProgress: Math.round(repsImprovement * 10) / 10, // Відсоток покращення повторень
+    strengthProgress: Math.round(clampedWeightImprovement * 10) / 10, // Відсоток покращення ваги
+    enduranceProgress: Math.round(clampedRepsImprovement * 10) / 10, // Відсоток покращення повторень
     consistencyScore: Math.round(consistencyScore)
   };
 }; 

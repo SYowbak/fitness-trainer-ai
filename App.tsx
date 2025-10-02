@@ -9,7 +9,8 @@ import Spinner from './components/Spinner';
 import ErrorMessage from './components/ErrorMessage';
 import TrainerChat from './components/TrainerChat';
 import QuotaStatus from './components/QuotaStatus';
-import OfflineIndicator from './components/OfflineIndicator';
+import UpdateNotification from './components/UpdateNotification';
+import SystemStatusBar from './components/SystemStatusBar';
 import { saveOfflineData, getOfflineData, addToOfflineQueue, isOnline, syncOfflineQueue, getOfflineQueue, clearStaleOfflineData, checkLocalStorageHealth } from './utils/offlineUtils';
 import { generateWorkoutPlan as apiGenerateWorkoutPlan, generateWellnessRecommendations } from './services/geminiService';
 import { generateNewAdaptiveWorkout } from './services/newAdaptiveWorkout';
@@ -19,7 +20,7 @@ import { useUserData } from './hooks/useUserData';
 import { deleteUser } from 'firebase/auth';
 import { db } from './config/firebase';
 import { collection, doc, deleteDoc, getDocs, query, where } from 'firebase/firestore';
-import { analyzeWorkout, getExerciseVariations, analyzeProgressTrends } from './services/workoutAnalysisService';
+import { getExerciseVariations, analyzeProgressTrends } from './services/workoutAnalysisService';
 import { addBaseRecommendations, validateWorkoutSafety } from './services/injuryValidationService';
 import { backgroundAnalysisService } from './services/backgroundWorkoutAnalysis';
 import { useWorkoutSync } from './hooks/useWorkoutSync';
@@ -62,6 +63,7 @@ const App: React.FC = () => {
   const [pendingWorkoutDay, setPendingWorkoutDay] = useState<number | null>(null);
   const [isTrainerChatOpen, setIsTrainerChatOpen] = useState(false);
   const [hasInitializedView, setHasInitializedView] = useState(false);
+  const [isNetworkOnline, setIsNetworkOnline] = useState(navigator.onLine);
   const [isWorkoutCompleteModalOpen, setIsWorkoutCompleteModalOpen] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analyzingLogId, setAnalyzingLogId] = useState<string | null>(null);
@@ -246,6 +248,33 @@ const App: React.FC = () => {
       setHasInitializedView(true);
     }
   }, [user, currentWorkoutPlan, hasInitializedView]);
+
+  // Відстеження стану мережі
+  useEffect(() => {
+    const handleOnline = () => setIsNetworkOnline(true);
+    const handleOffline = () => setIsNetworkOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // Функція для оновлення додатку
+  const handleAppUpdate = useCallback(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.ready.then(registration => {
+        // Повідомляємо Service Worker про готовність до оновлення
+        registration.waiting?.postMessage({ type: 'SKIP_WAITING' });
+        
+        // Перезавантажуємо сторінку для застосування оновлення
+        window.location.reload();
+      });
+    }
+  }, []);
 
   // Firebase таймер: тільки онлайн для синхронізації між пристроями
   useEffect(() => {
@@ -687,6 +716,9 @@ const App: React.FC = () => {
     if (!userProfile || !currentWorkoutPlan || !logToAnalyze.id) return;
     setIsAnalyzing(true);
     setAnalyzingLogId(logToAnalyze.id);
+    
+    console.log('🔄 [handleAnalyzeWorkoutFromLog] Запускаємо переаналіз тренування:', logToAnalyze.id);
+    
     try {
       const currentDayPlan = currentWorkoutPlan.find(p => p.day === logToAnalyze.dayCompleted);
       if (!currentDayPlan) {
@@ -694,26 +726,26 @@ const App: React.FC = () => {
         return;
       }
 
-      const analysisResult = await analyzeWorkout(
+      // Використовуємо той самий фоновий аналіз, що і після завершення тренування
+      console.log('🧠 [handleAnalyzeWorkoutFromLog] Запускаємо фоновий аналіз (як після завершення тренування)');
+      
+      await backgroundAnalysisService.queueWorkoutForAnalysis(
+        logToAnalyze,
         userProfile,
         currentDayPlan,
-        logToAnalyze,
-        workoutLogs.filter(log => log.id !== logToAnalyze.id)
+        workoutLogs.filter(log => log.id !== logToAnalyze.id),
+        saveWorkoutLog
       );
+
+      console.log('✅ [handleAnalyzeWorkoutFromLog] Фоновий аналіз запущено успішно');
       
-      // Update the workout log with the analysis result
-      if (analysisResult.recommendation) {
-        const updatedLog = { ...logToAnalyze, recommendation: analysisResult.recommendation };
-        const savedLog = await saveWorkoutLog(updatedLog);
-        setWorkoutLogs(prev => prev.map(l => (l.id === savedLog.id ? savedLog : l)));
-      }
+      // Очищуємо стан аналізу одразу після запуску (фоновий процес)
+      setIsAnalyzing(false);
+      setAnalyzingLogId(null);
       
-      // Also update the exercise recommendations in the UI
-      setExerciseRecommendations(analysisResult.dailyRecommendations || []);
     } catch (error) {
       console.error("Помилка при повторному аналізі:", error);
       setError("Не вдалося проаналізувати тренування. Спробуйте ще раз.");
-    } finally {
       setIsAnalyzing(false);
       setAnalyzingLogId(null);
     }
@@ -1038,7 +1070,16 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-black-glow">
-      <OfflineIndicator />
+      {/* Офлайн повідомлення */}
+      {!isNetworkOnline && (
+        <div className="bg-black text-white px-2 py-1 text-center text-sm">
+          <div className="flex items-center justify-center space-x-2">
+            <i className="fas fa-wifi-slash text-gold"></i>
+            <span>Офлайн режим</span>
+          </div>
+        </div>
+      )}
+      
       <header className="header-animated p-3 sm:p-4 sticky top-0 z-50 border-b border-fitness-gold-600/30">
         <div className="container mx-auto flex flex-col sm:flex-row justify-between items-center">
           <div className="flex items-center space-x-4 mb-2 sm:mb-0">
@@ -1047,6 +1088,8 @@ const App: React.FC = () => {
               <span className="title-shimmer">{UI_TEXT.appName}</span>
             </h1>
             {user && <QuotaStatus className="" />}
+            {/* Системна панель статусу в шапці */}
+            <SystemStatusBar isNetworkOnline={isNetworkOnline} />
           </div>
           {(userProfile || isLoading || session.activeDay !== null) &&  // Показуємо навігацію якщо є профіль, завантаження або активне тренування
             <Navbar currentView={currentView} onViewChange={(v) => {
@@ -1166,6 +1209,11 @@ const App: React.FC = () => {
           }
         }}
       />
+
+      {/* Компонент для повідомлень про оновлення додатку */}
+      <UpdateNotification onUpdate={handleAppUpdate} />
+      
+      {/* Старі компоненти тепер інтегровані в SystemStatusBar */}
     </div>
   );
 };

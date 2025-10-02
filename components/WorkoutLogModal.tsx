@@ -168,7 +168,7 @@ export const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({
                       <i className="fas fa-running mr-1.5"></i>День {log.dayCompleted}
                     </span>
                   </div>
-                  {!log.recommendation && (
+                  <div className="flex gap-2">
                     <button 
                       onClick={() => onAnalyzeWorkout(log)} 
                       disabled={isCurrentLogAnalyzing}
@@ -180,10 +180,13 @@ export const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({
                           Аналізуємо...
                         </>
                       ) : (
-                        'Аналізувати'
+                        <>
+                          <i className="fas fa-brain mr-2"></i>
+                          {log.recommendation ? 'Переаналізувати' : 'Аналізувати'}
+                        </>
                       )}
                     </button>
-                  )}
+                  </div>
                 </div>
                 
                 {log.wellnessCheck && (

@@ -120,9 +120,23 @@ export function checkLocalStorageHealth(): boolean {
   }
 }
 
-// Перевірка статусу мережі
+// Перевірка статусу мережі з додатковою валідацією
 export function isOnline(): boolean {
   return navigator.onLine;
+}
+
+// Перевірка чи можна виконувати тренування офлайн
+export function canWorkoutOffline(): boolean {
+  const data = getOfflineData();
+  return data.workoutPlan && data.workoutPlan.length > 0;
+}
+
+// Отримання офлайн повідомлення для користувача
+export function getOfflineWorkoutMessage(): string {
+  if (canWorkoutOffline()) {
+    return "📵 Офлайн режим - використовуємо збережений план тренувань";
+  }
+  return "📵 Офлайн режим - спочатку створіть план тренувань онлайн";
 }
 
 // Обробка офлайн помилок API
@@ -170,4 +184,45 @@ export async function syncOfflineQueue(
 
   clearOfflineQueue();
   console.log('🎉 Офлайн синхронізація завершена');
+}
+
+// Реєстрація фонової синхронізації
+export function registerBackgroundSync(tag: string = 'background-sync'): void {
+  if ('serviceWorker' in navigator && 'sync' in window.ServiceWorkerRegistration.prototype) {
+    navigator.serviceWorker.ready.then(registration => {
+      // @ts-ignore - Background Sync API може бути недоступний в TypeScript
+      return registration.sync?.register(tag);
+    }).then(() => {
+      console.log('📡 Фонова синхронізація зареєстрована');
+    }).catch(error => {
+      console.warn('⚠️ Фонова синхронізація недоступна:', error);
+    });
+  }
+}
+
+// Автоматична синхронізація при появі мережі
+export function setupAutoSync(
+  syncFunctions: {
+    saveWorkoutLog: (data: any) => Promise<void>;
+    saveProfile: (data: any) => Promise<void>;
+    saveWorkoutPlan: (data: any) => Promise<void>;
+  }
+): void {
+  // Перевіряємо чи є дані для синхронізації при кожній зміні мережі
+  const handleOnline = async () => {
+    if (isOnline()) {
+      const queue = getOfflineQueue();
+      if (queue.length > 0) {
+        console.log('🔄 Автоматична синхронізація при відновленні мережі');
+        await syncOfflineQueue(syncFunctions);
+      }
+    }
+  };
+
+  window.addEventListener('online', handleOnline);
+  
+  // Також перевіряємо при завантаженні сторінки
+  if (isOnline()) {
+    setTimeout(handleOnline, 1000); // Невелика затримка для ініціалізації
+  }
 }

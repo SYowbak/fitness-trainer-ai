@@ -1,6 +1,7 @@
-const CACHE_NAME = 'fitness-trainer-ai-v2';
-const STATIC_CACHE = 'fitness-static-v2';
-const DYNAMIC_CACHE = 'fitness-dynamic-v2';
+const CACHE_NAME = 'fitness-trainer-ai-v3';
+const STATIC_CACHE = 'fitness-static-v3';
+const DYNAMIC_CACHE = 'fitness-dynamic-v3';
+const RUNTIME_CACHE = 'fitness-runtime-v3';
 
 // Критично важливі файли для офлайн роботи
 const CORE_FILES = [
@@ -12,6 +13,10 @@ const CORE_FILES = [
   '/icon-512.png',
   '/favicon.png'
 ];
+
+// Максимальний розмір кешу (50MB)
+const MAX_CACHE_SIZE = 50 * 1024 * 1024;
+const MAX_CACHE_ENTRIES = 100;
 
 // Файли які кешуються динамічно
 const CACHE_STRATEGIES = {
@@ -48,8 +53,10 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          // Видаляємо старі кеші
-          if (cacheName !== STATIC_CACHE && cacheName !== DYNAMIC_CACHE) {
+          // Видаляємо старі кеші, але зберігаємо поточні версії
+          if (cacheName !== STATIC_CACHE && 
+              cacheName !== DYNAMIC_CACHE && 
+              cacheName !== RUNTIME_CACHE) {
             console.log('🗑️ Service Worker: Видалення старого кешу:', cacheName);
             return caches.delete(cacheName);
           }
@@ -60,6 +67,39 @@ self.addEventListener('activate', (event) => {
   // Контролювати всі клієнти одразу
   self.clients.claim();
 });
+
+// Функція очищення кешу при перевищенні ліміту
+async function cleanupCache(cacheName) {
+  const cache = await caches.open(cacheName);
+  const keys = await cache.keys();
+  
+  if (keys.length > MAX_CACHE_ENTRIES) {
+    console.log(`🧹 Очищення кешу ${cacheName}: ${keys.length} -> ${MAX_CACHE_ENTRIES}`);
+    const keysToDelete = keys.slice(0, keys.length - MAX_CACHE_ENTRIES);
+    await Promise.all(keysToDelete.map(key => cache.delete(key)));
+  }
+}
+
+// Перевірка розміру кешу
+async function getCacheSize(cacheName) {
+  const cache = await caches.open(cacheName);
+  const keys = await cache.keys();
+  let totalSize = 0;
+  
+  for (const key of keys) {
+    try {
+      const response = await cache.match(key);
+      if (response) {
+        const blob = await response.blob();
+        totalSize += blob.size;
+      }
+    } catch (error) {
+      // Ігноруємо помилки при підрахунку розміру
+    }
+  }
+  
+  return totalSize;
+}
 
 // Допоміжні функції для кешування
 function isStaticResource(url) {
@@ -82,7 +122,9 @@ async function cacheFirst(request) {
     const response = await fetch(request);
     if (response.status === 200) {
       const cache = await caches.open(STATIC_CACHE);
-      cache.put(request, response.clone());
+      await cache.put(request, response.clone());
+      // Очищуємо кеш при необхідності
+      await cleanupCache(STATIC_CACHE);
     }
     return response;
   } catch (error) {
@@ -136,10 +178,31 @@ self.addEventListener('fetch', (event) => {
         return networkFirst(request);
       }
       
-      // HTML сторінки - спочатку мережа, потім кеш
+      // HTML сторінки - покращена стратегія без блимання
       if (request.destination === 'document') {
         try {
+          // Спочатку показуємо кеш для швидкості
+          const cached = await caches.match('/');
+          if (cached) {
+            // Паралельно оновлюємо кеш в фоні
+            fetch(request).then(response => {
+              if (response.status === 200) {
+                caches.open(STATIC_CACHE).then(cache => {
+                  cache.put(request, response.clone());
+                });
+              }
+            }).catch(() => {
+              // Ігноруємо помилки фонового оновлення
+            });
+            return cached;
+          }
+          
+          // Якщо немає кешу - завантажуємо з мережі
           const response = await fetch(request);
+          if (response.status === 200) {
+            const cache = await caches.open(STATIC_CACHE);
+            cache.put(request, response.clone());
+          }
           return response;
         } catch (error) {
           console.log('📄 Показуємо кешовану сторінку');
@@ -162,19 +225,87 @@ self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
+  
+  // Повідомлення про готовність до оновлення
+  if (event.data && event.data.type === 'GET_VERSION') {
+    event.ports[0].postMessage({
+      type: 'VERSION_INFO',
+      version: CACHE_NAME
+    });
+  }
 });
 
-// Фонові синхронізації (для майбутнього)
+// Повідомлення клієнтів про оновлення
+function notifyClients(message) {
+  self.clients.matchAll().then(clients => {
+    clients.forEach(client => {
+      client.postMessage(message);
+    });
+  });
+}
+
+// Повідомлення про нове оновлення при встановленні
+self.addEventListener('install', (event) => {
+  // ... існуючий код встановлення ...
+  
+  // Повідомляємо клієнтів про нове оновлення
+  notifyClients({
+    type: 'UPDATE_AVAILABLE',
+    version: CACHE_NAME
+  });
+});
+
+// Фонові синхронізації
 self.addEventListener('sync', (event) => {
   console.log('🔄 Service Worker: Фонова синхронізація:', event.tag);
   
   if (event.tag === 'background-sync') {
     event.waitUntil(
-      // Тут можна додати логіку синхронізації даних
-      console.log('📡 Синхронізація даних в фоні...')
+      syncOfflineData()
     );
   }
 });
+
+// Функція синхронізації офлайн даних в фоні
+async function syncOfflineData() {
+  try {
+    console.log('📡 Початок фонової синхронізації даних...');
+    
+    // Отримуємо дані з localStorage
+    const offlineData = localStorage.getItem('fitness-offline-queue');
+    if (!offlineData) {
+      console.log('✅ Немає даних для синхронізації');
+      return;
+    }
+    
+    const queue = JSON.parse(offlineData);
+    if (queue.length === 0) {
+      console.log('✅ Черга синхронізації порожня');
+      return;
+    }
+    
+    // Повідомляємо клієнтів про початок синхронізації
+    notifyClients({
+      type: 'SYNC_STARTED',
+      count: queue.length
+    });
+    
+    console.log(`🔄 Синхронізуємо ${queue.length} елементів в фоні`);
+    
+    // Повідомляємо про завершення (реальна синхронізація буде в основному додатку)
+    notifyClients({
+      type: 'SYNC_NEEDED',
+      queue: queue
+    });
+    
+  } catch (error) {
+    console.error('❌ Помилка фонової синхронізації:', error);
+    notifyClients({
+      type: 'SYNC_ERROR',
+      error: error.message
+    });
+  }
+}
 
 // Push-сповіщення (для майбутнього)
 self.addEventListener('push', (event) => {

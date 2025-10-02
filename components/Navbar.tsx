@@ -99,20 +99,6 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, onViewChange }) => {
         iconClass="fas fa-chart-line"
       />
       
-      {/* Індикатор мережі */}
-      <div className={`px-2 py-1 rounded-md text-xs font-medium flex items-center space-x-1 ${
-        isOnline 
-          ? 'bg-green-600/20 text-green-400 border border-green-500/30' 
-          : 'bg-red-600/30 text-red-400 border border-red-500/50 animate-pulse'
-      }`} title={isOnline ? 'Онлайн' : 'Офлайн режим'}>
-        {isOnline ? (
-          <i className="fas fa-wifi text-xs"></i>
-        ) : (
-          <span className="text-xs font-bold">⚠️</span>
-        )}
-        <span className="hidden sm:inline">{isOnline ? 'Онлайн' : 'Офлайн'}</span>
-      </div>
-      
       {/* Кнопка встановлення PWA */}
       {isInstallable && !isInstalled && (
         <button

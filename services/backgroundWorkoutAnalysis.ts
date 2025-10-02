@@ -461,13 +461,15 @@ ${previousLogs.slice(0, 3).map(log => {
    * Отримує рекомендації для конкретного дня
    */
   getRecommendationsForDay(workoutLogs: WorkoutLog[], dayNumber: number): ExerciseRecommendation[] {
+    
     // Знаходимо останній завершений аналіз для цього дня
-    const lastAnalyzedLog = workoutLogs
-      .filter(log => 
-        log.dayCompleted === dayNumber && 
-        log.analysisStatus === 'completed' &&
-        log.nextWorkoutRecommendations
-      )
+    const candidateLogs = workoutLogs.filter(log => 
+      log.dayCompleted === dayNumber && 
+      log.analysisStatus === 'completed'
+    );
+    
+    const lastAnalyzedLog = candidateLogs
+      .filter(log => log.nextWorkoutRecommendations)
       .sort((a, b) => {
         const dateA = a.date instanceof Date ? a.date : new Date(a.date.seconds * 1000);
         const dateB = b.date instanceof Date ? b.date : new Date(b.date.seconds * 1000);
