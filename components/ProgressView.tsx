@@ -37,10 +37,22 @@ const ProgressView: React.FC<ProgressViewProps> = ({
 
   const workoutDates = useMemo(() => {
     const dates = new Set<string>();
-    workoutLogs.forEach(log => {
+    console.log('📅 [ProgressView] Обробляємо логи для календаря:', workoutLogs.length);
+    
+    // Видаляємо дублікати по ID та даті
+    const uniqueLogs = workoutLogs.filter((log, index, self) => 
+      index === self.findIndex(l => l.id === log.id)
+    );
+    
+    console.log('📅 [ProgressView] Після видалення дублікатів:', uniqueLogs.length);
+    
+    uniqueLogs.forEach(log => {
       const logDate = log.date instanceof Date ? log.date : new Date(log.date.seconds * 1000);
-      dates.add(logDate.toDateString());
+      const dateString = logDate.toDateString();
+      console.log('📅 [ProgressView] Додаємо дату до календаря:', dateString, 'з логу:', log.id);
+      dates.add(dateString);
     });
+    console.log('📅 [ProgressView] Всього дат у календарі:', dates.size, Array.from(dates));
     return dates;
   }, [workoutLogs]);
 
@@ -63,11 +75,15 @@ const ProgressView: React.FC<ProgressViewProps> = ({
   };
   
   const handleDateClick = (value: Date) => {
+    console.log('📅 [ProgressView] Клік по даті:', value.toDateString());
     setSelectedDate(value);
     const logs = workoutLogs.filter(log => {
       const logDate = log.date instanceof Date ? log.date : new Date(log.date.seconds * 1000);
-      return logDate.toDateString() === value.toDateString();
+      const matches = logDate.toDateString() === value.toDateString();
+      console.log('📅 [ProgressView] Перевіряємо лог:', log.id, 'дата логу:', logDate.toDateString(), 'співпадає:', matches);
+      return matches;
     });
+    console.log('📅 [ProgressView] Знайдено логів для дати:', logs.length);
     if (logs.length > 0) {
       setModalLogs(logs);
     } else {
@@ -335,6 +351,19 @@ const ProgressView: React.FC<ProgressViewProps> = ({
         <Calendar
           onClickDay={handleDateClick}
           tileContent={tileContent}
+          tileClassName={({ date, view }) => {
+            if (view === 'month') {
+              const isToday = date.toDateString() === new Date().toDateString();
+              const hasWorkout = workoutDates.has(date.toDateString());
+              
+              let classes = [];
+              if (isToday) classes.push('today-tile');
+              if (hasWorkout) classes.push('workout-tile');
+              
+              return classes.join(' ');
+            }
+            return '';
+          }}
           locale="uk-UA"
           className="mx-auto"
         />

@@ -21,6 +21,7 @@ import { db } from './config/firebase';
 import { collection, doc, deleteDoc, getDocs, query, where } from 'firebase/firestore';
 import { analyzeWorkout, getExerciseVariations, analyzeProgressTrends } from './services/workoutAnalysisService';
 import { addBaseRecommendations, validateWorkoutSafety } from './services/injuryValidationService';
+import { backgroundAnalysisService } from './services/backgroundWorkoutAnalysis';
 import { useWorkoutSync } from './hooks/useWorkoutSync';
 import WellnessCheckModal from './components/WellnessCheckModal';
 import WellnessRecommendations from './components/WellnessRecommendations';
@@ -129,20 +130,19 @@ const App: React.FC = () => {
   // Синхронізація профілю та логів з useUserData (Firestore) + офлайн підтримка
   useEffect(() => {
     if (user) {
-      // Якщо є дані з Firestore (онлайн режим)
-      if (firestoreProfile || firestoreWorkoutLogs.length > 0) {
-        setUserProfile(firestoreProfile);
-        setWorkoutLogs(firestoreWorkoutLogs);
-        
-        // Автоматично зберігаємо для офлайн використання
-        saveOfflineData({
-          userProfile: firestoreProfile,
-          workoutLogs: firestoreWorkoutLogs,
-          workoutPlan: currentWorkoutPlan || []
-        });
-      }
-      // Якщо немає даних з Firestore і офлайн - завантажуємо з кешу
-      else if (!isOnline()) {
+      // Завжди синхронізуємо дані з Firestore (онлайн режим)
+      setUserProfile(firestoreProfile);
+      setWorkoutLogs(firestoreWorkoutLogs);
+      
+      // Автоматично зберігаємо для офлайн використання
+      saveOfflineData({
+        userProfile: firestoreProfile,
+        workoutLogs: firestoreWorkoutLogs,
+        workoutPlan: currentWorkoutPlan || []
+      });
+    }
+    // Якщо немає даних з Firestore і офлайн - завантажуємо з кешу
+    else if (!isOnline()) {
         const offlineData = getOfflineData();
         if (offlineData.userProfile || offlineData.workoutLogs.length > 0) {
           console.log('📵 Завантажуємо дані з офлайн кешу');
@@ -153,13 +153,12 @@ const App: React.FC = () => {
           }
         }
       }
-    }
   }, [user, firestoreProfile, firestoreWorkoutLogs, currentWorkoutPlan]);
 
   // Синхронізація офлайн даних при відновленні мережі
   useEffect(() => {
     const handleOnline = async () => {
-      if (user) {
+      if (user && userProfile && currentWorkoutPlan) {
         const queue = getOfflineQueue();
         if (queue.length > 0) {
           console.log(`🔄 Відновлено мережу - синхронізуємо ${queue.length} офлайн дій`);
@@ -191,12 +190,26 @@ const App: React.FC = () => {
             console.error('❌ Помилка синхронізації офлайн даних:', error);
           }
         }
+
+        // Повторюємо невдалі аналізи при відновленні мережі
+        console.log('🔄 Перевіряємо невдалі аналізи для повторення');
+        try {
+          await backgroundAnalysisService.retryFailedAnalyses(
+            workoutLogs,
+            userProfile,
+            currentWorkoutPlan,
+            saveWorkoutLog
+          );
+          console.log('✅ Повторення невдалих аналізів завершено');
+        } catch (error) {
+          console.error('❌ Помилка повторення аналізів:', error);
+        }
       }
     };
 
     window.addEventListener('online', handleOnline);
     return () => window.removeEventListener('online', handleOnline);
-  }, [user, saveWorkoutLog, saveProfile, saveWorkoutPlan]);
+  }, [user, userProfile, currentWorkoutPlan, workoutLogs, saveWorkoutLog, saveProfile, saveWorkoutPlan]);
 
   // Автоматичний вибір початкової вкладки на основі наявності плану тренувань (тільки при початковому завантаженні)
   useEffect(() => {
@@ -227,14 +240,11 @@ const App: React.FC = () => {
         const elapsedTime = Math.floor((currentTime - startTime) / 1000);
         updateTimer(elapsedTime);
       }, 1000);
-      console.log('⏱️ [App] Firebase таймер запущено (онлайн синхронізація)');
     }
-    // Видалено updateTimer(0) щоб уникнути циклу
     
     return () => {
       if (timerInterval) {
         clearInterval(timerInterval);
-        console.log('⏱️ [App] Firebase таймер зупинено');
       }
     };
   }, [user, session.startTime, session.activeDay, updateTimer]);
@@ -422,9 +432,21 @@ const App: React.FC = () => {
   }, [userProfile, apiKeyMissing, session.activeDay, endWorkout, saveWorkoutPlan]);
 
   const handleStartWorkoutWithWellnessCheck = useCallback(async (dayNumber: number) => {
+    // Завантажуємо рекомендації для цього дня з попередніх аналізів
+    console.log('🔍 [handleStartWorkout] Завантажуємо рекомендації для дня', dayNumber);
+    const dayRecommendations = backgroundAnalysisService.getRecommendationsForDay(workoutLogs, dayNumber);
+    
+    if (dayRecommendations.length > 0) {
+      console.log('✅ [handleStartWorkout] Знайдено рекомендації:', dayRecommendations.length);
+      setExerciseRecommendations(dayRecommendations);
+    } else {
+      console.log('ℹ️ [handleStartWorkout] Рекомендації для дня не знайдено');
+      setExerciseRecommendations([]);
+    }
+    
     setPendingWorkoutDay(dayNumber);
     setWellnessCheckModalOpen(true);
-  }, []);
+  }, [workoutLogs]);
 
   const handleLogSingleExercise = useCallback((exerciseIndex: number, loggedSets: LoggedSetWithAchieved[], success: boolean) => {
     updateExercise(exerciseIndex, loggedSets, success);
@@ -494,36 +516,25 @@ const App: React.FC = () => {
     };
 
     try {
-      // Якщо онлайн - зберігаємо в Firebase як зазвичай
+      // Якщо онлайн - зберігаємо в Firebase та запускаємо фоновий аналіз
       if (isOnline()) {
         const savedLog = await saveWorkoutLog(workoutLog);
         setWorkoutLogs(prev => [savedLog, ...prev]);
 
-        const analysisResult = await analyzeWorkout(
+        console.log('🔄 [handleEndWorkout] Запускаємо фоновий аналіз тренування');
+        
+        // Запускаємо фоновий аналіз (не блокує UI)
+        backgroundAnalysisService.queueWorkoutForAnalysis(
+          savedLog,
           userProfile,
           currentWorkoutPlan.find(p => p.day === session.activeDay)!,
-          savedLog,
-          workoutLogs
-        );
-        
-        if (analysisResult.recommendation) {
-          const finalLog = { ...savedLog, recommendation: analysisResult.recommendation };
-          const updatedLog = await saveWorkoutLog(finalLog);
-          setWorkoutLogs(prev => prev.map(l => (l.id === updatedLog.id ? updatedLog : l)));
-        }
+          workoutLogs,
+          saveWorkoutLog
+        ).catch(error => {
+          console.error('❌ [handleEndWorkout] Помилка фонового аналізу:', error);
+        });
 
-        // Оновлюємо план тренувань, якщо потрібно
-        if (analysisResult?.updatedPlan) {
-          const planIndex = currentWorkoutPlan.findIndex(p => p.day === analysisResult.updatedPlan.day);
-          if (planIndex !== -1) {
-            const newWorkoutPlan = [...currentWorkoutPlan];
-            newWorkoutPlan[planIndex] = analysisResult.updatedPlan;
-            setCurrentWorkoutPlan(newWorkoutPlan);
-            await saveWorkoutPlan(newWorkoutPlan);
-          }
-        }
-
-        setExerciseRecommendations(analysisResult?.dailyRecommendations || []);
+        // НЕ очищуємо рекомендації - залишаємо поточні до отримання нових з аналізу
       } 
       // Якщо офлайн - зберігаємо локально і додаємо в чергу синхронізації
       else {
@@ -533,7 +544,8 @@ const App: React.FC = () => {
         const offlineLog = {
           ...workoutLog,
           id: `offline_${Date.now()}`,
-          isOffline: true
+          isOffline: true,
+          analysisStatus: 'pending' as const // Позначаємо що потрібен аналіз
         };
         
         // Додаємо до локального стану

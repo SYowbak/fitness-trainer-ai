@@ -243,6 +243,20 @@ export const useUserData = () => {
       
       await setDoc(logRef, cleanedLog, { merge: true }); // Використовуємо merge: true для безпечного оновлення
       
+      // Оновлюємо локальний стан після збереження
+      setWorkoutLogs(prevLogs => {
+        const existingIndex = prevLogs.findIndex(log => log.id === finalLog.id);
+        if (existingIndex >= 0) {
+          // Оновлюємо існуючий лог
+          const updatedLogs = [...prevLogs];
+          updatedLogs[existingIndex] = cleanedLog as WorkoutLog;
+          return updatedLogs;
+        } else {
+          // Додаємо новий лог на початок списку
+          return [cleanedLog as WorkoutLog, ...prevLogs];
+        }
+      });
+      
       return cleanedLog as WorkoutLog;
 
     } catch (error) {

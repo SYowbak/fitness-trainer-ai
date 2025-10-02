@@ -110,7 +110,28 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
     }
   };
 
-  const exerciseRecommendation = recommendations.find(rec => rec.exerciseName === exercise.name);
+  // Система пріоритетів рекомендацій - повертає найважливішу рекомендацію
+  const exerciseRecommendation = (() => {
+    // 1. Пріоритет: Рекомендації з аналізу попереднього тренування (з AI)
+    const aiRecommendation = recommendations.find(rec => rec.exerciseName === exercise.name);
+    if (aiRecommendation) {
+      return aiRecommendation;
+    }
+    
+    // 2. Пріоритет: Базові рекомендації з плану тренувань (перетворюємо в формат AI рекомендацій)
+    if (exercise.recommendation?.text) {
+      return {
+        exerciseName: exercise.name,
+        recommendation: exercise.recommendation.text,
+        reason: "Базова рекомендація для прогресу",
+        suggestedWeight: undefined,
+        suggestedReps: undefined,
+        suggestedSets: undefined
+      };
+    }
+    
+    return null;
+  })();
   const hasVariations = !variationsHidden && variations.length > 0;
 
   // Ініціалізуємо або оновлюємо isCompleted, isSkipped та allSetsSuccessful, коли exercise змінюється
@@ -331,26 +352,48 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
             </div>
           )}
 
-          {/* Рекомендації AI */}
+          {/* Рекомендації з системою пріоритетів */}
           {exerciseRecommendation && (
-            <div className="mb-4 p-4 bg-blue-900/30 border border-blue-500/30 rounded-lg">
+            <div className={`mb-4 p-4 rounded-lg ${
+              exerciseRecommendation.reason === "Базова рекомендація для прогресу" 
+                ? "bg-green-900/30 border border-green-500/30" 
+                : "bg-blue-900/30 border border-blue-500/30"
+            }`}>
               <div className="flex items-start space-x-3">
-                <i className="fas fa-lightbulb text-blue-400 mt-1"></i>
+                <i className={`fas mt-1 ${
+                  exerciseRecommendation.reason === "Базова рекомендація для прогресу" 
+                    ? "fa-lightbulb text-green-400" 
+                    : "fa-robot text-blue-400"
+                }`}></i>
                 <div className="flex-1">
-                  <h4 className="text-blue-300 font-semibold mb-2">Рекомендація AI</h4>
-                  <p className="text-blue-200 text-sm mb-2">{exerciseRecommendation.recommendation}</p>
-                  <div className="text-xs text-blue-300">
-                    <p><strong>Причина:</strong> {exerciseRecommendation.reason}</p>
-                    {exerciseRecommendation.suggestedWeight && (
-                      <p><strong>Рекомендована вага:</strong> {exerciseRecommendation.suggestedWeight} кг</p>
-                    )}
-                    {exerciseRecommendation.suggestedReps && (
-                      <p><strong>Рекомендовані повторення:</strong> {exerciseRecommendation.suggestedReps}</p>
-                    )}
-                    {exerciseRecommendation.suggestedSets && (
-                      <p><strong>Рекомендовані підходи:</strong> {exerciseRecommendation.suggestedSets}</p>
-                    )}
-                  </div>
+                  <h4 className={`font-semibold mb-2 ${
+                    exerciseRecommendation.reason === "Базова рекомендація для прогресу" 
+                      ? "text-green-300" 
+                      : "text-blue-300"
+                  }`}>
+                    {exerciseRecommendation.reason === "Базова рекомендація для прогресу" 
+                      ? "Рекомендація для прогресу" 
+                      : "Рекомендація на основі аналізу"}
+                  </h4>
+                  <p className={`text-sm mb-2 ${
+                    exerciseRecommendation.reason === "Базова рекомендація для прогресу" 
+                      ? "text-green-200" 
+                      : "text-blue-200"
+                  }`}>{exerciseRecommendation.recommendation}</p>
+                  {exerciseRecommendation.reason !== "Базова рекомендація для прогресу" && (
+                    <div className="text-xs text-blue-300">
+                      <p><strong>Причина:</strong> {exerciseRecommendation.reason}</p>
+                      {exerciseRecommendation.suggestedWeight && (
+                        <p><strong>Рекомендована вага:</strong> {exerciseRecommendation.suggestedWeight} кг</p>
+                      )}
+                      {exerciseRecommendation.suggestedReps && (
+                        <p><strong>Рекомендовані повторення:</strong> {exerciseRecommendation.suggestedReps}</p>
+                      )}
+                      {exerciseRecommendation.suggestedSets && (
+                        <p><strong>Рекомендовані підходи:</strong> {exerciseRecommendation.suggestedSets}</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -421,12 +464,6 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                  <div className="bg-fitness-gold-700/60 p-2 rounded shadow col-span-full">
                     <strong className="block text-yellow-200 mb-0.5"><i className="fas fa-bullseye mr-1"></i>{UI_TEXT.targetWeight}</strong>
                     <span className="text-gray-100 font-semibold">{exercise.targetWeight} kg</span>
-                 </div>
-            )}
-            {exercise.recommendation?.text && (
-                 <div className="bg-green-800/30 p-2 rounded shadow col-span-full text-green-200">
-                    <strong className="block text-green-100 mb-0.5"><i className="fas fa-lightbulb mr-1"></i>Рекомендація для прогресу:</strong>
-                    <p className="text-xs sm:text-sm">{exercise.recommendation.text}</p>
                  </div>
             )}
 

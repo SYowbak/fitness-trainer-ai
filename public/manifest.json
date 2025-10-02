@@ -4,6 +4,7 @@
   "description": "Розумний AI тренер для персональних тренувань з адаптацією під травми та прогрес",
   "start_url": "/",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
   "orientation": "portrait-primary",
   "id": "/",
   "background_color": "#1f2937",

@@ -195,4 +195,65 @@
   bottom: 4px;
   left: 50%;
   transform: translateX(-50%);
+}
+
+/* КРИТИЧНО: Видаляємо ВСІ фіолетові стилі React Calendar */
+.react-calendar button:focus,
+.react-calendar button:focus-visible,
+.react-calendar__tile:focus,
+.react-calendar__tile:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Перевизначаємо активний стан з максимальною специфічністю */
+.react-calendar .react-calendar__month-view .react-calendar__month-view__days .react-calendar__tile--active,
+.react-calendar .react-calendar__month-view .react-calendar__month-view__days .react-calendar__tile--active:hover,
+.react-calendar .react-calendar__month-view .react-calendar__month-view__days .react-calendar__tile--active:focus,
+.react-calendar .react-calendar__month-view .react-calendar__month-view__days .react-calendar__tile--active:active {
+  background: #f59e0b !important;
+  background-color: #f59e0b !important;
+  color: white !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Видаляємо всі можливі фіолетові кольори */
+.react-calendar__tile[style*="background"] {
+  background: #f59e0b !important;
+}
+
+/* Перевизначаємо стилі для поточного дня */
+.react-calendar__tile--now {
+  background: rgba(245, 158, 11, 0.3) !important;
+  color: #e5e7eb !important;
+}
+
+.react-calendar__tile--now.react-calendar__tile--active {
+  background: #f59e0b !important;
+  color: white !important;
+}
+
+/* Кастомні класи для кращого контролю */
+.today-tile {
+  background: rgba(245, 158, 11, 0.3) !important;
+  color: #e5e7eb !important;
+}
+
+.workout-tile {
+  position: relative;
+}
+
+.today-tile.react-calendar__tile--active,
+.workout-tile.react-calendar__tile--active {
+  background: #f59e0b !important;
+  color: white !important;
+}
+
+/* Остаточне перевизначення для активних станів */
+.react-calendar__tile.react-calendar__tile--active {
+  background: #f59e0b !important;
+  background-color: #f59e0b !important;
+  color: white !important;
 } 

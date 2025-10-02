@@ -179,6 +179,13 @@ export interface WorkoutLog {
     text: string;
     action: string;
   } | null;
+  
+  // Поля для фонового аналізу
+  analysisStatus?: 'pending' | 'analyzing' | 'completed' | 'failed';
+  analysisStartedAt?: Date;
+  analysisCompletedAt?: Date;
+  nextWorkoutRecommendations?: ExerciseRecommendation[]; // Рекомендації для наступного тренування
+  isOffline?: boolean; // Чи був лог створений офлайн
 }
 
 export interface ExerciseRecommendation {

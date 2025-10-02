@@ -515,12 +515,14 @@ export const generateWorkoutAnalysis = async ({
   userProfile,
   dayPlan,
   lastWorkoutLog,
-  previousWorkoutLogs = []
+  previousWorkoutLogs = [],
+  customPrompt
 }: {
   userProfile: UserProfile;
   dayPlan: DailyWorkoutPlan;
   lastWorkoutLog: WorkoutLog | null;
   previousWorkoutLogs?: WorkoutLog[];
+  customPrompt?: string;
 }): Promise<{
   updatedPlan: DailyWorkoutPlan;
   recommendation: {
@@ -534,12 +536,34 @@ export const generateWorkoutAnalysis = async ({
     suggestedReps?: number;
     suggestedSets?: number;
     reason: string;
+    action?: string;
   }[];
 }> => {
   console.log('📊 [ANALYSIS] Starting workout analysis');
   
   if (!ai) {
     throw new Error(UI_TEXT.apiKeyMissing);
+  }
+
+  // Якщо є кастомний промпт - використовуємо AI аналіз
+  if (customPrompt && lastWorkoutLog) {
+    try {
+      console.log('🧠 [ANALYSIS] Використовуємо AI для розумного аналізу');
+      
+      const model = ai.getGenerativeModel({ model: getSmartModel(GEMINI_MODELS.ANALYSIS) });
+      const result = await withQuotaManagement(async () => {
+        const response = await model.generateContent(customPrompt);
+        return response.response.text();
+      });
+
+      // Парсимо відповідь AI
+      const parsedResult = parseAIAnalysisResponse(result, dayPlan, lastWorkoutLog);
+      return parsedResult;
+      
+    } catch (error) {
+      console.error('❌ [ANALYSIS] Помилка AI аналізу, використовуємо fallback:', error);
+      // Fallback до простого аналізу
+    }
   }
 
   // Простий аналіз без AI для надійності
@@ -559,6 +583,180 @@ export const generateWorkoutAnalysis = async ({
     dailyRecommendations
   };
 };
+
+/**
+ * Парсить відповідь AI та перетворює в структуровані рекомендації
+ */
+function parseAIAnalysisResponse(
+  aiResponse: string, 
+  dayPlan: DailyWorkoutPlan, 
+  workoutLog: WorkoutLog
+): {
+  updatedPlan: DailyWorkoutPlan;
+  recommendation: { text: string; action: string };
+  dailyRecommendations: any[];
+} {
+  console.log('🔍 [ANALYSIS] Парсимо відповідь AI');
+  
+  try {
+    // Спробуємо знайти JSON в відповіді
+    let jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (parsed.recommendations && Array.isArray(parsed.recommendations)) {
+          console.log('✅ [ANALYSIS] Успішно розпарсили JSON з', parsed.recommendations.length, 'рекомендаціями');
+          return {
+            updatedPlan: dayPlan,
+            recommendation: parsed.overallRecommendation || {
+              text: "Тренування проаналізовано з AI. Дотримуйтесь персональних рекомендацій.",
+              action: "maintain"
+            },
+            dailyRecommendations: parsed.recommendations
+          };
+        }
+      } catch (jsonError) {
+        console.warn('⚠️ [ANALYSIS] JSON не валідний, спробуємо виправити:', jsonError);
+        // Спробуємо виправити JSON
+        const fixedJson = aiResponse
+          .replace(/```json\s*/, '')
+          .replace(/```\s*$/, '')
+          .replace(/,(\s*[}\]])/g, '$1'); // Видаляємо зайві коми
+        
+        try {
+          const parsed = JSON.parse(fixedJson);
+          if (parsed.recommendations) {
+            return {
+              updatedPlan: dayPlan,
+              recommendation: parsed.overallRecommendation || {
+                text: "Тренування проаналізовано з AI",
+                action: "maintain"
+              },
+              dailyRecommendations: parsed.recommendations
+            };
+          }
+        } catch (secondError) {
+          console.error('❌ [ANALYSIS] Не вдалося виправити JSON:', secondError);
+        }
+      }
+    }
+
+    // Якщо JSON не знайдено, парсимо текстову відповідь
+    const recommendations = parseTextualAnalysis(aiResponse, dayPlan, workoutLog);
+    
+    return {
+      updatedPlan: dayPlan,
+      recommendation: {
+        text: "Тренування проаналізовано з AI. Дотримуйтесь рекомендацій для кожної вправи.",
+        action: "maintain"
+      },
+      dailyRecommendations: recommendations
+    };
+    
+  } catch (error) {
+    console.error('❌ [ANALYSIS] Помилка парсингу AI відповіді:', error);
+    
+    // Fallback рекомендації
+    return {
+      updatedPlan: dayPlan,
+      recommendation: {
+        text: "Аналіз завершено. Продовжуйте тренування згідно плану.",
+        action: "maintain"
+      },
+      dailyRecommendations: dayPlan.exercises.map(ex => ({
+        exerciseName: ex.name,
+        recommendation: "Продовжуйте виконання згідно плану",
+        reason: "Базова рекомендація",
+        action: "maintain"
+      }))
+    };
+  }
+}
+
+/**
+ * Парсить текстову відповідь AI та витягує рекомендації
+ */
+function parseTextualAnalysis(
+  aiResponse: string, 
+  dayPlan: DailyWorkoutPlan, 
+  workoutLog: WorkoutLog
+): any[] {
+  const recommendations: any[] = [];
+  const lines = aiResponse.split('\n');
+  
+  let currentExercise = '';
+  let currentRecommendation = '';
+  let currentAction = 'maintain';
+  
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+    
+    // Шукаємо назви вправ
+    const exerciseMatch = dayPlan.exercises.find(ex => 
+      trimmedLine.toLowerCase().includes(ex.name.toLowerCase())
+    );
+    
+    if (exerciseMatch) {
+      // Зберігаємо попередню рекомендацію
+      if (currentExercise && currentRecommendation) {
+        recommendations.push({
+          exerciseName: currentExercise,
+          recommendation: currentRecommendation,
+          reason: "AI аналіз виконання",
+          action: currentAction
+        });
+      }
+      
+      currentExercise = exerciseMatch.name;
+      currentRecommendation = '';
+      currentAction = 'maintain';
+    }
+    
+    // Шукаємо рекомендації
+    if (trimmedLine.includes('рекомендація') || trimmedLine.includes('поради')) {
+      currentRecommendation = trimmedLine;
+    }
+    
+    // Шукаємо дії
+    if (trimmedLine.includes('збільш')) {
+      currentAction = 'increase_weight';
+    } else if (trimmedLine.includes('зменш')) {
+      currentAction = 'decrease_weight';
+    } else if (trimmedLine.includes('змін')) {
+      currentAction = 'change_exercise';
+    }
+  }
+  
+  // Додаємо останню рекомендацію
+  if (currentExercise && currentRecommendation) {
+    recommendations.push({
+      exerciseName: currentExercise,
+      recommendation: currentRecommendation,
+      reason: "AI аналіз виконання",
+      action: currentAction
+    });
+  }
+  
+  // Додаємо рекомендації для вправ які не були згадані
+  dayPlan.exercises.forEach(exercise => {
+    if (!recommendations.some(rec => rec.exerciseName === exercise.name)) {
+      const wasCompleted = workoutLog.loggedExercises?.some(
+        logged => logged.exerciseName === exercise.name
+      );
+      
+      recommendations.push({
+        exerciseName: exercise.name,
+        recommendation: wasCompleted 
+          ? "Вправа виконана згідно плану. Продовжуйте в тому ж дусі."
+          : "Вправу було пропущено. Рекомендуємо виконати в наступному тренуванні.",
+        reason: wasCompleted ? "Успішне виконання" : "Вправа була пропущена",
+        action: "maintain"
+      });
+    }
+  });
+  
+  return recommendations;
+}
 
 export const generateExerciseVariations = async (
   exerciseName: string,
