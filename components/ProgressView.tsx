@@ -34,6 +34,7 @@ const ProgressView: React.FC<ProgressViewProps> = ({
 }) => {
   const [modalLogs, setModalLogs] = useState<WorkoutLog[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [isStatsExpanded, setIsStatsExpanded] = useState(false);
 
   const workoutDates = useMemo(() => {
     const dates = new Set<string>();
@@ -183,11 +184,7 @@ const ProgressView: React.FC<ProgressViewProps> = ({
     return (
       <div className="mb-6 space-y-4">
         {/* Аналіз прогресу */}
-        <div className="p-4 bg-gray-800/50 border border-gray-600 rounded-lg">
-          <h3 className="text-lg font-semibold text-fitness-gold-300 mb-3">
-            <i className="fas fa-chart-line mr-2"></i>
-            Аналіз прогресу
-          </h3>
+        <div className="mb-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center">
               <div className="text-2xl mb-1">
@@ -232,11 +229,18 @@ const ProgressView: React.FC<ProgressViewProps> = ({
 
         {/* Статистика тренувань */}
         <div className="p-4 bg-fitness-gold-500/10 border border-fitness-gold-500/30 rounded-lg">
-          <h3 className="text-lg font-semibold text-fitness-gold-300 mb-3">
-            <i className="fas fa-chart-bar mr-2"></i>
-            Статистика тренувань
-          </h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <button 
+            onClick={() => setIsStatsExpanded(!isStatsExpanded)}
+            className="w-full flex items-center justify-between text-lg font-semibold text-fitness-gold-300 mb-3 hover:text-fitness-gold-200 transition-colors"
+          >
+            <span>
+              <i className="fas fa-chart-bar mr-2"></i>
+              Статистика тренувань
+            </span>
+            <i className={`fas fa-chevron-${isStatsExpanded ? 'up' : 'down'} transition-transform duration-200`}></i>
+          </button>
+          {isStatsExpanded && (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 animate-fadeIn">
             <div className="text-center">
               <div className="text-2xl text-fitness-gold-400 mb-1">
                 <i className="fas fa-trophy"></i>
@@ -279,14 +283,15 @@ const ProgressView: React.FC<ProgressViewProps> = ({
               <p className="text-sm text-gray-300">Найдовше тренування</p>
               <p className="text-lg font-bold text-fitness-gold-200">{workoutStats.bestWorkoutDuration} хв</p>
             </div>
-          </div>
+            </div>
+          )}
         </div>
       </div>
     );
   };
 
   return (
-    <div className="p-4 sm:p-6 bg-gray-900/50 rounded-xl shadow-2xl backdrop-blur-sm">
+    <div className="p-4 sm:p-6">
       <h2 className="text-2xl sm:text-3xl font-bold text-center mb-4 text-transparent bg-clip-text bg-gradient-gold">
         <i className="fas fa-chart-line mr-3"></i>{UI_TEXT.progressTitle}
       </h2>

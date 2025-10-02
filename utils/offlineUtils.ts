@@ -90,6 +90,36 @@ export function clearOfflineQueue(): void {
   }
 }
 
+// Очищення застарілих офлайн даних
+export function clearStaleOfflineData(): void {
+  try {
+    const data = getOfflineData();
+    const now = Date.now();
+    const STALE_THRESHOLD = 7 * 24 * 60 * 60 * 1000; // 7 днів
+    
+    if (data.lastSync && (now - data.lastSync) > STALE_THRESHOLD) {
+      console.log('🧹 Очищуємо застарілі офлайн дані (старше 7 днів)');
+      localStorage.removeItem(OFFLINE_STORAGE_KEY);
+    }
+  } catch (error) {
+    console.error('❌ Помилка очищення застарілих даних:', error);
+  }
+}
+
+// Перевірка чи localStorage не переповнений
+export function checkLocalStorageHealth(): boolean {
+  try {
+    const testKey = 'localStorage_test';
+    const testData = 'x'.repeat(1024); // 1KB тест
+    localStorage.setItem(testKey, testData);
+    localStorage.removeItem(testKey);
+    return true;
+  } catch (error) {
+    console.warn('⚠️ localStorage може бути переповнений:', error);
+    return false;
+  }
+}
+
 // Перевірка статусу мережі
 export function isOnline(): boolean {
   return navigator.onLine;

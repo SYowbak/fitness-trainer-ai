@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { WorkoutLog, LoggedExercise, EnergyLevel, SleepQuality, StressLevel, WellnessRecommendation } from '../types';
 import { UI_TEXT } from '../constants';
 
 // ExerciseLogRow з можливістю розгортання
 const ExerciseLogRow: React.FC<{loggedEx: LoggedExercise}> = ({ loggedEx }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+
   
   return (
     <div className="p-3 bg-gray-700/50 rounded-md my-2 text-xs sm:text-sm">
@@ -74,6 +75,22 @@ export const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({
   isAnalyzing, 
   analyzingLogId 
 }) => {
+  const modalRef = useRef<HTMLDivElement>(null);
+  
+  // Автоматичне прокручування сторінки до початку при відкритті модального вікна
+  useEffect(() => {
+    // Прокручуємо всю сторінку до початку
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    // Також блокуємо прокручування фону
+    document.body.style.overflow = 'hidden';
+    
+    // Очищуємо при закритті
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [logs]);
+
   if (!logs.length) return null;
   const logDate = logs[0].date instanceof Date ? logs[0].date : new Date(logs[0].date.seconds * 1000);
 
@@ -120,10 +137,11 @@ export const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-start justify-center z-50 p-4 pt-16 sm:pt-20"
+      className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-start justify-center z-50 p-4 pt-4"
       onClick={onClose}
     >
       <div 
+        ref={modalRef}
         className="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >

@@ -256,4 +256,31 @@
   background: #f59e0b !important;
   background-color: #f59e0b !important;
   color: white !important;
-} 
+}
+
+/* Помірна специфічність тільки для активних елементів */
+.react-calendar .react-calendar__tile--active {
+  background: #f59e0b !important;
+  background-color: #f59e0b !important;
+  color: white !important;
+}
+
+/* Перевизначення для всіх можливих комбінацій класів */
+.react-calendar__tile--now.react-calendar__tile--active.react-calendar__tile--range.react-calendar__tile--rangeStart.react-calendar__tile--rangeEnd.react-calendar__tile--rangeBothEnds {
+  background: #f59e0b !important;
+  background-color: #f59e0b !important;
+  color: white !important;
+}
+
+/* Видаляємо всі можливі фіолетові кольори з inline стилів - ТІЛЬКИ для активних */
+.react-calendar__tile--active[style] {
+  background: #f59e0b !important;
+  background-color: #f59e0b !important;
+}
+
+/* Стилі для поточного дня з тренуванням */
+.today-tile.react-calendar__tile--active,
+.workout-tile.react-calendar__tile--active {
+  background: #f59e0b !important;
+  color: white !important;
+}

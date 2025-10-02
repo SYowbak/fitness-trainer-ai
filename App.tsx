@@ -10,7 +10,7 @@ import ErrorMessage from './components/ErrorMessage';
 import TrainerChat from './components/TrainerChat';
 import QuotaStatus from './components/QuotaStatus';
 import OfflineIndicator from './components/OfflineIndicator';
-import { saveOfflineData, getOfflineData, addToOfflineQueue, isOnline, syncOfflineQueue, getOfflineQueue } from './utils/offlineUtils';
+import { saveOfflineData, getOfflineData, addToOfflineQueue, isOnline, syncOfflineQueue, getOfflineQueue, clearStaleOfflineData, checkLocalStorageHealth } from './utils/offlineUtils';
 import { generateWorkoutPlan as apiGenerateWorkoutPlan, generateWellnessRecommendations } from './services/geminiService';
 import { generateNewAdaptiveWorkout } from './services/newAdaptiveWorkout';
 import { useAuth } from './hooks/useAuth';
@@ -101,6 +101,12 @@ const App: React.FC = () => {
     if (typeof (import.meta as any).env === 'undefined' || !(import.meta as any).env.VITE_API_KEY) {
       setApiKeyMissing(true);
     }
+    
+    // Очищуємо застарілі дані та перевіряємо здоров'я localStorage при запуску
+    clearStaleOfflineData();
+    if (!checkLocalStorageHealth()) {
+      console.warn('⚠️ localStorage може мати проблеми - рекомендується очистити кеш браузера');
+    }
   }, []);
 
   // Дебаг логування відключено для зменшення спаму
@@ -127,25 +133,36 @@ const App: React.FC = () => {
     }
   }, [workoutPlan]);
 
-  // Синхронізація профілю та логів з useUserData (Firestore) + офлайн підтримка
+  // Розумна синхронізація: Firebase має пріоритет, localStorage тільки для офлайн
   useEffect(() => {
     if (user) {
-      // Завжди синхронізуємо дані з Firestore (онлайн режим)
-      setUserProfile(firestoreProfile);
-      setWorkoutLogs(firestoreWorkoutLogs);
-      
-      // Автоматично зберігаємо для офлайн використання
-      saveOfflineData({
-        userProfile: firestoreProfile,
-        workoutLogs: firestoreWorkoutLogs,
-        workoutPlan: currentWorkoutPlan || []
-      });
-    }
-    // Якщо немає даних з Firestore і офлайн - завантажуємо з кешу
-    else if (!isOnline()) {
+      // Онлайн режим: Firebase має пріоритет
+      if (isOnline()) {
+        // Оновлюємо UI тільки якщо дані з Firebase відрізняються
+        if (JSON.stringify(firestoreProfile) !== JSON.stringify(userProfile)) {
+          console.log('🔄 Оновлюємо профіль з Firebase');
+          setUserProfile(firestoreProfile);
+        }
+        
+        if (JSON.stringify(firestoreWorkoutLogs) !== JSON.stringify(workoutLogs)) {
+          console.log('🔄 Оновлюємо логи з Firebase');
+          setWorkoutLogs(firestoreWorkoutLogs);
+        }
+        
+        // Зберігаємо в localStorage тільки якщо є нові дані
+        if (firestoreProfile || firestoreWorkoutLogs.length > 0) {
+          saveOfflineData({
+            userProfile: firestoreProfile,
+            workoutLogs: firestoreWorkoutLogs,
+            workoutPlan: currentWorkoutPlan || []
+          });
+        }
+      }
+      // Офлайн режим: використовуємо localStorage тільки якщо немає даних в стані
+      else if (!userProfile && !workoutLogs.length) {
         const offlineData = getOfflineData();
         if (offlineData.userProfile || offlineData.workoutLogs.length > 0) {
-          console.log('📵 Завантажуємо дані з офлайн кешу');
+          console.log('📵 Завантажуємо дані з офлайн кешу (тільки якщо немає поточних)');
           setUserProfile(offlineData.userProfile);
           setWorkoutLogs(offlineData.workoutLogs);
           if (offlineData.workoutPlan && offlineData.workoutPlan.length > 0) {
@@ -153,6 +170,7 @@ const App: React.FC = () => {
           }
         }
       }
+    }
   }, [user, firestoreProfile, firestoreWorkoutLogs, currentWorkoutPlan]);
 
   // Синхронізація офлайн даних при відновленні мережі
