@@ -518,22 +518,22 @@ export function getSmartModel(preferredModel: string): string {
   
   // При 50-80% використання - перемикаємось на Flash-Lite для некритичних задач
   if (usagePercent >= 50 && usagePercent < 80) {
-    // Тільки чат залишається на оригінальній моделі
-    if (preferredModel === 'gemini-2.5-flash' && 
-        (preferredModel !== 'gemini-2.5-flash' /* чат */)) {
-      return 'gemini-2.5-flash-lite'; // Перемикаємось на Lite
+    // Для некритичних задач перемикаємось на Lite версію
+    if (preferredModel.includes('gemini-2.5-flash') && !preferredModel.includes('lite')) {
+      return preferredModel.includes('preview-09-2025') 
+        ? 'gemini-2.5-flash-lite-preview-09-2025' 
+        : 'gemini-2.5-flash-lite';
     }
     return preferredModel;
   }
   
-  // При 80%+ - все крім чату на Flash-Lite
+  // При 80%+ - все на найекономнішу модель
   if (usagePercent >= 80) {
-    return 'gemini-2.5-flash-lite'; // Найекономніша модель
+    return 'gemini-2.5-flash-lite-preview-09-2025'; // Найекономніша модель
   }
   
   return preferredModel;
 }
-
 /**
  * Force clear quota exceeded status and reset to usable state
  * Use this when quota gets stuck showing green but blocking requests
