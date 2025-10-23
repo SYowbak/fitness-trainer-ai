@@ -99,25 +99,6 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, onViewChange }) => {
         iconClass="fas fa-chart-line"
       />
       
-      {/* Кнопка встановлення PWA */}
-      {isInstallable && !isInstalled && (
-        <button
-          onClick={handleInstallClick}
-          className="btn-primary px-3 py-2 sm:px-4 rounded-md text-sm sm:text-base font-medium flex items-center space-x-2 accent-glow animate-pulse"
-          title="Встановити додаток"
-        >
-          <i className="fas fa-download text-fitness-dark-800"></i>
-          <span className="hidden sm:inline">Встановити</span>
-        </button>
-      )}
-      
-      {/* Індикатор встановленого PWA */}
-      {isInstalled && (
-        <div className="px-3 py-2 rounded-md text-sm font-medium flex items-center space-x-2 bg-fitness-gold-600/20 text-fitness-gold-400 border border-fitness-gold-500/30">
-          <i className="fas fa-check-circle"></i>
-          <span className="hidden sm:inline">Встановлено</span>
-        </div>
-      )}
     </nav>
   );
 };

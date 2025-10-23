@@ -528,6 +528,7 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
                   onSkipExercise={() => onSkipExercise(index)}
                   onUndoSkipExercise={() => onUndoSkipExercise?.(index)} // Додаємо новий пропс
                   recommendations={exerciseRecommendations}
+                  exerciseAdaptation={adaptiveWorkoutPlan?.adaptations?.find(a => a.exerciseName === exercise.name)}
                   variations={variations}
                   onSelectVariation={async (variation) => {
                     await onSelectVariation?.(exercise.name, variation);
@@ -561,6 +562,7 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
                 onSkipExercise={() => onSkipExercise(index)}
                 onUndoSkipExercise={() => onUndoSkipExercise?.(index)} // Додаємо новий пропс
                 recommendations={exerciseRecommendations}
+                exerciseAdaptation={adaptiveWorkoutPlan?.adaptations?.find(a => a.exerciseName === exercise.name)}
                 variations={variations}
                 onSelectVariation={async (variation) => {
                   await onSelectVariation?.(exercise.name, variation);
