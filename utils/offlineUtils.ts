@@ -161,6 +161,9 @@ export async function syncOfflineQueue(
 
   console.log(`🔄 Синхронізація ${queue.length} офлайн дій...`);
 
+  const failedActions: any[] = [];
+  const successfulActions: any[] = [];
+
   for (const action of queue) {
     try {
       switch (action.type) {
@@ -175,15 +178,22 @@ export async function syncOfflineQueue(
           break;
       }
       console.log('✅ Синхронізовано:', action.type);
+      successfulActions.push(action);
     } catch (error) {
       console.error('❌ Помилка синхронізації:', action.type, error);
-      // Не видаляємо з черги при помилці
-      return;
+      // Зберігаємо невдалі дії для повторної спроби
+      failedActions.push(action);
     }
   }
 
-  clearOfflineQueue();
-  console.log('🎉 Офлайн синхронізація завершена');
+  // Оновлюємо чергу - залишаємо тільки невдалі дії
+  if (failedActions.length > 0) {
+    console.log(`⚠️ ${failedActions.length} дій не вдалося синхронізувати, залишаємо в черзі`);
+    localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(failedActions));
+  } else {
+    clearOfflineQueue();
+    console.log('🎉 Офлайн синхронізація завершена успішно');
+  }
 }
 
 // Реєстрація фонової синхронізації

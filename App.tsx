@@ -175,61 +175,81 @@ const App: React.FC = () => {
     }
   }, [user, firestoreProfile, firestoreWorkoutLogs, currentWorkoutPlan]);
 
-  // Синхронізація офлайн даних при відновленні мережі
+  // Функція синхронізації офлайн даних (використовується при запуску та відновленні мережі)
+  const syncOfflineData = useCallback(async () => {
+    if (!user || !userProfile || !currentWorkoutPlan) return;
+    if (!isOnline()) return;
+
+    const queue = getOfflineQueue();
+    if (queue.length > 0) {
+      console.log(`🔄 Синхронізуємо ${queue.length} офлайн дій`);
+      
+      try {
+        await syncOfflineQueue({
+          saveWorkoutLog: async (data) => {
+            const savedLog = await saveWorkoutLog(data);
+            setWorkoutLogs(prev => prev.map(log => {
+              if (log.id?.startsWith('offline_')) {
+                // Порівнюємо дати (враховуючи різні формати)
+                const logDate = log.date instanceof Date ? log.date : new Date((log.date as any).seconds * 1000);
+                const dataDate = data.date instanceof Date ? data.date : new Date((data.date as any).seconds * 1000);
+                return logDate.getTime() === dataDate.getTime() ? savedLog : log;
+              }
+              return log;
+            }));
+          },
+          saveProfile: async (data) => {
+            await saveProfile(data);
+          },
+          saveWorkoutPlan: async (data) => {
+            await saveWorkoutPlan(data);
+          }
+        });
+        
+        console.log('✅ Офлайн синхронізація завершена успішно');
+      } catch (error) {
+        console.error('❌ Помилка синхронізації офлайн даних:', error);
+        // Не очищуємо чергу при помилці - спробуємо пізніше
+      }
+    }
+
+    // Повторюємо невдалі аналізи
+    console.log('🔄 Перевіряємо невдалі аналізи для повторення');
+    try {
+      await backgroundAnalysisService.retryFailedAnalyses(
+        workoutLogs,
+        userProfile,
+        currentWorkoutPlan,
+        saveWorkoutLog
+      );
+      console.log('✅ Повторення невдалих аналізів завершено');
+    } catch (error) {
+      console.error('❌ Помилка повторення аналізів:', error);
+    }
+  }, [user, userProfile, currentWorkoutPlan, workoutLogs, saveWorkoutLog, saveProfile, saveWorkoutPlan]);
+
+  // Синхронізація при запуску додатку (якщо є мережа)
+  useEffect(() => {
+    if (user && userProfile && currentWorkoutPlan && isOnline()) {
+      console.log('🚀 Додаток запущено - перевіряємо офлайн чергу');
+      // Невелика затримка щоб Firebase встиг ініціалізуватися
+      const timer = setTimeout(() => {
+        syncOfflineData();
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [user, userProfile, currentWorkoutPlan, syncOfflineData]);
+
+  // Синхронізація при відновленні мережі
   useEffect(() => {
     const handleOnline = async () => {
-      if (user && userProfile && currentWorkoutPlan) {
-        const queue = getOfflineQueue();
-        if (queue.length > 0) {
-          console.log(`🔄 Відновлено мережу - синхронізуємо ${queue.length} офлайн дій`);
-          
-          try {
-            await syncOfflineQueue({
-              saveWorkoutLog: async (data) => {
-                const savedLog = await saveWorkoutLog(data);
-                setWorkoutLogs(prev => prev.map(log => {
-                  if (log.id?.startsWith('offline_')) {
-                    // Порівнюємо дати (враховуючи різні формати)
-                    const logDate = log.date instanceof Date ? log.date : new Date((log.date as any).seconds * 1000);
-                    const dataDate = data.date instanceof Date ? data.date : new Date((data.date as any).seconds * 1000);
-                    return logDate.getTime() === dataDate.getTime() ? savedLog : log;
-                  }
-                  return log;
-                }));
-              },
-              saveProfile: async (data) => {
-                await saveProfile(data);
-              },
-              saveWorkoutPlan: async (data) => {
-                await saveWorkoutPlan(data);
-              }
-            });
-            
-            console.log('✅ Офлайн синхронізація завершена успішно');
-          } catch (error) {
-            console.error('❌ Помилка синхронізації офлайн даних:', error);
-          }
-        }
-
-        // Повторюємо невдалі аналізи при відновленні мережі
-        console.log('🔄 Перевіряємо невдалі аналізи для повторення');
-        try {
-          await backgroundAnalysisService.retryFailedAnalyses(
-            workoutLogs,
-            userProfile,
-            currentWorkoutPlan,
-            saveWorkoutLog
-          );
-          console.log('✅ Повторення невдалих аналізів завершено');
-        } catch (error) {
-          console.error('❌ Помилка повторення аналізів:', error);
-        }
-      }
+      console.log('🌐 Мережа відновлена - запускаємо синхронізацію');
+      await syncOfflineData();
     };
 
     window.addEventListener('online', handleOnline);
     return () => window.removeEventListener('online', handleOnline);
-  }, [user, userProfile, currentWorkoutPlan, workoutLogs, saveWorkoutLog, saveProfile, saveWorkoutPlan]);
+  }, [syncOfflineData]);
 
   // Автоматичний вибір початкової вкладки на основі наявності плану тренувань (тільки при початковому завантаженні)
   useEffect(() => {
@@ -1093,7 +1113,8 @@ const App: React.FC = () => {
           </div>
           {(userProfile || isLoading || session.activeDay !== null) &&  // Показуємо навігацію якщо є профіль, завантаження або активне тренування
             <Navbar currentView={currentView} onViewChange={(v) => {
-              if (session.activeDay !== null && v !== 'workout') { // Використовуємо session.activeDay
+              // Дозволяємо переключення на "Прогрес" під час тренування без завершення
+              if (session.activeDay !== null && v !== 'workout' && v !== 'progress') {
                 if(!confirm(UI_TEXT.confirmEndWorkout + " Перехід на іншу вкладку завершить його без збереження логів.")) return;
                 endWorkout(); // Завершуємо активну сесію Firebase
               }
