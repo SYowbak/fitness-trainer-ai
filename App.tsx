@@ -705,7 +705,7 @@ const App: React.FC = () => {
     }
   }, [saveWorkoutPlan]);
 
-  // Handler for reordering exercises during active workout
+  // Обробник для зміни порядку вправ під час активного тренування
   const handleReorderExercises = useCallback((newExercises: Exercise[]) => {
     if (session.activeDay !== null) {
       // Update session exercises order immediately for UI responsiveness
@@ -713,7 +713,7 @@ const App: React.FC = () => {
     }
   }, [session.activeDay, updateExerciseOrder]);
 
-  // Handler for saving exercise order permanently
+  // Обробник для постійного збереження порядку вправ
   const handleSaveExerciseOrder = useCallback(async (dayNumber: number, exercises: Exercise[]) => {
     if (!currentWorkoutPlan) return;
     
@@ -817,7 +817,7 @@ const App: React.FC = () => {
       // Генеруємо адаптивний план тренування
       setWellnessProcessingStep('Адаптуємо план тренування...');
       
-      let adaptiveWorkout;
+  let adaptiveWorkout: AdaptiveWorkoutPlan | null = null;
       
       // Перевіряємо чи є мережа для AI генерації
       if (isOnline()) {
@@ -896,7 +896,7 @@ const App: React.FC = () => {
       // Оновлюємо план тренувань з адаптивним планом
       setWellnessProcessingStep('Зберігаємо план...');
       const updatedPlan = currentWorkoutPlan.map(dayPlan => 
-        dayPlan.day === adaptiveWorkout.day ? adaptiveWorkout : dayPlan
+        dayPlan.day === adaptiveWorkout!.day ? adaptiveWorkout! : dayPlan
       );
       setCurrentWorkoutPlan(updatedPlan);
       await saveWorkoutPlan(updatedPlan);

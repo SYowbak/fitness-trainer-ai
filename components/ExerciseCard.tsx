@@ -512,7 +512,12 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs sm:text-sm">
             <div className="bg-gray-600/70 p-2 rounded shadow">
               <strong className="block text-fitness-gold-200 mb-0.5"><i className="fas fa-layer-group mr-1"></i>{UI_TEXT.sets}</strong>
-              <span className="text-gray-100">{typeof exercise.sets === 'string' ? exercise.sets : exercise.sets?.toString()}</span>
+              {/* Якщо є рекомендація з кількістю підходів і тренування активне, показуємо рекомендоване значення та оригінал як підказку */}
+              {exerciseRecommendation && exerciseRecommendation.suggestedSets && isActive ? (
+                <span className="text-gray-100 font-semibold">{exerciseRecommendation.suggestedSets}</span>
+              ) : (
+                <span className="text-gray-100">{typeof exercise.sets === 'string' ? exercise.sets : exercise.sets?.toString()}</span>
+              )}
             </div>
             <div className="bg-gray-600/70 p-2 rounded shadow">
               <strong className="block text-fitness-gold-200 mb-0.5"><i className="fas fa-redo mr-1"></i>{UI_TEXT.reps}</strong>
@@ -553,15 +558,16 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                       })));
                       setNumSets(exercise.sessionLoggedSets.length);
                     } else {
-                      const initialSets = parseInt(exercise.sets.toString()) || 3;
-                      const initialLoggedSets = Array(initialSets).fill({
+                      // Якщо є AI-рекомендація з кількістю підходів, використовуємо її, інакше — план
+                      const preferredSets = (exerciseRecommendation && exerciseRecommendation.suggestedSets) ? exerciseRecommendation.suggestedSets : (parseInt(exercise.sets.toString()) || 3);
+                      const initialLoggedSets = Array.from({ length: preferredSets }).map(() => ({
                         repsAchieved: null,
                         weightUsed: exercise.weightType === 'bodyweight' ? 0 : null,
                         completed: false,
                         weightContext: getAutomaticWeightContext(exercise.weightType),
-                      });
+                      }));
                       setLoggedSetsData(initialLoggedSets);
-                      setNumSets(initialSets);
+                      setNumSets(preferredSets);
                     }
                     setShowLogForm(true);
                   }}
@@ -761,7 +767,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                               min="0"
                               step="0.5"
                               placeholder={correctedWeightType === 'bodyweight' ? 'Авто' : ''}
-                              value={loggedSetsData[setIndex]?.weightUsed !== null ? loggedSetsData[setIndex]?.weightUsed : (correctedWeightType === 'bodyweight' ? 0 : '')}
+                              value={loggedSetsData[setIndex]?.weightUsed ?? (correctedWeightType === 'bodyweight' ? 0 : '')}
                               onChange={(e) => handleSetDataChange(setIndex, 'weightUsed', e.target.value)}
                               className={`w-full p-2.5 pr-16 border border-gray-400 rounded-md text-sm ${
                                 correctedWeightType === 'bodyweight' 

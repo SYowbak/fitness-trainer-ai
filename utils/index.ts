@@ -1,6 +1,6 @@
-// Re-export all utilities from a central location
+// Повторний експорт усіх утиліт з центрального місця
 
-// Time utilities
+// Утиліти для роботи з часом
 export const formatDuration = (seconds: number): string => {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
@@ -15,7 +15,7 @@ export const formatDuration = (seconds: number): string => {
   return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
 };
 
-// Firebase utilities
+// Утиліти для Firebase
 export const removeUndefined = (obj: any): any => {
   if (obj === null || obj === undefined) return null;
   if (typeof obj !== 'object') return obj;

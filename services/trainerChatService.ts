@@ -18,14 +18,14 @@ interface TrainerResponse {
   modifiedPlan?: DailyWorkoutPlan;
 }
 
-// Helper function to generate regular chat responses
+// Допоміжна функція для генерації звичайних (не модифікаційних) відповідей чату
 const generateRegularChatResponse = async (
   userProfile: UserProfile,
   userMessage: string,
   conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>,
   todaysWorkout?: DailyWorkoutPlan | null
 ): Promise<TrainerResponse> => {
-  const recentHistory = conversationHistory.slice(-4); // Last 4 messages for context
+  const recentHistory = conversationHistory.slice(-4); // Останні 4 повідомлення для контексту
   
   const chatPrompt = `Ти - розумний персональний фітнес-тренер з можливістю змінювати тренування. Відповідай коротко, зрозуміло та по суті.
 
@@ -76,11 +76,11 @@ ${recentHistory.length > 0 ? `Останні повідомлення:\n${recent
   }, { message: 'Пробачте, сталася помилка з AI. Спробуйте пізніше.' }, { 
     priority: 'high',
     bypassQuotaInDev: true,
-    skipOnQuotaExceeded: false  // Changed to false for chat - we want it to work
+  skipOnQuotaExceeded: false  // Встановлено false для чату — хочемо, щоб працювало
   });
 };
 
-// Enhanced chat response with context awareness
+// Розширений чат з урахуванням контексту
 const generateEnhancedChatResponse = async (
   userProfile: UserProfile,
   userMessage: string,
@@ -159,7 +159,7 @@ ${todaysWorkout.exercises.map((e, i) => `${i + 1}. ${e.name}
   });
 };
 
-// Helper function to handle workout modifications
+// Допоміжна функція для обробки змін у плані тренувань
 const handleWorkoutModification = async (
   userProfile: UserProfile,
   userMessage: string,
@@ -213,10 +213,10 @@ ${todaysWorkout.exercises.map((ex, i) => `${i + 1}. ${ex.name}
     }, null, { 
       priority: 'high',
       bypassQuotaInDev: true,
-      skipOnQuotaExceeded: false  // Changed to false for modifications - we want them to work
+  skipOnQuotaExceeded: false  // Встановлено false для модифікацій — хочемо, щоб працювало
     });
 
-    // Parse the JSON response
+  // Парсимо JSON-відповідь
     if (!analysisResult) {
       return {
         message: `Не вдалося обробити ваш запит. Спробуйте написати: "заміни вправу [назва] на іншу" або "додай вправу".`
@@ -225,13 +225,13 @@ ${todaysWorkout.exercises.map((ex, i) => `${i + 1}. ${ex.name}
     
     let cleanResponse = analysisResult.replace(/```json|```/g, '').trim();
     
-    // Try to extract JSON from text response
+  // Спробувати витягти JSON з текстової відповіді
     const jsonMatch = cleanResponse.match(/\{[^}]*\}/);
     if (jsonMatch) {
       cleanResponse = jsonMatch[0];
     }
     
-    let parsedAction;
+  let parsedAction: any;
     
     console.log('🤖 [handleWorkoutModification] AI відповідь:', {
       rawResponse: analysisResult.substring(0, 200) + '...',
@@ -249,7 +249,7 @@ ${todaysWorkout.exercises.map((ex, i) => `${i + 1}. ${ex.name}
     } catch (parseError) {
       console.error('❌ [handleWorkoutModification] JSON parse error:', parseError, 'Response:', cleanResponse);
       
-      // Fallback: try to understand the intent from text
+  // Запасний варіант: спробувати визначити намір з тексту
       if (analysisResult.toLowerCase().includes('заміни') || analysisResult.toLowerCase().includes('замін')) {
         return {
           message: `Я розумію що ви хочете щось замінити, але не можу точно визначити деталі. Спробуйте написати: "заміни [назва вправи] на іншу"`
@@ -542,19 +542,19 @@ ${todaysWorkout.exercises.map((ex, i) => `${i + 1}. ${ex.name}
 // Глобальна змінна для збереження очікуваних змін
 let pendingModification: any = null;
 
-// Helper function to calculate string similarity (0-1, where 1 is identical)
+// Допоміжна функція для обчислення схожості рядків (0-1, де 1 — ідентичні)
 const calculateStringSimilarity = (str1: string, str2: string): number => {
   const longer = str1.length > str2.length ? str1 : str2;
   const shorter = str1.length > str2.length ? str2 : str1;
   
   if (longer.length === 0) return 1.0;
   
-  // Calculate Levenshtein distance
+  // Обчислюємо відстань Левенштейна
   const editDistance = levenshteinDistance(longer, shorter);
   return (longer.length - editDistance) / longer.length;
 };
 
-// Levenshtein distance algorithm
+// Алгоритм відстані Левенштейна
 const levenshteinDistance = (str1: string, str2: string): number => {
   const matrix = [];
   
@@ -583,26 +583,26 @@ const levenshteinDistance = (str1: string, str2: string): number => {
   return matrix[str2.length][str1.length];
 };
 
-// Helper function to find exercise in workout plan
+// Допоміжна функція для пошуку вправи в плані тренувань
 const findExerciseInPlan = (userMessage: string, workoutPlan: DailyWorkoutPlan[]): DailyWorkoutPlan | null => {
   const message = userMessage.toLowerCase();
   
   console.log('🔍 [findExerciseInPlan] Шукаємо вправу для:', message);
   
-  // Clean message from action words
+  // Очищаємо повідомлення від слів-дій (щоб лишити тільки назву вправи)
   const cleanMessage = message.replace(/замін|заміни|додай|прибер|зроби|для|на/g, '').trim();
   
-  // Find day that contains exercise matching user's message
+  // Знайти день, що містить вправу, яка відповідає повідомленню користувача
   let bestMatch: { day: DailyWorkoutPlan; similarity: number; exercise: string } | null = null;
   
   for (const day of workoutPlan) {
     for (const exercise of day.exercises) {
       const exerciseName = exercise.name.toLowerCase();
       
-      // Calculate similarity between clean message and exercise name
+  // Обчислити схожість між очищеним повідомленням і назвою вправи
       const fullSimilarity = calculateStringSimilarity(cleanMessage, exerciseName);
       
-      // Also check similarity with individual words
+  // Також перевірити схожість окремих слів
       const exerciseWords = exerciseName.split(' ');
       const messageWords = cleanMessage.split(' ').filter(word => word.length > 2);
       
@@ -614,7 +614,7 @@ const findExerciseInPlan = (userMessage: string, workoutPlan: DailyWorkoutPlan[]
         }
       }
       
-      // Combined score: 70% full similarity + 30% best word similarity
+  // Комбінований бал: 70% — повна схожість + 30% — найкраща відповідність слова
       const combinedSimilarity = fullSimilarity * 0.7 + maxWordSimilarity * 0.3;
       
       if (combinedSimilarity > 0.3) { // Minimum threshold
@@ -646,7 +646,7 @@ const findExerciseInPlan = (userMessage: string, workoutPlan: DailyWorkoutPlan[]
   return null;
 };
 
-// Helper function to handle confirmations
+// Допоміжна функція для обробки підтверджень/скасувань від користувача
 const handleConfirmation = (
   userMessage: string,
   conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>

@@ -7,7 +7,7 @@ interface DraggableExerciseListProps {
   children: (exercise: Exercise, index: number, dragHandleProps?: any) => React.ReactNode;
   disabled?: boolean;
   className?: string;
-  compactMode?: boolean; // New prop for compact dragging mode
+  compactMode?: boolean; // Новий проп для компактного режиму перетягування
 }
 
 const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
@@ -20,9 +20,9 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
 }) => {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
-  const [isDragging, setIsDragging] = useState<boolean>(false); // New state to track if we're actively dragging
+  const [isDragging, setIsDragging] = useState<boolean>(false); // Новий стан для відстеження активного перетягування
   
-  // Touch support state
+  // Дані для підтримки роботи з торканням (touch)
   const [touchDraggedIndex, setTouchDraggedIndex] = useState<number | null>(null);
   const [touchStartY, setTouchStartY] = useState<number>(0);
   const [touchCurrentY, setTouchCurrentY] = useState<number>(0);
@@ -35,11 +35,11 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
     if (disabled) return;
     
     setDraggedIndex(index);
-    setIsDragging(true); // Set dragging state
+  setIsDragging(true); // Встановлюємо стан перетягування
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/html', index.toString());
     
-    // Add a custom drag image
+  // Додаємо кастомне зображення під час перетягування
     if (e.currentTarget instanceof HTMLElement) {
       const rect = e.currentTarget.getBoundingClientRect();
       e.dataTransfer.setDragImage(e.currentTarget, rect.width / 2, rect.height / 2);
@@ -60,7 +60,7 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     if (disabled) return;
     
-    // Only clear dragOverIndex if we're actually leaving the droppable area
+    // Очищуємо dragOverIndex тільки якщо користувач дійсно залишив зону перетягування
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const x = e.clientX;
     const y = e.clientY;
@@ -79,10 +79,10 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
       const newExercises = [...exercises];
       const draggedExercise = newExercises[draggedIndex];
       
-      // Remove the dragged exercise
+  // Видаляємо перетягувану вправу
       newExercises.splice(draggedIndex, 1);
       
-      // Insert it at the new position
+  // Вставляємо її на нову позицію
       newExercises.splice(dropIndex, 0, draggedExercise);
       
       onReorder(newExercises);
@@ -95,10 +95,10 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
   const handleDragEnd = useCallback(() => {
     setDraggedIndex(null);
     setDragOverIndex(null);
-    setIsDragging(false); // Reset dragging state
+  setIsDragging(false); // Скидаємо стан перетягування
   }, []);
 
-  // Native touch event handlers to avoid passive listener issues
+  // Нативні обробники подій торкання — щоб уникнути проблем з passive-listeners
   const attachTouchEvents = useCallback((element: HTMLDivElement, index: number) => {
     if (!element || disabled) return;
     
@@ -107,7 +107,7 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
         e.preventDefault();
         e.stopPropagation();
       } catch (error) {
-        // Silently handle preventDefault errors
+  // Тихо обробляємо можливі помилки preventDefault
       }
       
       const touch = e.touches[0];
@@ -133,7 +133,7 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
         e.preventDefault();
         e.stopPropagation();
       } catch (error) {
-        // Silently handle preventDefault errors
+  // Тихо обробляємо можливі помилки preventDefault
       }
       
       const touch = e.touches[0];
@@ -142,35 +142,35 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
       if (deltaY > 8) {
         setTouchCurrentY(touch.clientY);
         
-        // Auto-scroll functionality
-        const scrollThreshold = 100; // pixels from edge
-        const scrollSpeed = 10; // pixels per scroll
+  // Функціональність автопрокрутки під час перетягування
+  const scrollThreshold = 100; // пікселів від краю
+  const scrollSpeed = 10; // пікселів за крок прокрутки
         const viewportHeight = window.innerHeight;
         
-        // Clear existing auto-scroll
+  // Прибираємо існуючу автопрокрутку
         if (autoScrollInterval.current) {
           clearInterval(autoScrollInterval.current);
           autoScrollInterval.current = null;
         }
         
-        // Check if we need to scroll up
+  // Перевіряємо, чи потрібно прокручувати вгору
         if (touch.clientY < scrollThreshold) {
           autoScrollInterval.current = setInterval(() => {
             window.scrollBy(0, -scrollSpeed);
-          }, 16); // ~60fps
+          }, 16); // приблизно 60 кадрів/сек
         }
-        // Check if we need to scroll down
+  // Перевіряємо, чи потрібно прокручувати вниз
         else if (touch.clientY > viewportHeight - scrollThreshold) {
           autoScrollInterval.current = setInterval(() => {
             window.scrollBy(0, scrollSpeed);
           }, 16);
         }
         
-        // Find all exercise elements in the page
+  // Знаходимо всі елементи вправ на сторінці
         const allExerciseElements = document.querySelectorAll('[data-exercise-index]');
         let targetIndex = null;
         
-        // Check which exercise element the touch is over
+  // Перевіряємо, над яким елементом вправи знаходиться торкання
         for (const exerciseEl of allExerciseElements) {
           const rect = exerciseEl.getBoundingClientRect();
           
@@ -187,18 +187,18 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
           }
         }
         
-        // Update drag over index if changed
+  // Оновлюємо індекс зони перетягування, якщо він змінився
         if (targetIndex !== null && targetIndex !== dragOverIndex) {
           setDragOverIndex(targetIndex);
           console.log('Touch drag over index:', targetIndex);
           
-          // Only vibrate when moving to a NEW exercise position
+          // Вібруємо лише при переході на НОВУ позицію вправи
           if (targetIndex !== lastVibrationIndex && 'vibrate' in navigator) {
             navigator.vibrate(20);
             setLastVibrationIndex(targetIndex);
           }
         } else if (targetIndex === null && dragOverIndex !== null) {
-          // Clear drag over when not over any exercise
+          // Очищаємо dragOverIndex, коли торкання не над жодною вправою
           setDragOverIndex(null);
         }
       }
@@ -207,7 +207,7 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
     const handleTouchEnd = () => {
       if (touchDraggedIndex === null) return;
       
-      // Clear auto-scroll
+  // Зупиняємо автопрокрутку
       if (autoScrollInterval.current) {
         clearInterval(autoScrollInterval.current);
         autoScrollInterval.current = null;
@@ -242,19 +242,19 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
       touchItemRef.current = null;
     };
     
-    // Add non-passive event listeners with error handling
+  // Додаємо непасивні слухачі подій з обробкою помилок
     try {
       element.addEventListener('touchstart', handleTouchStart, { passive: false });
       element.addEventListener('touchmove', handleTouchMove, { passive: false });
       element.addEventListener('touchend', handleTouchEnd, { passive: false });
     } catch (error) {
-      // Fallback to passive listeners if non-passive fails
+  // Якщо не вдається додати непасивні слухачі — використовуємо пасивні
       element.addEventListener('touchstart', handleTouchStart);
       element.addEventListener('touchmove', handleTouchMove);
       element.addEventListener('touchend', handleTouchEnd);
     }
     
-    // Store cleanup function
+  // Зберігаємо функцію очищення (cleanup)
     return () => {
       element.removeEventListener('touchstart', handleTouchStart);
       element.removeEventListener('touchmove', handleTouchMove);
@@ -268,6 +268,29 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
     const isDragging = draggedIndex === index || touchDraggedIndex === index;
     const isOver = dragOverIndex === index && (draggedIndex !== null || touchDraggedIndex !== null) && !isDragging;
     
+  // Побудова стилю динамічно — щоб НЕ додавати transform (навіть translateY(0))
+  // для звичайних елементів. Transform створює новий stacking context, що
+  // може ламати фіксовані/оверлейні елементи всередині карток (причина проблеми
+  // коли модальне вікно логування перекривалося).
+    const style: React.CSSProperties = {
+      cursor: disabled ? 'default' : 'grab',
+      opacity: isDragging ? 0.5 : 1,
+      transition: touchDraggedIndex === index ? 'none' : 'transform 0.2s ease, opacity 0.2s ease',
+  touchAction: disabled ? 'auto' : 'manipulation', // Краще оброблення торкань
+  zIndex: touchDraggedIndex === index ? 1000 : undefined // Піднімаємо поточний елемент поверх під час торкання
+    };
+
+  // Задаємо transform лише коли елемент активно перетягують або він — ціль
+  // для дропу. Уникаємо transform: 'translateY(0)' для нерухомих елементів.
+    if (isOver) {
+  // Визначаємо який індекс вважати «активним» (dragged або touchDragged)
+      const activeIndex = draggedIndex !== null ? draggedIndex : (touchDraggedIndex !== null ? touchDraggedIndex : -1);
+      const sign = activeIndex < index ? '-4px' : '4px';
+      style.transform = `translateY(${sign})`;
+    } else if (touchDraggedIndex === index) {
+      style.transform = `translateY(${touchCurrentY - touchStartY}px)`;
+    }
+
     return {
       draggable: true,
       'data-exercise-index': index,
@@ -276,19 +299,11 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
       onDragLeave: handleDragLeave,
       onDrop: (e: React.DragEvent) => handleDrop(e, index),
       onDragEnd: handleDragEnd,
-      style: {
-        cursor: disabled ? 'default' : 'grab',
-        opacity: isDragging ? 0.5 : 1,
-        transform: isOver ? `translateY(${(draggedIndex !== null || touchDraggedIndex !== null) && (draggedIndex || touchDraggedIndex)! < index ? '-4px' : '4px'})` : 
-                   (touchDraggedIndex === index ? `translateY(${touchCurrentY - touchStartY}px)` : 'translateY(0)'),
-        transition: touchDraggedIndex === index ? 'none' : 'transform 0.2s ease, opacity 0.2s ease',
-        touchAction: disabled ? 'auto' : 'manipulation', // Better touch handling
-        zIndex: touchDraggedIndex === index ? 1000 : 'auto' // Bring dragged item to front
-      }
+      style
     };
   }, [disabled, draggedIndex, dragOverIndex, touchDraggedIndex, touchStartY, touchCurrentY, handleDragStart, handleDragOver, handleDragLeave, handleDrop, handleDragEnd]);
 
-  // Separate touch event handlers for the drag handle only
+  // Окремі обробники подій торкання тільки для рукоятки перетягування
   const getDragHandleTouchProps = useCallback((index: number) => {
     if (disabled) return {};
     
@@ -297,14 +312,14 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
         if (element) {
           dragHandleRefs.current.set(index, element);
           
-          // Clean up old listeners
+          // Очищаємо старі слухачі подій
           const existingCleanup = element.dataset.cleanup;
           if (existingCleanup) {
-            // Remove old listeners if they exist
+            // Видаляємо старі слухачі, якщо вони існують
             dragHandleRefs.current.delete(index);
           }
           
-          // Attach new listeners
+          // Додаємо нові слухачі
           const cleanup = attachTouchEvents(element, index);
           if (cleanup) {
             element.dataset.cleanup = 'true';
