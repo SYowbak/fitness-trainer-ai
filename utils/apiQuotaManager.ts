@@ -22,7 +22,7 @@ interface RetryInfo {
 class ApiQuotaManager {
   private static instance: ApiQuotaManager;
   private readonly STORAGE_KEY = 'gemini_quota_status';
-  private readonly DEFAULT_DAILY_LIMIT = 200; // Підвищуємо ліміт для Flash моделей (250 RPD)
+  private readonly DEFAULT_DAILY_LIMIT = 100; // Підвищуємо ліміт для Flash моделей (250 RPD)
   private readonly RESET_HOUR = 0; // Reset at midnight
 
   private constructor() {}

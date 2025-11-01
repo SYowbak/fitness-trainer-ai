@@ -9,20 +9,37 @@ const UpdateNotification: React.FC<UpdateNotificationProps> = ({ onUpdate }) => 
   const [updateVersion, setUpdateVersion] = useState<string>('');
 
   useEffect(() => {
-    // Слухаємо повідомлення від Service Worker
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data && event.data.type === 'UPDATE_AVAILABLE') {
-        setUpdateVersion(event.data.version);
-        setShowUpdate(true);
-        console.log('🔄 Доступне оновлення додатку:', event.data.version);
+    // Function to register message listener
+    const registerMessageListener = async () => {
+      if ('serviceWorker' in navigator) {
+        // Wait for service worker to be ready
+        const registration = await navigator.serviceWorker.ready;
+
+        // Listen for messages from service worker
+        const handleMessage = (event: MessageEvent) => {
+          if (event.data && event.data.type === 'UPDATE_AVAILABLE') {
+            setUpdateVersion(event.data.version);
+            setShowUpdate(true);
+            console.log('🔄 Доступне оновлення додатку:', event.data.version);
+          }
+        };
+
+        navigator.serviceWorker.addEventListener('message', handleMessage);
+        
+        // Also check if there's already a waiting worker
+        if (registration.waiting) {
+          console.log('🔄 Виявлено waiting worker - показуємо банер');
+          setUpdateVersion(registration.waiting.scriptURL);
+          setShowUpdate(true);
+        }
+
+        return () => {
+          navigator.serviceWorker.removeEventListener('message', handleMessage);
+        };
       }
     };
 
-    navigator.serviceWorker?.addEventListener('message', handleMessage);
-
-    return () => {
-      navigator.serviceWorker?.removeEventListener('message', handleMessage);
-    };
+    registerMessageListener();
   }, []);
 
   const handleUpdate = () => {

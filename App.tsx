@@ -283,6 +283,63 @@ const App: React.FC = () => {
     };
   }, []);
 
+  // Розумне авто-оновлення Service Worker: автоматично аплайтиме оновлення
+  // якщо немає активної сесії (session.activeDay === null). Інакше — показує банер.
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+
+    let mounted = true;
+
+    navigator.serviceWorker.ready.then((registration) => {
+      if (!mounted) return;
+
+      const tryApplyUpdate = async () => {
+        try {
+          // Якщо є waiting worker та немає активного тренування — застосовуємо оновлення
+          if (registration.waiting && session.activeDay === null) {
+            console.log('🔄 [SW] Auto-applying update (no active session)');
+            registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+            // Невелика затримка, щоб воркер встиг перейти в активний стан
+            setTimeout(() => window.location.reload(), 300);
+          }
+        } catch (e) {
+          console.warn('⚠️ [SW] Не вдалося автоматично застосувати оновлення:', e);
+        }
+      };
+
+      // Якщо вже є waiting worker (встановлено раніше), спробуємо застосувати відразу
+      tryApplyUpdate();
+
+      const onUpdateFound = () => {
+        const newWorker = registration.installing;
+        if (!newWorker) return;
+
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            // Якщо немає активної сесії — аплайтимо одразу, інакше дамо банеру показатись
+            if (session.activeDay === null) {
+              tryApplyUpdate();
+            } else {
+              console.log('🔔 [SW] Оновлення доступне, але є активна сесія — показано банер');
+              // Banner logic is handled by existing UpdateNotification component
+            }
+          }
+        });
+      };
+
+      registration.addEventListener('updatefound', onUpdateFound);
+
+      return () => {
+        mounted = false;
+        try {
+          registration.removeEventListener('updatefound', onUpdateFound);
+        } catch {}
+      };
+    }).catch((err) => {
+      console.warn('⚠️ [SW] Помилка при доступі до service worker ready:', err);
+    });
+  }, [session.activeDay]);
+
   // Функція для оновлення додатку
   const handleAppUpdate = useCallback(() => {
     if ('serviceWorker' in navigator) {

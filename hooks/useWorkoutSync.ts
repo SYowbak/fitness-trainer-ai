@@ -551,13 +551,31 @@ export const useWorkoutSync = (userId: string) => {
 
   const updateWellnessRecommendations = async (wellnessRecommendations: WellnessRecommendation[]) => {
     if (!userId) { console.error("updateWellnessRecommendations: userId відсутній."); return; }
-    const cleanedWellnessRecommendations = removeUndefined(wellnessRecommendations);
-    const sessionPath = `workoutSessions/${userId}/wellnessRecommendations`;
-    try {
-      await set(ref(database, sessionPath), cleanedWellnessRecommendations);
-    } catch (error) {
-      console.error("Помилка при оновленні wellnessRecommendations у Firebase:", error);
-      throw error;
+    
+    // Update local state first
+    setSession(prevSession => {
+      const newSession = { ...prevSession, wellnessRecommendations };
+      
+      // Save to offline cache
+      const offlineData = getOfflineData();
+      saveOfflineData({
+        ...offlineData,
+        currentSession: newSession
+      });
+      
+      return newSession;
+    });
+
+    // If online - sync with Firebase
+    if (isOnline()) {
+      const cleanedWellnessRecommendations = removeUndefined(wellnessRecommendations); 
+      const sessionPath = `workoutSessions/${userId}/wellnessRecommendations`;
+      try {
+        await set(ref(database, sessionPath), cleanedWellnessRecommendations);
+      } catch (error) {
+        console.error("Помилка при оновленні wellnessRecommendations у Firebase:", error);
+        console.log('📵 Продовжуємо офлайн - рекомендації збережено локально');
+      }
     }
   };
 

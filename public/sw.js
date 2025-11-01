@@ -1,7 +1,7 @@
-const CACHE_NAME = 'fitness-trainer-ai-v3';
-const STATIC_CACHE = 'fitness-static-v3';
-const DYNAMIC_CACHE = 'fitness-dynamic-v3';
-const RUNTIME_CACHE = 'fitness-runtime-v3';
+const CACHE_NAME = 'fitness-trainer-ai-v4';
+const STATIC_CACHE = 'fitness-static-v4';
+const DYNAMIC_CACHE = 'fitness-dynamic-v4';
+const RUNTIME_CACHE = 'fitness-runtime-v4';
 
 // Критично важливі файли для офлайн роботи
 const CORE_FILES = [
@@ -37,13 +37,18 @@ self.addEventListener('install', (event) => {
       })
       .then(() => {
         console.log('✅ Service Worker: Критичні файли закешовано');
+        // Повідомляємо клієнтів про нове оновлення
+        return self.skipWaiting().then(() => {
+          notifyClients({
+            type: 'UPDATE_AVAILABLE',
+            version: CACHE_NAME
+          });
+        });
       })
       .catch((error) => {
         console.error('❌ Service Worker: Помилка кешування:', error);
       })
   );
-  // Примусово активувати новий service worker
-  self.skipWaiting();
 });
 
 // Активація Service Worker
@@ -244,15 +249,31 @@ function notifyClients(message) {
   });
 }
 
-// Повідомлення про нове оновлення при встановленні
-self.addEventListener('install', (event) => {
-  // ... існуючий код встановлення ...
-  
-  // Повідомляємо клієнтів про нове оновлення
-  notifyClients({
-    type: 'UPDATE_AVAILABLE',
-    version: CACHE_NAME
-  });
+// Перевірка наявності оновлень
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cacheName) => {
+          // Видаляємо старі кеші
+          if (cacheName !== STATIC_CACHE && 
+              cacheName !== DYNAMIC_CACHE && 
+              cacheName !== RUNTIME_CACHE) {
+            console.log('🗑️ Service Worker: Видалення старого кешу:', cacheName);
+            return caches.delete(cacheName);
+          }
+        })
+      ).then(() => {
+        // Повідомляємо про оновлення після очищення кешу
+        notifyClients({
+          type: 'UPDATE_AVAILABLE',
+          version: CACHE_NAME
+        });
+      });
+    })
+  );
+  // Контролювати всі клієнти одразу
+  self.clients.claim();
 });
 
 // Фонові синхронізації
