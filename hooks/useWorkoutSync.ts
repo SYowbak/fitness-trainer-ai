@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { ref, onValue, set, remove, get } from 'firebase/database';
 import { database } from '../config/firebase';
-import { Exercise, LoggedSetWithAchieved, WellnessCheck, AdaptiveWorkoutPlan, WellnessRecommendation } from '../types';
+import { Exercise, LoggedSetWithAchieved, WellnessCheck, AdaptiveWorkoutPlan, WellnessRecommendation, WorkoutLog } from '../types';
 import { isOnline, saveOfflineData, getOfflineData } from '../utils/offlineUtils';
+import { backgroundAnalysisService } from '../services/backgroundWorkoutAnalysis';
 
 // Утиліта для очищення undefined значень для Firebase Realtime Database
 function removeUndefined(obj: any): any {
@@ -50,6 +51,22 @@ export const useWorkoutSync = (userId: string) => {
       return;
     }
 
+    // Функція для завантаження рекомендацій з останнього аналізу
+    const loadRecommendations = async (dayNumber: number) => {
+      try {
+        const logsRef = ref(database, `workoutLogs/${userId}`);
+        const snapshot = await get(logsRef);
+        if (snapshot.exists()) {
+          const logs = Object.values(snapshot.val()) as WorkoutLog[];
+          const recommendations = backgroundAnalysisService.getRecommendationsForDay(logs, dayNumber);
+          return recommendations;
+        }
+      } catch (error) {
+        console.error('❌ Помилка завантаження рекомендацій:', error);
+      }
+      return [];
+    };
+
     // Завантажуємо офлайн сесію якщо є
     if (!isOnline()) {
       const offlineData = getOfflineData();
@@ -61,6 +78,19 @@ export const useWorkoutSync = (userId: string) => {
           const currentTime = Date.now();
           const elapsedSeconds = Math.floor((currentTime - offlineData.currentSession.startTime) / 1000);
           console.log('⏱️ [Timer] Відновлюємо таймер:', elapsedSeconds, 'секунд');
+
+          // Перевіряємо чи є збережені рекомендації
+          if (!offlineData.currentSession.wellnessRecommendations && offlineData.workoutLogs) {
+            const recommendations = backgroundAnalysisService.getRecommendationsForDay(
+              offlineData.workoutLogs,
+              offlineData.currentSession.activeDay
+            );
+            if (recommendations.length > 0) {
+              console.log('✅ Відновлено рекомендації з офлайн кешу');
+              offlineData.currentSession.wellnessRecommendations = recommendations;
+              saveOfflineData(offlineData);
+            }
+          }
           
           const restoredSession = {
             ...offlineData.currentSession,
@@ -92,6 +122,17 @@ export const useWorkoutSync = (userId: string) => {
       
       if (data) {
         const cleanedData = removeUndefined(data);
+
+        // Якщо є активний день, завантажуємо рекомендації
+        if (cleanedData.activeDay !== null && !cleanedData.wellnessRecommendations) {
+          loadRecommendations(cleanedData.activeDay).then(recommendations => {
+            if (recommendations.length > 0) {
+              console.log('✅ Відновлено рекомендації з попереднього аналізу');
+              const sessionPath = `workoutSessions/${userId}/wellnessRecommendations`;
+              set(ref(database, sessionPath), recommendations);
+            }
+          });
+        }
 
         setSession(prevSession => {
           const newSessionExercises = cleanedData.sessionExercises ?? [];
