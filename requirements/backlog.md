@@ -148,13 +148,22 @@
 - US-10: Оптимізація продуктивності
 - US-11: Покращення безпеки
 
+## Sprint 1 Backlog (2 тижні)
+| ID | Назва | Короткий опис | Статус |
+|----|-------|---------------|--------|
+| SP1-01 | Firebase Auth & профіль | Підключено Firebase Authentication, створено форму реєстрації та базове налаштування профілю (US-01, US-02). | Done |
+| SP1-02 | UI профілю + Health Manager | Реалізовано форму профілю з вибором м'язових груп, HealthProfileManager з умовами та адаптацією (Tech_Zavdannya, Epic 1). | Done |
+| SP1-03 | Генерація планів через Gemini | Налаштовано промпт, maxOutputTokens=32k, логіку health constraints та збереження планів у Firestore (US-03). | Done |
+| SP1-04 | Wellness Check та адаптивні тренування | Створено модальне вікно самопочуття, припасовано newAdaptiveWorkout.ts, інтегровано заміну небезпечних вправ (US-04, US-05). | Done |
+| SP1-05 | Офлайн режим PWA + SystemStatusBar | Оновлено service worker, offline queue, індикатор стану, auto-sync при старті (Epic 6, офлайн ризики). | Done |
+
 ## Definition of Done
 
 Для кожної User Story:
 - [ ] Код написаний та протестований
 - [ ] Інтеграційні тести пройдені
 - [ ] UI/UX перевірено дизайнером
-- [ ] Код review завершено
+- [ ] Self-review коду завершено
 - [ ] Документація оновлена
 - [ ] Acceptance criteria виконані
 - [ ] Тестування на різних браузерах

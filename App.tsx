@@ -111,15 +111,6 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // Дебаг логування відключено для зменшення спаму
-  // useEffect(() => {
-  //   console.log('🔄 [App] Сесія змінилась:', { 
-  //     activeDay: session.activeDay, 
-  //     exercisesCount: session.sessionExercises.length,
-  //     hasStartTime: !!session.startTime 
-  //   });
-  // }, [session.activeDay, session.sessionExercises.length, session.startTime]);
-
   // Скидаємо стан ініціалізації при виході користувача
   useEffect(() => {
     if (!user) {
