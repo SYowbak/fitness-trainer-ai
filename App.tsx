@@ -36,7 +36,7 @@ const App: React.FC = () => {
   
   const { user, loading, logout, setUser } = useAuth();
   const { workoutPlan, saveWorkoutPlan, profile: firestoreProfile, workoutLogs: firestoreWorkoutLogs, saveProfile, saveWorkoutLog } = useUserData();
-  const { session, startWorkout, updateExercise, addCustomExercise, endWorkout, updateTimer, updateWellnessCheck, updateAdaptiveWorkoutPlan, updateWellnessRecommendations, updateExerciseOrder } = useWorkoutSync(user?.uid || '');
+  const { session, startWorkout, updateExercise, addCustomExercise, endWorkout, updateTimer, updateWellnessCheck, updateAdaptiveWorkoutPlan, updateWellnessRecommendations, updateExerciseOrder, updateExerciseRecommendations } = useWorkoutSync(user?.uid || '');
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [currentWorkoutPlan, setCurrentWorkoutPlan] = useState<DailyWorkoutPlan[] | null>(null);
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
@@ -70,6 +70,14 @@ const App: React.FC = () => {
   const [isProcessingWellness, setIsProcessingWellness] = useState(false);
   const [wellnessProcessingStep, setWellnessProcessingStep] = useState<string>('');
   const [isAddExerciseOpen, setIsAddExerciseOpen] = useState(false);
+
+  useEffect(() => {
+    if (session.exerciseRecommendations && session.exerciseRecommendations.length > 0) {
+      setExerciseRecommendations(session.exerciseRecommendations);
+    } else if ((session.exerciseRecommendations?.length ?? 0) === 0) {
+      setExerciseRecommendations([]);
+    }
+  }, [session.exerciseRecommendations]);
 
   // Виділення обмежень здоров'я з нотаток самопочуття
   const extractConstraintsFromNotes = useCallback((notes?: string): string[] => {
@@ -554,9 +562,11 @@ const App: React.FC = () => {
     if (dayRecommendations.length > 0) {
       console.log('✅ [handleStartWorkout] Знайдено рекомендації:', dayRecommendations.length);
       setExerciseRecommendations(dayRecommendations);
+      updateExerciseRecommendations(dayRecommendations);
     } else {
       console.log('ℹ️ [handleStartWorkout] Рекомендації для дня не знайдено');
       setExerciseRecommendations([]);
+      updateExerciseRecommendations([]);
     }
     
     setPendingWorkoutDay(dayNumber);

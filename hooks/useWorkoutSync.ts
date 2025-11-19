@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ref, onValue, set, remove, get } from 'firebase/database';
 import { database } from '../config/firebase';
-import { Exercise, LoggedSetWithAchieved, WellnessCheck, AdaptiveWorkoutPlan, WellnessRecommendation, WorkoutLog } from '../types';
+import { Exercise, LoggedSetWithAchieved, WellnessCheck, AdaptiveWorkoutPlan, WellnessRecommendation, WorkoutLog, ExerciseRecommendation } from '../types';
 import { isOnline, saveOfflineData, getOfflineData } from '../utils/offlineUtils';
 import { backgroundAnalysisService } from '../services/backgroundWorkoutAnalysis';
 
@@ -32,6 +32,7 @@ interface WorkoutSession {
   wellnessCheck?: WellnessCheck | null;
   adaptiveWorkoutPlan?: AdaptiveWorkoutPlan | null;
   wellnessRecommendations?: WellnessRecommendation[] | null;
+  exerciseRecommendations?: ExerciseRecommendation[] | null;
 }
 
 export const useWorkoutSync = (userId: string) => {
@@ -42,7 +43,8 @@ export const useWorkoutSync = (userId: string) => {
     workoutTimer: 0,
     wellnessCheck: null,
     adaptiveWorkoutPlan: null,
-    wellnessRecommendations: null
+    wellnessRecommendations: null,
+    exerciseRecommendations: null
   });
 
   // Підписуємось на зміни в базі даних
@@ -80,14 +82,14 @@ export const useWorkoutSync = (userId: string) => {
           console.log('⏱️ [Timer] Відновлюємо таймер:', elapsedSeconds, 'секунд');
 
           // Перевіряємо чи є збережені рекомендації
-          if (!offlineData.currentSession.wellnessRecommendations && offlineData.workoutLogs) {
+          if ((!offlineData.currentSession.exerciseRecommendations || offlineData.currentSession.exerciseRecommendations.length === 0) && offlineData.workoutLogs) {
             const recommendations = backgroundAnalysisService.getRecommendationsForDay(
               offlineData.workoutLogs,
               offlineData.currentSession.activeDay
             );
             if (recommendations.length > 0) {
               console.log('✅ Відновлено рекомендації з офлайн кешу');
-              offlineData.currentSession.wellnessRecommendations = recommendations;
+              offlineData.currentSession.exerciseRecommendations = recommendations;
               saveOfflineData(offlineData);
             }
           }
@@ -124,11 +126,11 @@ export const useWorkoutSync = (userId: string) => {
         const cleanedData = removeUndefined(data);
 
         // Якщо є активний день, завантажуємо рекомендації
-        if (cleanedData.activeDay !== null && !cleanedData.wellnessRecommendations) {
+        if (cleanedData.activeDay !== null && (!cleanedData.exerciseRecommendations || cleanedData.exerciseRecommendations.length === 0)) {
           loadRecommendations(cleanedData.activeDay).then(recommendations => {
             if (recommendations.length > 0) {
-              console.log('✅ Відновлено рекомендації з попереднього аналізу');
-              const sessionPath = `workoutSessions/${userId}/wellnessRecommendations`;
+              console.log('✅ Відновлено exercise recommendations з попереднього аналізу');
+              const sessionPath = `workoutSessions/${userId}/exerciseRecommendations`;
               set(ref(database, sessionPath), recommendations);
             }
           });
@@ -197,6 +199,10 @@ export const useWorkoutSync = (userId: string) => {
             ? cleanedData.wellnessRecommendations
             : (cleanedData.wellnessRecommendations === null ? null : []);
 
+          const safeExerciseRecommendations = Array.isArray(cleanedData.exerciseRecommendations)
+            ? cleanedData.exerciseRecommendations
+            : (cleanedData.exerciseRecommendations === null ? null : []);
+
           const newSession = {
             activeDay: cleanedData.activeDay ?? null,
             sessionExercises: areExercisesEqual(newSessionExercises, oldSessionExercises)
@@ -207,6 +213,7 @@ export const useWorkoutSync = (userId: string) => {
             wellnessCheck: cleanedData.wellnessCheck ?? null,
             adaptiveWorkoutPlan: safeAdaptiveWorkoutPlan,
             wellnessRecommendations: safeWellnessRecommendations,
+            exerciseRecommendations: safeExerciseRecommendations,
           };
           
           return newSession;
@@ -383,7 +390,8 @@ export const useWorkoutSync = (userId: string) => {
       workoutTimer: 0,
       wellnessCheck: null,
       adaptiveWorkoutPlan: null,
-      wellnessRecommendations: null
+      wellnessRecommendations: null,
+      exerciseRecommendations: null
     };
 
     // Оновлюємо локальний стан одразу
@@ -502,7 +510,8 @@ export const useWorkoutSync = (userId: string) => {
       workoutTimer: 0,
       wellnessCheck: null,
       adaptiveWorkoutPlan: null,
-      wellnessRecommendations: null
+      wellnessRecommendations: null,
+      exerciseRecommendations: null
     });
 
     // Очищуємо офлайн кеш
@@ -590,6 +599,33 @@ export const useWorkoutSync = (userId: string) => {
     }
   };
 
+  const updateExerciseRecommendations = async (exerciseRecommendations: ExerciseRecommendation[]) => {
+    if (!userId) { console.error("updateExerciseRecommendations: userId відсутній."); return; }
+
+    setSession(prevSession => {
+      const newSession = { ...prevSession, exerciseRecommendations };
+
+      const offlineData = getOfflineData();
+      saveOfflineData({
+        ...offlineData,
+        currentSession: newSession
+      });
+
+      return newSession;
+    });
+
+    if (isOnline()) {
+      const cleanedExerciseRecommendations = removeUndefined(exerciseRecommendations);
+      const sessionPath = `workoutSessions/${userId}/exerciseRecommendations`;
+      try {
+        await set(ref(database, sessionPath), cleanedExerciseRecommendations);
+      } catch (error) {
+        console.error("Помилка при оновленні exerciseRecommendations у Firebase:", error);
+        console.log('📵 Продовжуємо офлайн - exercise recommendations збережено локально');
+      }
+    }
+  };
+
   const updateWellnessRecommendations = async (wellnessRecommendations: WellnessRecommendation[]) => {
     if (!userId) { console.error("updateWellnessRecommendations: userId відсутній."); return; }
     
@@ -642,6 +678,7 @@ export const useWorkoutSync = (userId: string) => {
     updateWellnessCheck,
     updateAdaptiveWorkoutPlan,
     updateWellnessRecommendations,
-    updateExerciseOrder
+    updateExerciseOrder,
+    updateExerciseRecommendations
   };
 };
