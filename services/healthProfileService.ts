@@ -187,8 +187,9 @@ export class HealthProfileService {
   ): string[] {
     const limitations: string[] = [];
 
-    // Додаємо застарілі обмеження для зворотньої сумісності
-    if (userProfile.healthConstraints) {
+    // Додаємо застарілі обмеження ТІЛЬКИ якщо ще НЕ використовуємо новий профіль здоров'я
+    // Це дозволяє повністю перейти на нову систему без «фантомних» старих травм
+    if (!userProfile.healthProfile && userProfile.healthConstraints) {
       limitations.push(...userProfile.healthConstraints);
     }
 
@@ -342,9 +343,12 @@ export class HealthProfileService {
 
     const updatedHealthProfile = HealthProfileService.updateCurrentLimitations(healthProfile);
 
+    // Після міграції очищаємо старе поле healthConstraints, щоб воно більше не впливало на логіку
+    const { healthConstraints, ...rest } = userProfile;
+
     return {
-      ...userProfile,
+      ...rest,
       healthProfile: updatedHealthProfile
-    };
+    } as UserProfile;
   }
 }
