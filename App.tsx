@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { UserProfile, DailyWorkoutPlan, WorkoutLog, LoggedExercise, LoggedSetWithAchieved, ExerciseRecommendation, Exercise } from './types';
 import { UI_TEXT, GEMINI_MODEL_TEXT, formatTime } from './constants';
 import Navbar from './components/Navbar';
@@ -36,10 +36,10 @@ const App: React.FC = () => {
   
   const { user, loading, logout, setUser } = useAuth();
   const { workoutPlan, saveWorkoutPlan, profile: firestoreProfile, workoutLogs: firestoreWorkoutLogs, saveProfile, saveWorkoutLog } = useUserData();
-  const { session, startWorkout, updateExercise, addCustomExercise, endWorkout, updateTimer, updateWellnessCheck, updateAdaptiveWorkoutPlan, updateWellnessRecommendations, updateExerciseOrder, updateExerciseRecommendations } = useWorkoutSync(user?.uid || '');
+  const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
+  const { session, startWorkout, updateExercise, addCustomExercise, endWorkout, updateTimer, updateWellnessCheck, updateAdaptiveWorkoutPlan, updateWellnessRecommendations, updateExerciseOrder, updateExerciseRecommendations } = useWorkoutSync(user?.uid || '', workoutLogs);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [currentWorkoutPlan, setCurrentWorkoutPlan] = useState<DailyWorkoutPlan[] | null>(null);
-  const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<View>('workout');
@@ -71,10 +71,15 @@ const App: React.FC = () => {
   const [wellnessProcessingStep, setWellnessProcessingStep] = useState<string>('');
   const [isAddExerciseOpen, setIsAddExerciseOpen] = useState(false);
 
+  // Ref для відстеження чи вже виконана синхронізація при запуску
+  const hasSyncedRef = useRef(false);
+
   useEffect(() => {
-    if (session.exerciseRecommendations && session.exerciseRecommendations.length > 0) {
+    // Завжди синхронізуємо exerciseRecommendations з session.exerciseRecommendations
+    // Це гарантує, що рекомендації з аналізу завжди використовуються, навіть після перезавантаження
+    if (session.exerciseRecommendations) {
       setExerciseRecommendations(session.exerciseRecommendations);
-    } else if ((session.exerciseRecommendations?.length ?? 0) === 0) {
+    } else {
       setExerciseRecommendations([]);
     }
   }, [session.exerciseRecommendations]);
@@ -123,6 +128,7 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!user) {
       setHasInitializedView(false);
+      hasSyncedRef.current = false; // Скидаємо синхронізацію при виході
     }
   }, [user]);
 
@@ -229,8 +235,9 @@ const App: React.FC = () => {
 
   // Синхронізація при запуску додатку (якщо є мережа)
   useEffect(() => {
-    if (user && userProfile && currentWorkoutPlan && isOnline()) {
+    if (user && userProfile && currentWorkoutPlan && isOnline() && !hasSyncedRef.current) {
       console.log('🚀 Додаток запущено - перевіряємо офлайн чергу');
+      hasSyncedRef.current = true;
       // Невелика затримка щоб Firebase встиг ініціалізуватися
       const timer = setTimeout(() => {
         syncOfflineData();

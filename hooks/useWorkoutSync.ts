@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ref, onValue, set, remove, get } from 'firebase/database';
 import { database } from '../config/firebase';
 import { Exercise, LoggedSetWithAchieved, WellnessCheck, AdaptiveWorkoutPlan, WellnessRecommendation, WorkoutLog, ExerciseRecommendation } from '../types';
@@ -35,7 +35,7 @@ interface WorkoutSession {
   exerciseRecommendations?: ExerciseRecommendation[] | null;
 }
 
-export const useWorkoutSync = (userId: string) => {
+export const useWorkoutSync = (userId: string, workoutLogs: WorkoutLog[] = []) => {
   const [session, setSession] = useState<WorkoutSession>({
     activeDay: null,
     sessionExercises: [],
@@ -47,6 +47,9 @@ export const useWorkoutSync = (userId: string) => {
     exerciseRecommendations: null
   });
 
+  // Ref для відстеження останнього завантаженого дня (щоб не завантажувати рекомендації повторно)
+  const lastLoadedDayRef = useRef<number | null>(null);
+
   // Підписуємось на зміни в базі даних
   useEffect(() => {
     if (!userId) {
@@ -54,13 +57,10 @@ export const useWorkoutSync = (userId: string) => {
     }
 
     // Функція для завантаження рекомендацій з останнього аналізу
-    const loadRecommendations = async (dayNumber: number) => {
+    const loadRecommendations = (dayNumber: number): ExerciseRecommendation[] => {
       try {
-        const logsRef = ref(database, `workoutLogs/${userId}`);
-        const snapshot = await get(logsRef);
-        if (snapshot.exists()) {
-          const logs = Object.values(snapshot.val()) as WorkoutLog[];
-          const recommendations = backgroundAnalysisService.getRecommendationsForDay(logs, dayNumber);
+        if (workoutLogs && workoutLogs.length > 0) {
+          const recommendations = backgroundAnalysisService.getRecommendationsForDay(workoutLogs, dayNumber);
           return recommendations;
         }
       } catch (error) {
@@ -125,15 +125,28 @@ export const useWorkoutSync = (userId: string) => {
       if (data) {
         const cleanedData = removeUndefined(data);
 
-        // Якщо є активний день, завантажуємо рекомендації
-        if (cleanedData.activeDay !== null && (!cleanedData.exerciseRecommendations || cleanedData.exerciseRecommendations.length === 0)) {
-          loadRecommendations(cleanedData.activeDay).then(recommendations => {
+        // Якщо є активний день, завантажуємо рекомендації з workoutLogs
+        // Завантажуємо тільки якщо день змінився або workoutLogs оновилися
+        let loadedRecommendations: ExerciseRecommendation[] | null = null;
+        if (cleanedData.activeDay !== null && cleanedData.activeDay !== lastLoadedDayRef.current) {
+          try {
+            const recommendations = loadRecommendations(cleanedData.activeDay);
             if (recommendations.length > 0) {
-              console.log('✅ Відновлено exercise recommendations з попереднього аналізу');
-              const sessionPath = `workoutSessions/${userId}/exerciseRecommendations`;
-              set(ref(database, sessionPath), recommendations);
+              console.log('✅ Відновлено exercise recommendations з попереднього аналізу:', recommendations.length);
+              loadedRecommendations = recommendations;
+              lastLoadedDayRef.current = cleanedData.activeDay;
+              // Не зберігаємо в Firebase тут, щоб уникнути циклічних оновлень та помилок доступу
+              // Рекомендації будуть збережені через updateExerciseRecommendations, коли вони дійсно змінюються
+            } else {
+              console.log('ℹ️ Рекомендації для дня не знайдено в workoutLogs');
             }
-          });
+          } catch (error) {
+            console.error('❌ Помилка завантаження рекомендацій з workoutLogs:', error);
+            // Продовжуємо з тими рекомендаціями, що є в Firebase
+          }
+        } else if (cleanedData.activeDay === null) {
+          // Якщо активного дня немає, скидаємо посилання
+          lastLoadedDayRef.current = null;
         }
 
         setSession(prevSession => {
@@ -199,9 +212,12 @@ export const useWorkoutSync = (userId: string) => {
             ? cleanedData.wellnessRecommendations
             : (cleanedData.wellnessRecommendations === null ? null : []);
 
-          const safeExerciseRecommendations = Array.isArray(cleanedData.exerciseRecommendations)
-            ? cleanedData.exerciseRecommendations
-            : (cleanedData.exerciseRecommendations === null ? null : []);
+          // Використовуємо завантажені рекомендації, якщо вони є, інакше використовуємо з Firebase
+          const safeExerciseRecommendations = loadedRecommendations !== null
+            ? loadedRecommendations
+            : (Array.isArray(cleanedData.exerciseRecommendations)
+                ? cleanedData.exerciseRecommendations
+                : (cleanedData.exerciseRecommendations === null ? null : []));
 
           const newSession = {
             activeDay: cleanedData.activeDay ?? null,
@@ -243,7 +259,74 @@ export const useWorkoutSync = (userId: string) => {
       unsubscribe();
       }
     };
-  }, [userId]);
+  }, [userId, workoutLogs]);
+
+  // Перезавантажуємо рекомендації коли workoutLogs оновлюються і є активна сесія
+  const previousWorkoutLogsRef = useRef<WorkoutLog[]>([]);
+  const previousActiveDayRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!userId || !session.activeDay) {
+      previousWorkoutLogsRef.current = workoutLogs;
+      previousActiveDayRef.current = session.activeDay;
+      return;
+    }
+
+    // Перевіряємо чи workoutLogs або activeDay дійсно змінилися
+    const logsChanged = JSON.stringify(previousWorkoutLogsRef.current) !== JSON.stringify(workoutLogs);
+    const dayChanged = previousActiveDayRef.current !== session.activeDay;
+    
+    if (!logsChanged && !dayChanged) {
+      return;
+    }
+
+    previousWorkoutLogsRef.current = workoutLogs;
+    previousActiveDayRef.current = session.activeDay;
+
+    // Скидаємо lastLoadedDayRef, щоб рекомендації завантажилися знову в onValue callback
+    if (logsChanged) {
+      lastLoadedDayRef.current = null;
+    }
+
+    // Завантажуємо рекомендації з workoutLogs (навіть якщо workoutLogs порожній, спробуємо завантажити)
+    try {
+      const recommendations = backgroundAnalysisService.getRecommendationsForDay(workoutLogs, session.activeDay);
+      
+      if (recommendations.length > 0) {
+        // Перевіряємо чи рекомендації відрізняються від поточних
+        const currentRecs = session.exerciseRecommendations || [];
+        const areDifferent = recommendations.length !== currentRecs.length ||
+          recommendations.some((rec, idx) => {
+            const currentRec = currentRecs[idx];
+            return !currentRec || rec.exerciseName !== currentRec.exerciseName || rec.recommendation !== currentRec.recommendation;
+          });
+
+        if (areDifferent) {
+          console.log('🔄 Оновлюємо рекомендації після зміни workoutLogs:', recommendations.length);
+          updateExerciseRecommendations(recommendations);
+        }
+        // Якщо рекомендації однакові, не оновлюємо - це запобігає зацикленню
+      } else if (workoutLogs.length > 0) {
+        // Якщо workoutLogs завантажені, але рекомендацій немає - очищуємо базові
+        // Це означає, що для цього дня ще не було аналізу
+        const currentRecs = session.exerciseRecommendations || [];
+        if (currentRecs.length > 0) {
+          // Перевіряємо чи це базові рекомендації (мають reason "Базова рекомендація для прогресу")
+          const areBasicRecommendations = currentRecs.every(rec => 
+            rec.reason === "Базова рекомендація для прогресу" || 
+            !rec.reason ||
+            rec.reason.includes("Базова")
+          );
+          
+          if (areBasicRecommendations) {
+            console.log('ℹ️ Очищуємо базові рекомендації - для цього дня ще не було аналізу');
+            updateExerciseRecommendations([]);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('❌ Помилка завантаження рекомендацій з workoutLogs:', error);
+    }
+  }, [workoutLogs, session.activeDay, userId]);
 
   // Локальний таймер: тільки офлайн для фонової роботи
   useEffect(() => {

@@ -2,6 +2,7 @@ import { UserProfile, DailyWorkoutPlan, WorkoutLog, ExerciseRecommendation } fro
 import { generateWorkoutAnalysis } from './geminiService';
 import { isOnline } from '../utils/offlineUtils';
 import { quotaManager } from '../utils/apiQuotaManager';
+import { generateExerciseRecommendation } from '../utils/exerciseRecommendationGenerator';
 
 /**
  * Сервіс для фонового аналізу тренувань з AI
@@ -341,6 +342,7 @@ ${previousLogs.slice(0, 3).map(log => {
 
   /**
    * Створює базові рекомендації якщо AI недоступний
+   * Генерує специфічні рекомендації для кожної вправи на основі типу вправи та виконання
    */
   private createFallbackRecommendations(
     dayPlan: DailyWorkoutPlan,
@@ -354,17 +356,22 @@ ${previousLogs.slice(0, 3).map(log => {
 
     // Базові рекомендації для виконаних вправ
     completedExercises.forEach(loggedEx => {
-      const avgWeight = loggedEx.loggedSets?.reduce((sum, set) => sum + (set.weightUsed || 0), 0) / (loggedEx.loggedSets?.length || 1);
-      const avgReps = loggedEx.loggedSets?.reduce((sum, set) => sum + (set.repsAchieved || 0), 0) / (loggedEx.loggedSets?.length || 1);
+      // Знаходимо оригінальну вправу з плану для отримання weightType
+      const originalExercise = dayPlan.exercises.find(ex => ex.name === loggedEx.exerciseName);
+      
+      // Використовуємо універсальну систему генерації рекомендацій
+      const recommendation = generateExerciseRecommendation(
+        originalExercise || { name: loggedEx.exerciseName, weightType: 'total' } as any,
+        loggedEx,
+        loggedEx.completedSuccessfully
+      );
       
       recommendations.push({
         exerciseName: loggedEx.exerciseName,
-        recommendation: loggedEx.completedSuccessfully 
-          ? 'Вправа виконана успішно. Продовжуйте в тому ж дусі або спробуйте трохи збільшити навантаження.'
-          : 'Вправа виконана з труднощами. Зосередьтеся на техніці та поступово збільшуйте навантаження.',
-        suggestedWeight: avgWeight > 0 ? Math.round(avgWeight * 1.025) : undefined,
-        reason: 'Базова рекомендація на основі виконання',
-        action: loggedEx.completedSuccessfully ? 'increase_weight' : 'maintain'
+        recommendation: recommendation.text,
+        suggestedWeight: recommendation.suggestedWeight,
+        reason: 'Базова рекомендація на основі типу вправи та виконання',
+        action: recommendation.action as any
       });
     });
 
@@ -374,9 +381,22 @@ ${previousLogs.slice(0, 3).map(log => {
     );
 
     skippedExercises.forEach(exercise => {
+      const exerciseName = exercise.name.toLowerCase();
+      let recommendationText = '';
+      
+      if (exerciseName.includes('присідання') || exerciseName.includes('squat')) {
+        recommendationText = 'Вправу було пропущено. Присідання важливі для розвитку ніг - спробуйте виконати в наступному тренуванні.';
+      } else if (exerciseName.includes('тяга') || exerciseName.includes('row') || exerciseName.includes('pull')) {
+        recommendationText = 'Вправу було пропущено. Тяги важливі для розвитку спини - спробуйте виконати в наступному тренуванні.';
+      } else if (exerciseName.includes('жим') || exerciseName.includes('press')) {
+        recommendationText = 'Вправу було пропущено. Жими важливі для розвитку грудей та плечей - спробуйте виконати в наступному тренуванні.';
+      } else {
+        recommendationText = 'Вправу було пропущено. Спробуйте виконати її в наступному тренуванні для збалансованого розвитку.';
+      }
+      
       recommendations.push({
         exerciseName: exercise.name,
-        recommendation: 'Вправу було пропущено. Спробуйте виконати її в наступному тренуванні для збалансованого розвитку.',
+        recommendation: recommendationText,
         reason: 'Вправа була пропущена',
         action: 'maintain'
       });

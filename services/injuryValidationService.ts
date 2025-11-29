@@ -1,5 +1,6 @@
 import { Exercise, WeightType, UserProfile, WellnessCheck } from '../types';
 import { HealthProfileService } from './healthProfileService';
+import { generateExerciseRecommendation } from '../utils/exerciseRecommendationGenerator';
 
 // Мапа небезпечних вправ для різних травм (з частковим співпадінням назв)
 const INJURY_EXERCISE_MAP = {
@@ -315,36 +316,14 @@ export const validateWorkoutSafety = (
 export const addBaseRecommendations = (exercises: Exercise[]): Exercise[] => {
   return exercises.map(exercise => {
     if (!exercise.recommendation || !exercise.recommendation.text) {
-      let recommendationText = '';
-      
-      // Генеруємо рекомендації на основі назви вправи та типу ваги
-      const exerciseName = exercise.name.toLowerCase();
-      
-      if (exerciseName.includes('присідання')) {
-        recommendationText = 'Фокусуйтесь на глибині присідань та правильній постановці ніг. Поступово збільшуйте вагу на 2.5-5кг щотижня.';
-      } else if (exerciseName.includes('станова') || exerciseName.includes('тяга')) {
-        recommendationText = 'Тримайте спину прямою, починайте рух з ніг. Збільшуйте вагу на 2.5кг кожні 1-2 тижні.';
-      } else if (exerciseName.includes('жим')) {
-        recommendationText = 'Контролюйте опускання, повна амплітуда руху. Прогресуйте на 1.25-2.5кг щотижня.';
-      } else if (exerciseName.includes('підтягування') || exerciseName.includes('віджимання')) {
-        recommendationText = 'Якщо легко - додайте вагу або збільште кількість повторень. Прогресуйте поступово.';
-      } else if (exerciseName.includes('планка')) {
-        recommendationText = 'Тримайте тіло прямо, дихайте рівномірно. Збільшуйте час утримання на 10-15 секунд щотижня.';
-      } else if (exercise.weightType === 'bodyweight') {
-        recommendationText = 'Контролюйте темп виконання, фокусуйтесь на якості. Збільшуйте повторення поступово.';
-      } else if (exercise.weightType === 'single') {
-        recommendationText = 'Працюйте з однаковою вагою в обох руках. Збільшуйте вагу на 1-2кг кожні 1-2 тижні.';
-      } else if (exercise.weightType === 'total') {
-        recommendationText = 'Дотримуйтесь правильної техніки. Збільшуйте вагу на 2.5-5кг щотижня при виконанні всіх повторень.';
-      } else {
-        recommendationText = 'Фокусуйтесь на якості виконання та повній амплітуді руху. Прогресуйте поступово.';
-      }
+      // Використовуємо універсальну систему генерації рекомендацій
+      const recommendation = generateExerciseRecommendation(exercise);
       
       return {
         ...exercise,
         recommendation: {
-          text: recommendationText,
-          action: 'maintain'
+          text: recommendation.text,
+          action: recommendation.action
         }
       };
     }
