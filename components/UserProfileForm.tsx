@@ -32,6 +32,7 @@ const UserProfileForm: React.FC<UserProfileFormProps> = ({
   const [gender, setGender] = useState<Gender>(GENDER_OPTIONS[0].value);
   const [bodyType, setBodyType] = useState<BodyType>(BODY_TYPE_OPTIONS[0].value);
   const [goal, setGoal] = useState<FitnessGoal>(FITNESS_GOAL_OPTIONS[0].value);
+  const [customGoal, setCustomGoal] = useState<string>('');
   const [trainingFrequency, setTrainingFrequency] = useState<number>(DEFAULT_TRAINING_FREQUENCY);
   const [targetMuscleGroups, setTargetMuscleGroups] = useState<MuscleGroup[]>([]);
   const [height, setHeight] = useState<string>('');
@@ -52,6 +53,7 @@ const UserProfileForm: React.FC<UserProfileFormProps> = ({
       setWeight(existingProfile.weight ? existingProfile.weight.toString() : '');
       setAge(existingProfile.age ? existingProfile.age.toString() : '');
       setExperienceLevel(existingProfile.experienceLevel || ExperienceLevel.BEGINNER);
+      setCustomGoal(existingProfile.customGoalDescription || '');
     } else {
       setName('');
       setGender(GENDER_OPTIONS[0].value);
@@ -62,6 +64,7 @@ const UserProfileForm: React.FC<UserProfileFormProps> = ({
       setHeight('');
       setAge('');
       setExperienceLevel(ExperienceLevel.BEGINNER);
+      setCustomGoal('');
     }
   }, [existingProfile]);
 
@@ -84,7 +87,8 @@ const UserProfileForm: React.FC<UserProfileFormProps> = ({
       age: age ? parseInt(age) : 25,
       experienceLevel,
       targetMuscleGroups: targetMuscleGroups || [],
-      ...(pendingHealthProfile ? { healthProfile: pendingHealthProfile } : {})
+      ...(goal === FitnessGoal.OTHER && customGoal ? { customGoalDescription: customGoal } : {}),
+      ...(pendingHealthProfile ? { healthProfile: pendingHealthProfile } : existingProfile ? { healthProfile: existingProfile.healthProfile } : {})
     };
 
     onSave(profileToSave);
@@ -168,6 +172,17 @@ const UserProfileForm: React.FC<UserProfileFormProps> = ({
           <select id="goal" value={goal} onChange={(e) => setGoal(e.target.value as FitnessGoal)} className={commonSelectClasses}>
             {FITNESS_GOAL_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
+          {goal === FitnessGoal.OTHER && (
+            <div className="mt-3">
+              <textarea
+                value={customGoal}
+                onChange={(e) => setCustomGoal(e.target.value)}
+                className={commonSelectClasses}
+                placeholder="Опишіть свою ціль тренувань своїми словами"
+                rows={3}
+              />
+            </div>
+          )}
         </div>
         <div>
           <label htmlFor="trainingFrequency" className={commonLabelClasses}>{UI_TEXT.frequencyLabel}</label>

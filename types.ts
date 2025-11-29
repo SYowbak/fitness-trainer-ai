@@ -15,7 +15,8 @@ export enum FitnessGoal {
   MUSCLE_GAIN = 'muscle_gain',
   STRENGTH = 'strength',
   ENDURANCE = 'endurance',
-  GENERAL_FITNESS = 'general_fitness'
+  GENERAL_FITNESS = 'general_fitness',
+  OTHER = 'other'
 }
 
 export enum MuscleGroup {
@@ -101,6 +102,7 @@ export interface UserProfile {
   experienceLevel: ExperienceLevel; // Рівень досвіду
   healthConstraints?: string[]; // ЗАСТАРІЛЕ: Стислі обмеження/травми (для зворотньої сумісності)
   healthProfile?: HealthProfile; // НОВА система здоров'я
+  customGoalDescription?: string; // Додаткова текстова ціль, якщо обрано "інше"
 }
 
 export type WeightType = 'total' | 'single' | 'bodyweight' | 'none';

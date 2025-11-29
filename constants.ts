@@ -30,6 +30,7 @@ export const FITNESS_GOAL_OPTIONS: Array<{ value: FitnessGoal; label: string }> 
   { value: FitnessGoal.MUSCLE_GAIN, label: 'Набрати м\'язову масу' },
   { value: FitnessGoal.STRENGTH, label: 'Зміцнити силу' },
   { value: FitnessGoal.GENERAL_FITNESS, label: 'Підтримати загальну фізичну форму' },
+  { value: FitnessGoal.OTHER, label: 'Інше (своя ціль)' },
 ];
 
 export const TRAINING_FREQUENCY_OPTIONS: Array<{ value: number; label: string }> = [
