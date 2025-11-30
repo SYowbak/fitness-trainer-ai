@@ -172,6 +172,12 @@ export const generateNewAdaptiveWorkout = async (
 
     console.log('🔍 [NEW ADAPTIVE] Exercise count check: Original=' + originalPlan.exercises.length + ', Adapted=' + adaptedPlan.exercises.length);
 
+    // Додаткова діагностика: як змінюються назви вправ при адаптації
+    const originalNames = originalPlan.exercises.map(ex => ex.name);
+    const adaptedNames = adaptedPlan.exercises.map((ex: any) => ex.name);
+    console.log('🔍 [NEW ADAPTIVE] Exercise names BEFORE adaptation (оригінальний план):', originalNames);
+    console.log('🔍 [NEW ADAPTIVE] Exercise names AFTER adaptation (за самопочуттям):', adaptedNames);
+
     // Обробляємо systemMemory, якщо є
     if (adaptedPlan.systemMemory && userProfile.healthProfile) {
       const updatedHealthProfile = userProfile.healthProfile;

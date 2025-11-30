@@ -127,6 +127,10 @@ export interface Exercise {
   sessionSuccess: boolean | null;
   isSkipped?: boolean; // Додаємо поле isSkipped
   notes?: string | null;
+  // Поля для маркування вправ, які потребують адаптації ШІ замість автоматичних замін
+  needsAIReplacement?: boolean;
+  safetyConstraints?: string[];
+  safetyReason?: string | null;
 }
 
 export interface DailyWorkoutPlan {

@@ -403,10 +403,214 @@ export const generateWorkoutPlan = async (profile: UserProfile, modelName: strin
       }
 
       // Додаємо базові рекомендації та перевіряємо безпеку
-      return basePlan.map(day => ({
+      let safePlan: DailyWorkoutPlan[] = basePlan.map(day => ({
         ...day,
         exercises: addBaseRecommendations(validateWorkoutSafety(day.exercises, profile))
       }));
+
+      // AI-driven adaptation: for exercises marked with `needsAIReplacement`, ask the model
+      // to propose replacements or adaptations and apply them to the plan.
+      const adaptMarkedExercises = async (plan: DailyWorkoutPlan[], profile: UserProfile): Promise<DailyWorkoutPlan[]> => {
+        if (!ai) return plan;
+
+        const marked = plan.flatMap(day => day.exercises.map(ex => ({
+          day: day.day,
+          id: ex.id,
+          name: ex.name,
+          description: ex.description,
+          sets: ex.sets,
+          reps: ex.reps,
+          rest: ex.rest,
+          weightType: ex.weightType,
+          safetyConstraints: (ex as any).safetyConstraints || [],
+          safetyReason: (ex as any).safetyReason || null
+        })).filter(e => e.safetyConstraints && e.safetyConstraints.length > 0));
+
+        if (marked.length === 0) return plan;
+
+        console.log('🤖 [AI-ADAPT] Found exercises to adapt via AI:', marked.map(m => m.name));
+
+        const model = ai.getGenerativeModel({
+          model: GEMINI_MODELS.LIGHT_TASKS,
+          generationConfig: { temperature: 0.25, maxOutputTokens: 4000 }
+        });
+
+        // Build a clearer, example-driven prompt asking for structured JSON with adaptations
+        const promptParts: string[] = [];
+        promptParts.push('Ти — досвідчений персональний фітнес-тренер. Для кожної наведеної вправи проаналізуй її безпеку з урахуванням зазначених обмежень. Для кожної вправи вибери одну з дій:' +
+          '\n - "keep" — залишити без змін' +
+          '\n - "modify" — змінити параметри (sets/reps/rest/targetWeight/targetReps/weightType/description)' +
+          '\n - "replace" — замінити на іншу вправу (повна нова вправа в adaptedExercise)');
+
+        promptParts.push('ПРАВИЛА: \n1) ПОВЕРНИТЬ ЛИШЕ ЧИСТИЙ JSON-МАСИВ (без пояснень).\n2) Для кожного об’єкта обов\'язково поля: "id" (id вправи), "action" (keep|modify|replace), "note" (коротка причина українською).\n3) Якщо action === "modify" або "replace", поле "adaptedExercise" має бути об\'єктом з полями: name, description, sets, reps, rest, weightType ("total"|"single"|"bodyweight"|"none"), targetWeight (число|null), targetReps (число|null), videoSearchQuery (рядок|null).\n4) Уникай слів "альтернатива", "безпечна", "заміна" у полі name — назва має бути конкретною українською назвою вправи.\n5) По можливості рекомендуй модифікацію (зміна набір/повтори/відпочинок) замість повної заміни, якщо це безпечно.');
+
+        // Provide two short examples of expected JSON (one modify, one replace)
+        promptParts.push('ПРИКЛАД ВИХОДУ (обов\'язково дотримуйся формату):\n[\n  {\n    "id": "<exercise-id-1>",\n    "action": "modify",\n    "adaptedExercise": { "sets": "3", "reps": "10-12", "rest": "60 секунд", "weightType": "single", "targetWeight": 8, "targetReps": null, "name": "Жим гантелей лежачи на горизонтальній лаві", "description": "Коротка інструкція...", "videoSearchQuery": "жим гантелей лежачи техніка" },\n    "note": "Зменшено навантаження через болі в спині"\n  },\n  {\n    "id": "<exercise-id-2>",\n    "action": "replace",\n    "adaptedExercise": { "name": "Тяга горизонтального блоку однією рукою", "description": "Опис...", "sets": "3", "reps": "10-12", "rest": "60 секунд", "weightType": "total", "targetWeight": null, "targetReps": null, "videoSearchQuery": "тяга горизонтального блоку техніка" },\n    "note": "Заміна через ризик для попереку"\n  }\n]');
+
+        promptParts.push('\nНижче — список вправ для оцінки з їхніми обмеженнями (масив JSON):');
+        promptParts.push(JSON.stringify(marked, null, 2));
+        promptParts.push('\nПОВЕРНИ ТІЛЬКИ ВАЛІДНИЙ JSON (масив).');
+
+        const aiPrompt = promptParts.join('\n\n');
+
+        // Виконуємо запит до ШІ з повторними спробами у разі невдалого формату відповіді
+        const maxAttempts = 3;
+        let parsed: any[] | null = null;
+        let lastResponseText = '';
+
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+          try {
+            console.log(`🤖 [AI-ADAPT] Спроба ${attempt}/${maxAttempts} — надсилаю запит до моделі...`);
+            const response = await model.generateContent(aiPrompt);
+            const result = await response.response;
+            let text = result.text().trim();
+            lastResponseText = text;
+
+            // Видаляємо можливі блоки коду
+            const fenceMatch = text.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/);
+            if (fenceMatch && fenceMatch[1]) text = fenceMatch[1].trim();
+
+            // Парсимо JSON
+            const candidate = JSON.parse(text);
+
+            // Валідація структури відповіді
+            const isValidAdaptation = (arr: any[]): boolean => {
+              if (!Array.isArray(arr)) return false;
+              for (const it of arr) {
+                if (!it || typeof it.id !== 'string') return false;
+                if (!['keep','modify','replace'].includes(it.action)) return false;
+                if (typeof it.note !== 'string') return false;
+                if ((it.action === 'modify' || it.action === 'replace')) {
+                  const ad = it.adaptedExercise;
+                  if (!ad || typeof ad !== 'object') return false;
+                  if (typeof ad.name !== 'string' || ad.name.trim().length === 0) return false;
+                  // Заборонені слова у назві
+                  const forbidden = ['альтернатива','безпечн','заміна','альтернатив'];
+                  const lowerName = ad.name.toLowerCase();
+                  if (forbidden.some(f => lowerName.includes(f))) return false;
+                  if (typeof ad.description !== 'string') return false;
+                  if (typeof ad.sets === 'undefined' || typeof ad.reps === 'undefined' || typeof ad.rest === 'undefined') return false;
+                  if (!['total','single','bodyweight','none'].includes(ad.weightType)) return false;
+                  if (!(ad.targetWeight === null || typeof ad.targetWeight === 'number')) return false;
+                  if (!(ad.targetReps === null || typeof ad.targetReps === 'number')) return false;
+                  if (!(typeof ad.videoSearchQuery === 'string' || ad.videoSearchQuery === null)) return false;
+                }
+              }
+              return true;
+            };
+
+            if (!isValidAdaptation(candidate)) {
+              console.warn(`❌ [AI-ADAPT] Відповідь ШІ не пройшла валідацію (спроба ${attempt}).`);
+              // Якщо ще є спроби — додатково уточнюємо модель попросити лише JSON у наступній спробі
+              if (attempt < maxAttempts) {
+                console.log('🔁 [AI-ADAPT] Повторна спроба: прошу модель повернути лише валідний JSON у точному форматі (при необхідності скоротити пояснення).');
+                continue;
+              } else {
+                console.warn('❌ [AI-ADAPT] Максимальна кількість спроб вичерпана — повертаю оригінальний план.');
+                return plan;
+              }
+            }
+
+            // Успішно валідована відповідь
+            parsed = candidate;
+            break;
+          } catch (err) {
+            console.warn(`❌ [AI-ADAPT] Помилка парсингу або виклику ШІ на спробі ${attempt}:`, err);
+            if (attempt >= maxAttempts) {
+              console.warn('❌ [AI-ADAPT] Максимальна кількість спроб вичерпана або помилка парсингу — повертаю оригінальний план.');
+              return plan;
+            }
+            // Інакше пробуємо ще раз
+          }
+        }
+
+        if (!parsed) {
+          console.warn('❌ [AI-ADAPT] Не отримано валідної відповіді від ШІ — повертаю початковий план. Остання відповідь починається з:', lastResponseText.substring(0,200));
+          return plan;
+        }
+
+        const adaptsById = new Map<string, any>();
+        parsed.forEach(item => {
+          if (item && item.id) adaptsById.set(item.id, item);
+        });
+
+          // Apply adaptations
+          const newPlan = plan.map(day => ({
+            ...day,
+            exercises: day.exercises.map(ex => {
+              const a = adaptsById.get(ex.id);
+              if (!a) return ex;
+
+              if (a.action === 'keep') {
+                return { ...ex, needsAIReplacement: false, recommendation: { text: a.note || 'Kept by AI', action: 'ai_keep' } };
+              }
+
+              if (a.action === 'modify' && a.adaptedExercise) {
+                const adapted = { ...ex, ...a.adaptedExercise } as Exercise;
+                adapted.needsAIReplacement = false;
+                adapted.recommendation = { text: a.note || 'Adapted by AI', action: 'ai_modified' };
+                adapted.safetyConstraints = ex.safetyConstraints;
+                return adapted;
+              }
+
+              if (a.action === 'replace' && a.adaptedExercise) {
+                const replaced: Exercise = {
+                  ...ex,
+                  id: ex.id,
+                  name: a.adaptedExercise.name || ex.name,
+                  description: a.adaptedExercise.description || ex.description,
+                  sets: a.adaptedExercise.sets || ex.sets,
+                  reps: a.adaptedExercise.reps || ex.reps,
+                  rest: a.adaptedExercise.rest || ex.rest,
+                  weightType: a.adaptedExercise.weightType || ex.weightType,
+                  targetWeight: a.adaptedExercise.targetWeight ?? ex.targetWeight,
+                  targetReps: a.adaptedExercise.targetReps ?? ex.targetReps,
+                  videoSearchQuery: a.adaptedExercise.videoSearchQuery ?? ex.videoSearchQuery,
+                  recommendation: { text: a.note || 'Replaced by AI', action: 'ai_replaced' },
+                  isCompletedDuringSession: false,
+                  sessionLoggedSets: [],
+                  sessionSuccess: false,
+                  needsAIReplacement: false,
+                  safetyConstraints: ex.safetyConstraints,
+                  safetyReason: ex.safetyReason,
+                  notes: (ex.notes ? ex.notes + ' | ' : '') + (a.note || 'Заміна запропонована ШІ')
+                } as Exercise;
+
+                return replaced;
+              }
+
+              // fallback
+              return ex;
+            })
+          }));
+
+          console.log('🤖 [AI-ADAPT] Applied AI adaptations for exercises:', Array.from(adaptsById.keys()));
+          return newPlan;
+        };
+
+      // Run adaptation step (best-effort)
+      try {
+        safePlan = await adaptMarkedExercises(safePlan, profile);
+      } catch (e) {
+        console.warn('❌ [AI-ADAPT] Unexpected error during adaptation:', e);
+      }
+
+      // Діагностика назв вправ після валідації безпеки
+      const finalExerciseNames: string[] = safePlan
+        .flatMap((d: DailyWorkoutPlan) => d.exercises.map((e: Exercise) => e.name))
+        .filter((name: string) => Boolean(name));
+
+      console.log('[PLAN CHECK] [FINAL] Unique exercise names after safety validation:', Array.from(new Set(finalExerciseNames)));
+
+      const finalSuspiciousNames = finalExerciseNames.filter((name: string) => {
+        const lower = name.toLowerCase();
+        return lower.includes('альтернатива') || lower.includes('альтернатив') || lower.includes('безпечн');
+      });
+      if (finalSuspiciousNames.length > 0) {
+        console.warn('[PLAN CHECK] [FINAL] Suspicious exercise names still present after safety validation:', finalSuspiciousNames);
+      }
+
+      return safePlan;
     } catch (e) {
       console.error("Error parsing JSON from AI response:", e);
       console.error("Received string (after processing):", jsonStr);

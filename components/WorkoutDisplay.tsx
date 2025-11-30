@@ -193,6 +193,17 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
     ? sessionExercises 
     : currentDayPlan?.exercises || [];
 
+  // Діагностика: які вправи реально відображаються зараз
+  console.log('[WorkoutDisplay] Render context:', {
+    activeDay,
+    selectedDayForView,
+    hasAdaptivePlan: Boolean(adaptiveWorkoutPlan),
+    baseExerciseNames: isWorkoutPlanValid
+      ? workoutPlan.flatMap(day => day.exercises.map(ex => ex.name))
+      : [],
+    exercisesToDisplayNames: exercisesToDisplay.map(ex => ex.name)
+  });
+
   // Відображення трендів прогресу
   const renderProgressTrends = () => {
     if (!progressTrends) return null;
@@ -415,11 +426,17 @@ const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({
     if (!adaptiveWorkoutPlan || !adaptiveWorkoutPlan.adaptations) return exercise;
     const adaptation = adaptiveWorkoutPlan.adaptations.find((a: any) => a.exerciseName === exercise.name);
     if (!adaptation) return exercise;
-    return {
+    const adapted = {
       ...exercise,
       sets: adaptation.adaptedSets || exercise.sets,
       reps: adaptation.adaptedReps || exercise.reps,
     };
+    console.log('[WorkoutDisplay] getAdaptedExercise: applying adaptation for exercise', {
+      originalName: exercise.name,
+      adaptedSets: adapted.sets,
+      adaptedReps: adapted.reps
+    });
+    return adapted;
   };
 
   return (
