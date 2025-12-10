@@ -119,13 +119,34 @@ function isAPIRequest(url) {
 async function cacheFirst(request) {
   const cached = await caches.match(request);
   if (cached) {
-    console.log('📋 Завантаження з кешу:', request.url);
-    return cached;
+    // Якщо в кеші збережений HTML для статичного ресурсу - вважаємо кеш недійсним
+    try {
+      const ct = cached.headers && cached.headers.get && cached.headers.get('content-type');
+      if (ct && ct.includes('text/html') && isStaticResource(request.url)) {
+        console.log('🛑 Знайдено HTML у кеші для статичного ресурсу, видаляємо з кешу:', request.url);
+        const cache = await caches.open(STATIC_CACHE);
+        await cache.delete(request);
+      } else {
+        console.log('📋 Завантаження з кешу:', request.url);
+        return cached;
+      }
+    } catch (e) {
+      // Якщо будь-яка проблема з заголовками - повертаємо кешований ресурс
+      console.log('📋 Завантаження з кешу (без перевірки заголовків):', request.url);
+      return cached;
+    }
   }
   
   try {
     const response = await fetch(request);
     if (response.status === 200) {
+      const contentType = response.headers.get('content-type') || '';
+      // Якщо сервер повернув HTML замість очікуваного статичного ресурсу - не кешуємо його
+      if (contentType.includes('text/html') && isStaticResource(request.url)) {
+        console.warn('⚠️ Отримано HTML для статичного ресурсу (не кешуємо):', request.url);
+        return response;
+      }
+
       const cache = await caches.open(STATIC_CACHE);
       await cache.put(request, response.clone());
       // Очищуємо кеш при необхідності
@@ -143,8 +164,14 @@ async function networkFirst(request) {
   try {
     const response = await fetch(request);
     if (response.status === 200) {
-      const cache = await caches.open(DYNAMIC_CACHE);
-      cache.put(request, response.clone());
+      const contentType = response.headers.get('content-type') || '';
+      // Не кешуємо HTML відповіді для API-запитів (типово сервер повертає JSON)
+      if (!contentType.includes('text/html')) {
+        const cache = await caches.open(DYNAMIC_CACHE);
+        cache.put(request, response.clone());
+      } else {
+        console.warn('⚠️ Отримано HTML для API-запиту (не кешуємо):', request.url);
+      }
     }
     return response;
   } catch (error) {

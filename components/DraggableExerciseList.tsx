@@ -1,14 +1,34 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { Exercise } from '../types';
 
 interface DraggableExerciseListProps {
   exercises: Exercise[];
   onReorder: (exercises: Exercise[]) => void;
-  children: (exercise: Exercise, index: number, dragHandleProps?: any) => React.ReactNode;
+  children: (exercise: Exercise, index: number, isCompact: boolean) => React.ReactNode;
   disabled?: boolean;
   className?: string;
-  compactMode?: boolean; // Новий проп для компактного режиму перетягування
 }
+
+// Портал для елемента, який летить за пальцем (Overlay)
+const DragOverlay = ({ children, x, y, width, height }: any) => {
+  return ReactDOM.createPortal(
+    <div
+      className="fixed z-[9999] pointer-events-none shadow-2xl rounded-lg overflow-hidden ring-2 ring-fitness-gold-400 bg-gray-800"
+      style={{
+        left: x,
+        top: y,
+        width: width,
+        height: height,
+        transform: 'scale(1.02) rotate(1deg)',
+        opacity: 0.95,
+      }}
+    >
+      {children}
+    </div>,
+    document.body
+  );
+};
 
 const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
   exercises,
@@ -16,388 +36,270 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
   children,
   disabled = false,
   className = '',
-  compactMode = false
 }) => {
-  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
-  const [isDragging, setIsDragging] = useState<boolean>(false); // Новий стан для відстеження активного перетягування
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
+  const [placeholderIndex, setPlaceholderIndex] = useState<number | null>(null);
   
-  // Дані для підтримки роботи з торканням (touch)
-  const [touchDraggedIndex, setTouchDraggedIndex] = useState<number | null>(null);
-  const [touchStartY, setTouchStartY] = useState<number>(0);
-  const [touchCurrentY, setTouchCurrentY] = useState<number>(0);
-  const [lastVibrationIndex, setLastVibrationIndex] = useState<number | null>(null);
-  const touchItemRef = useRef<HTMLDivElement | null>(null);
-  const dragHandleRefs = useRef<Map<number, HTMLDivElement>>(new Map());
-  const autoScrollInterval = useRef<NodeJS.Timeout | null>(null);
+  // Координати та розміри
+  const [dragPosition, setDragPosition] = useState({ x: 0, y: 0 });
+  const [dragDimensions, setDragDimensions] = useState({ width: 0, height: 0 });
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
 
-  const handleDragStart = useCallback((e: React.DragEvent, index: number) => {
+  const listRef = useRef<HTMLDivElement>(null);
+  const scrollInterval = useRef<NodeJS.Timeout | null>(null);
+  const itemsRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+
+  // === Початок перетягування ===
+  const handlePointerDown = (e: React.PointerEvent, index: number) => {
     if (disabled) return;
     
-    setDraggedIndex(index);
-  setIsDragging(true); // Встановлюємо стан перетягування
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/html', index.toString());
+    const target = e.currentTarget as HTMLElement;
+    const cardElement = itemsRefs.current.get(index);
     
-  // Додаємо кастомне зображення під час перетягування
-    if (e.currentTarget instanceof HTMLElement) {
-      const rect = e.currentTarget.getBoundingClientRect();
-      e.dataTransfer.setDragImage(e.currentTarget, rect.width / 2, rect.height / 2);
-    }
-  }, [disabled]);
+    if (!cardElement) return;
 
-  const handleDragOver = useCallback((e: React.DragEvent, index: number) => {
-    if (disabled || draggedIndex === null) return;
-    
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    
-    if (index !== draggedIndex) {
-      setDragOverIndex(index);
-    }
-  }, [disabled, draggedIndex]);
+    target.releasePointerCapture(e.pointerId);
 
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    if (disabled) return;
-    
-    // Очищуємо dragOverIndex тільки якщо користувач дійсно залишив зону перетягування
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const x = e.clientX;
-    const y = e.clientY;
-    
-    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
-      setDragOverIndex(null);
-    }
-  }, [disabled]);
+    const rect = cardElement.getBoundingClientRect();
 
-  const handleDrop = useCallback((e: React.DragEvent, dropIndex: number) => {
-    if (disabled || draggedIndex === null) return;
+    setDraggingIndex(index);
+    setPlaceholderIndex(index);
     
-    e.preventDefault();
+    setDragDimensions({ width: rect.width, height: 60 }); 
     
-    if (draggedIndex !== dropIndex) {
-      const newExercises = [...exercises];
-      const draggedExercise = newExercises[draggedIndex];
-      
-  // Видаляємо перетягувану вправу
-      newExercises.splice(draggedIndex, 1);
-      
-  // Вставляємо її на нову позицію
-      newExercises.splice(dropIndex, 0, draggedExercise);
-      
-      onReorder(newExercises);
-    }
+    setDragOffset({
+      x: e.clientX - rect.left,
+      y: 30 
+    });
     
-    setDraggedIndex(null);
-    setDragOverIndex(null);
-  }, [disabled, draggedIndex, exercises, onReorder]);
+    setDragPosition({
+      x: rect.left,
+      y: rect.top
+    });
 
-  const handleDragEnd = useCallback(() => {
-    setDraggedIndex(null);
-    setDragOverIndex(null);
-  setIsDragging(false); // Скидаємо стан перетягування
-  }, []);
+    if (navigator.vibrate) navigator.vibrate(50);
+  };
 
-  // Нативні обробники подій торкання — щоб уникнути проблем з passive-listeners
-  const attachTouchEvents = useCallback((element: HTMLDivElement, index: number) => {
-    if (!element || disabled) return;
-    
-    const handleTouchStart = (e: TouchEvent) => {
-      try {
-        e.preventDefault();
-        e.stopPropagation();
-      } catch (error) {
-  // Тихо обробляємо можливі помилки preventDefault
-      }
-      
-      const touch = e.touches[0];
-      
-      setTouchDraggedIndex(index);
-      setTouchStartY(touch.clientY);
-      setTouchCurrentY(touch.clientY);
-      setDragOverIndex(null);
-      setLastVibrationIndex(null);
-      setIsDragging(true);
-      
-      if ('vibrate' in navigator) {
-        navigator.vibrate(100);
-      }
-      
-      console.log('Touch start on index:', index, 'at Y:', touch.clientY);
+  // === Обробка руху ===
+  useEffect(() => {
+    if (draggingIndex === null) return;
+
+    const handlePointerMove = (e: PointerEvent) => {
+      e.preventDefault();
+
+      const currentX = e.clientX - dragOffset.x;
+      const currentY = e.clientY - dragOffset.y;
+      setDragPosition({ x: currentX, y: currentY });
+
+      handleAutoScroll(e.clientY);
+      findNewIndex(e.clientY);
     };
-    
-    const handleTouchMove = (e: TouchEvent) => {
-      if (touchDraggedIndex === null) return;
-      
-      try {
-        e.preventDefault();
-        e.stopPropagation();
-      } catch (error) {
-  // Тихо обробляємо можливі помилки preventDefault
+
+    const handlePointerUp = () => {
+      stopAutoScroll();
+
+      if (draggingIndex !== null && placeholderIndex !== null && draggingIndex !== placeholderIndex) {
+        const newExercises = [...exercises];
+        const [movedItem] = newExercises.splice(draggingIndex, 1);
+        newExercises.splice(placeholderIndex, 0, movedItem);
+        onReorder(newExercises);
       }
-      
-      const touch = e.touches[0];
-      const deltaY = Math.abs(touch.clientY - touchStartY);
-      
-      if (deltaY > 8) {
-        setTouchCurrentY(touch.clientY);
-        
-  // Функціональність автопрокрутки під час перетягування
-  const scrollThreshold = 100; // пікселів від краю
-  const scrollSpeed = 10; // пікселів за крок прокрутки
-        const viewportHeight = window.innerHeight;
-        
-  // Прибираємо існуючу автопрокрутку
-        if (autoScrollInterval.current) {
-          clearInterval(autoScrollInterval.current);
-          autoScrollInterval.current = null;
-        }
-        
-  // Перевіряємо, чи потрібно прокручувати вгору
-        if (touch.clientY < scrollThreshold) {
-          autoScrollInterval.current = setInterval(() => {
-            window.scrollBy(0, -scrollSpeed);
-          }, 16); // приблизно 60 кадрів/сек
-        }
-  // Перевіряємо, чи потрібно прокручувати вниз
-        else if (touch.clientY > viewportHeight - scrollThreshold) {
-          autoScrollInterval.current = setInterval(() => {
-            window.scrollBy(0, scrollSpeed);
-          }, 16);
-        }
-        
-  // Знаходимо всі елементи вправ на сторінці
-        const allExerciseElements = document.querySelectorAll('[data-exercise-index]');
-        let targetIndex = null;
-        
-  // Перевіряємо, над яким елементом вправи знаходиться торкання
-        for (const exerciseEl of allExerciseElements) {
-          const rect = exerciseEl.getBoundingClientRect();
-          
-          if (touch.clientX >= rect.left && 
-              touch.clientX <= rect.right &&
-              touch.clientY >= rect.top && 
-              touch.clientY <= rect.bottom) {
-            
-            const elementIndex = parseInt((exerciseEl as HTMLElement).dataset.exerciseIndex || '-1');
-            if (elementIndex !== -1 && elementIndex !== touchDraggedIndex) {
-              targetIndex = elementIndex;
-              break;
-            }
-          }
-        }
-        
-  // Оновлюємо індекс зони перетягування, якщо він змінився
-        if (targetIndex !== null && targetIndex !== dragOverIndex) {
-          setDragOverIndex(targetIndex);
-          console.log('Touch drag over index:', targetIndex);
-          
-          // Вібруємо лише при переході на НОВУ позицію вправи
-          if (targetIndex !== lastVibrationIndex && 'vibrate' in navigator) {
-            navigator.vibrate(20);
-            setLastVibrationIndex(targetIndex);
-          }
-        } else if (targetIndex === null && dragOverIndex !== null) {
-          // Очищаємо dragOverIndex, коли торкання не над жодною вправою
-          setDragOverIndex(null);
-        }
-      }
+
+      setDraggingIndex(null);
+      setPlaceholderIndex(null);
     };
+
+    window.addEventListener('pointermove', handlePointerMove, { passive: false });
+    window.addEventListener('pointerup', handlePointerUp);
     
-    const handleTouchEnd = () => {
-      if (touchDraggedIndex === null) return;
-      
-  // Зупиняємо автопрокрутку
-      if (autoScrollInterval.current) {
-        clearInterval(autoScrollInterval.current);
-        autoScrollInterval.current = null;
-      }
-      
-      console.log('Touch end - draggedIndex:', touchDraggedIndex, 'dragOverIndex:', dragOverIndex);
-      
-      if (dragOverIndex !== null && dragOverIndex !== touchDraggedIndex) {
-        const deltaY = Math.abs(touchCurrentY - touchStartY);
-        
-        if (deltaY > 8) {
-          const newExercises = [...exercises];
-          const draggedExercise = newExercises[touchDraggedIndex];
-          
-          newExercises.splice(touchDraggedIndex, 1);
-          newExercises.splice(dragOverIndex, 0, draggedExercise);
-          
-          onReorder(newExercises);
-          
-          if ('vibrate' in navigator) {
-            navigator.vibrate([50, 50, 50]);
-          }
-        }
-      }
-      
-      setTouchDraggedIndex(null);
-      setDragOverIndex(null);
-      setTouchStartY(0);
-      setTouchCurrentY(0);
-      setLastVibrationIndex(null);
-      setIsDragging(false);
-      touchItemRef.current = null;
-    };
-    
-  // Додаємо непасивні слухачі подій з обробкою помилок
-    try {
-      element.addEventListener('touchstart', handleTouchStart, { passive: false });
-      element.addEventListener('touchmove', handleTouchMove, { passive: false });
-      element.addEventListener('touchend', handleTouchEnd, { passive: false });
-    } catch (error) {
-  // Якщо не вдається додати непасивні слухачі — використовуємо пасивні
-      element.addEventListener('touchstart', handleTouchStart);
-      element.addEventListener('touchmove', handleTouchMove);
-      element.addEventListener('touchend', handleTouchEnd);
-    }
-    
-  // Зберігаємо функцію очищення (cleanup)
+    document.body.style.userSelect = 'none';
+    document.body.style.touchAction = 'none';
+    document.body.style.cursor = 'grabbing';
+
     return () => {
-      element.removeEventListener('touchstart', handleTouchStart);
-      element.removeEventListener('touchmove', handleTouchMove);
-      element.removeEventListener('touchend', handleTouchEnd);
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      stopAutoScroll();
+      document.body.style.userSelect = '';
+      document.body.style.touchAction = '';
+      document.body.style.cursor = '';
     };
-  }, [disabled, touchDraggedIndex, touchStartY, touchCurrentY, dragOverIndex, exercises, onReorder]);
+  }, [draggingIndex, placeholderIndex, dragOffset, exercises]);
 
-  const getDragHandleProps = useCallback((index: number) => {
-    if (disabled) return {};
-    
-    const isDragging = draggedIndex === index || touchDraggedIndex === index;
-    const isOver = dragOverIndex === index && (draggedIndex !== null || touchDraggedIndex !== null) && !isDragging;
-    
-  // Побудова стилю динамічно — щоб НЕ додавати transform (навіть translateY(0))
-  // для звичайних елементів. Transform створює новий stacking context, що
-  // може ламати фіксовані/оверлейні елементи всередині карток (причина проблеми
-  // коли модальне вікно логування перекривалося).
-    const style: React.CSSProperties = {
-      cursor: disabled ? 'default' : 'grab',
-      opacity: isDragging ? 0.5 : 1,
-      transition: touchDraggedIndex === index ? 'none' : 'transform 0.2s ease, opacity 0.2s ease',
-  touchAction: disabled ? 'auto' : 'manipulation', // Краще оброблення торкань
-  zIndex: touchDraggedIndex === index ? 1000 : undefined // Піднімаємо поточний елемент поверх під час торкання
-    };
+  // === Автоскрол ===
+  const handleAutoScroll = (clientY: number) => {
+    const viewportHeight = window.innerHeight;
+    const scrollZone = 100;
+    const baseSpeed = 20;
 
-  // Задаємо transform лише коли елемент активно перетягують або він — ціль
-  // для дропу. Уникаємо transform: 'translateY(0)' для нерухомих елементів.
-    if (isOver) {
-  // Визначаємо який індекс вважати «активним» (dragged або touchDragged)
-      const activeIndex = draggedIndex !== null ? draggedIndex : (touchDraggedIndex !== null ? touchDraggedIndex : -1);
-      const sign = activeIndex < index ? '-4px' : '4px';
-      style.transform = `translateY(${sign})`;
-    } else if (touchDraggedIndex === index) {
-      style.transform = `translateY(${touchCurrentY - touchStartY}px)`;
+    stopAutoScroll();
+
+    if (clientY < scrollZone) {
+      scrollInterval.current = setInterval(() => window.scrollBy(0, -baseSpeed), 16);
+    } else if (clientY > viewportHeight - scrollZone) {
+      scrollInterval.current = setInterval(() => window.scrollBy(0, baseSpeed), 16);
     }
+  };
 
-    return {
-      draggable: true,
-      'data-exercise-index': index,
-      onDragStart: (e: React.DragEvent) => handleDragStart(e, index),
-      onDragOver: (e: React.DragEvent) => handleDragOver(e, index),
-      onDragLeave: handleDragLeave,
-      onDrop: (e: React.DragEvent) => handleDrop(e, index),
-      onDragEnd: handleDragEnd,
-      style
-    };
-  }, [disabled, draggedIndex, dragOverIndex, touchDraggedIndex, touchStartY, touchCurrentY, handleDragStart, handleDragOver, handleDragLeave, handleDrop, handleDragEnd]);
+  const stopAutoScroll = () => {
+    if (scrollInterval.current) {
+      clearInterval(scrollInterval.current);
+      scrollInterval.current = null;
+    }
+  };
 
-  // Окремі обробники подій торкання тільки для рукоятки перетягування
-  const getDragHandleTouchProps = useCallback((index: number) => {
-    if (disabled) return {};
-    
-    return {
-      ref: (element: HTMLDivElement | null) => {
-        if (element) {
-          dragHandleRefs.current.set(index, element);
-          
-          // Очищаємо старі слухачі подій
-          const existingCleanup = element.dataset.cleanup;
-          if (existingCleanup) {
-            // Видаляємо старі слухачі, якщо вони існують
-            dragHandleRefs.current.delete(index);
-          }
-          
-          // Додаємо нові слухачі
-          const cleanup = attachTouchEvents(element, index);
-          if (cleanup) {
-            element.dataset.cleanup = 'true';
-          }
-        }
-      },
-      style: {
-        touchAction: 'none' as const,
-        userSelect: 'none' as const,
-        WebkitUserSelect: 'none' as const,
-        msUserSelect: 'none' as const,
-        MozUserSelect: 'none' as const
+  // === Розрахунок позиції вставки ===
+  const findNewIndex = (y: number) => {
+    // !!! ВИПРАВЛЕННЯ TS ПОМИЛКИ: Перевіряємо, чи є активний індекс
+    if (draggingIndex === null) return;
+
+    let closestIndex = -1;
+    const items = Array.from(itemsRefs.current.entries());
+    let closestDistance = Number.MAX_VALUE;
+
+    items.forEach(([index, element]) => {
+      if (index === draggingIndex) return;
+
+      const rect = element.getBoundingClientRect();
+      const centerY = rect.top + rect.height / 2;
+      const distance = Math.abs(y - centerY);
+
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        if (y < centerY) closestIndex = index;
+        else closestIndex = index + 1;
       }
-    };
-  }, [disabled, attachTouchEvents]);
+    });
+
+    if (closestIndex !== -1) {
+        let finalIndex = closestIndex;
+        
+        // Тепер TypeScript знає, що draggingIndex не null
+        if (draggingIndex < finalIndex) finalIndex -= 1; 
+        
+        const lastItem = itemsRefs.current.get(exercises.length - 1);
+        if (lastItem && y > lastItem.getBoundingClientRect().bottom) {
+            finalIndex = exercises.length;
+        }
+
+        finalIndex = Math.max(0, Math.min(finalIndex, exercises.length));
+        
+        if (finalIndex !== placeholderIndex) {
+            setPlaceholderIndex(finalIndex);
+            if (navigator.vibrate) navigator.vibrate(15);
+        }
+    }
+  };
+
+  // Допоміжний компонент для компактного рядка (з чистим стилем)
+  const CompactRowContent = ({ name }: { name: string }) => (
+    <div className="flex items-center justify-between w-full h-full px-4">
+      <span className="text-lg font-bold text-gray-300 truncate">
+        {name}
+      </span>
+      <i className="fas fa-bars text-gray-600 ml-2"></i>
+    </div>
+  );
 
   return (
-    <div className={`space-y-4 ${className}`} style={{ touchAction: disabled ? 'auto' : 'pan-y' }}>
+    <div className={`relative flex flex-col gap-2 ${className}`} ref={listRef}>
       {exercises.map((exercise, index) => {
-        const isDraggedItem = draggedIndex === index || touchDraggedIndex === index;
-        const isDropTarget = dragOverIndex === index && (draggedIndex !== null || touchDraggedIndex !== null) && !isDraggedItem;
-        
+        const isGlobalDragging = draggingIndex !== null;
+        const isBeingDragged = draggingIndex === index;
+        const isHidden = isBeingDragged;
+        const isCompact = isGlobalDragging;
+
         return (
-          <div
-            key={`${exercise.id}-${index}`}
-            {...getDragHandleProps(index)}
-            className={`
-              relative
-              ${!disabled ? 'hover:shadow-lg transition-shadow duration-200' : ''}
-              ${isDraggedItem ? 'z-50' : ''}
-              ${isDropTarget ? 'ring-2 ring-fitness-gold-400 ring-opacity-50' : ''}
-              ${compactMode && isDragging ? 'h-12' : ''}
-            `}
+          <div 
+             key={exercise.id} 
+             className="transition-all duration-200 ease-out"
           >
-            {/* Compact mode overlay during dragging - show for ALL items when dragging */}
-            {compactMode && isDragging && (
-              <div className={`absolute inset-0 bg-gray-900/95 backdrop-blur-sm z-10 flex items-center justify-center rounded-lg ${
-                isDropTarget ? 'border-2 border-fitness-gold-400' : 'border border-fitness-gold-400/50'
-              }`}>
-                <div className="text-center px-3 py-2 max-w-full">
-                  <div className="flex items-center justify-center space-x-2">
-                    <i className={`fas fa-arrows-alt-v text-sm ${isDraggedItem ? 'text-fitness-gold-300' : 'text-fitness-gold-400'}`}></i>
-                    <p className={`font-medium text-sm leading-tight break-words ${isDraggedItem ? 'text-white' : 'text-fitness-gold-300'}`}>{exercise.name}</p>
-                  </div>
-                </div>
-              </div>
+            {/* === PLACEHOLDER === */}
+            {placeholderIndex === index && isGlobalDragging && (
+               <div className="h-[60px] w-full bg-fitness-gold-400/10 border-2 border-dashed border-fitness-gold-400/50 rounded-lg mb-2 flex items-center justify-center">
+                 <span className="text-fitness-gold-400/50 text-sm font-medium">Сюди</span>
+               </div>
             )}
-            
-            {!disabled && (
-              <div className={`absolute left-1 top-1/2 transform -translate-y-1/2 z-20 ${compactMode && isDragging ? 'opacity-0 pointer-events-none' : ''}`}>
-                <div 
-                  {...getDragHandleTouchProps(index)}
-                  className="flex flex-col items-center justify-center w-8 h-12 cursor-grab active:cursor-grabbing hover:bg-gray-600/30 rounded transition-colors select-none" 
-                  title="Перетягніть для зміни порядку"
-                  style={{
-                    touchAction: 'none',
-                    userSelect: 'none',
-                    WebkitTouchCallout: 'none',
-                    WebkitUserSelect: 'none',
-                    msUserSelect: 'none',
-                    MozUserSelect: 'none'
-                  }}
+
+            {/* === КАРТКА === */}
+            <div
+              ref={(el) => {
+                if (el) itemsRefs.current.set(index, el);
+                else itemsRefs.current.delete(index);
+              }}
+              className={`
+                relative bg-gray-800 rounded-xl overflow-hidden shadow-sm border border-gray-700
+                flex flex-row items-stretch select-none
+                ${isHidden ? 'opacity-0 h-0 border-0 m-0 p-0 overflow-hidden' : ''}
+              `}
+              style={{
+                 height: isHidden ? 0 : (isCompact ? '60px' : 'auto'),
+                 transition: 'height 0.2s ease',
+                 touchAction: 'none'
+              }}
+            >
+              
+              {/* Handle */}
+              {!disabled && (
+                <div
+                  onPointerDown={(e) => handlePointerDown(e, index)}
+                  className={`
+                    w-12 flex-shrink-0 cursor-grab active:cursor-grabbing
+                    bg-gray-700/30 hover:bg-fitness-gold-500/10 transition-colors
+                    flex flex-col items-center justify-center
+                    border-r border-gray-700
+                  `}
                 >
-                  <div className="flex flex-col space-y-0.5 pointer-events-none">
-                    <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
-                    <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
-                    <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
-                    <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
-                  </div>
+                    <div className="flex flex-col gap-1 pointer-events-none opacity-40">
+                        <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
+                        <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
+                        <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
+                    </div>
                 </div>
+              )}
+
+              {/* Content */}
+              <div className="flex-grow min-w-0 flex flex-col justify-center">
+                 {isCompact ? (
+                    <CompactRowContent name={exercise.name} />
+                 ) : (
+                    <div className="p-0">
+                       {children(exercise, index, isCompact)}
+                    </div>
+                 )}
               </div>
-            )}
-            <div className={`${!disabled ? 'ml-10' : ''} ${compactMode && isDragging ? 'opacity-0 pointer-events-none' : ''}`}>
-              {children(exercise, index, getDragHandleProps(index))}
             </div>
+            
+            {/* End Placeholder */}
+            {placeholderIndex === exercises.length && index === exercises.length - 1 && isGlobalDragging && (
+               <div className="h-[60px] w-full bg-fitness-gold-400/10 border-2 border-dashed border-fitness-gold-400/50 rounded-lg mt-2 flex items-center justify-center">
+                 <span className="text-fitness-gold-400/50 text-sm font-medium">В кінець</span>
+               </div>
+            )}
           </div>
         );
       })}
+
+      {/* === OVERLAY === */}
+      {draggingIndex !== null && (
+        <DragOverlay
+          x={dragPosition.x}
+          y={dragPosition.y}
+          width={dragDimensions.width}
+          height={dragDimensions.height}
+        >
+            <div className="flex h-full bg-gray-800">
+                <div className="w-12 flex items-center justify-center bg-fitness-gold-500 text-black border-r border-gray-600">
+                    <i className="fas fa-grip-lines"></i>
+                </div>
+                <div className="flex-1 flex items-center px-4 overflow-hidden bg-gray-900">
+                     <span className="text-lg font-bold truncate text-fitness-gold-400">
+                        {exercises[draggingIndex].name}
+                     </span>
+                </div>
+            </div>
+        </DragOverlay>
+      )}
     </div>
   );
 };

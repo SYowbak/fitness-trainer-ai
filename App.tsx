@@ -561,6 +561,37 @@ const App: React.FC = () => {
     }
   }, [userProfile, apiKeyMissing, session.activeDay, endWorkout, saveWorkoutPlan]);
 
+  // Функція для застосування рекомендацій ШІ до плану тренування
+  const applyAIRecommendationsToPlan = useCallback((
+    exercises: Exercise[],
+    recommendations: ExerciseRecommendation[]
+  ): Exercise[] => {
+    if (recommendations.length === 0) {
+      return exercises;
+    }
+
+    // Створюємо мапу рекомендацій для швидкого пошуку
+    const recommendationsMap = new Map<string, ExerciseRecommendation>();
+    recommendations.forEach(rec => {
+      recommendationsMap.set(rec.exerciseName.toLowerCase(), rec);
+    });
+
+    // Оновлюємо вправи з рекомендаціями
+    return exercises.map(exercise => {
+      const recommendation = recommendationsMap.get(exercise.name.toLowerCase());
+      
+      if (recommendation && recommendation.suggestedWeight !== undefined && recommendation.suggestedWeight !== null) {
+        console.log(`🎯 [applyAIRecommendations] Оновлюємо ${exercise.name}: targetWeight ${exercise.targetWeight} → ${recommendation.suggestedWeight}кг`);
+        return {
+          ...exercise,
+          targetWeight: recommendation.suggestedWeight
+        };
+      }
+      
+      return exercise;
+    });
+  }, []);
+
   const handleStartWorkoutWithWellnessCheck = useCallback(async (dayNumber: number) => {
     // Завантажуємо рекомендації для цього дня з попередніх аналізів
     console.log('🔍 [handleStartWorkout] Завантажуємо рекомендації для дня', dayNumber);
@@ -958,6 +989,19 @@ const App: React.FC = () => {
         }
       })();
 
+      // Застосовуємо рекомендації ШІ до адаптивного плану перед стартом
+      const recommendations = exerciseRecommendations.length > 0 
+        ? exerciseRecommendations 
+        : backgroundAnalysisService.getRecommendationsForDay(workoutLogs, adaptiveWorkout.day);
+      
+      if (recommendations.length > 0) {
+        console.log('🎯 [handleWellnessCheckSubmit] Застосовуємо рекомендації ШІ до плану');
+        adaptiveWorkout = {
+          ...adaptiveWorkout,
+          exercises: applyAIRecommendationsToPlan(adaptiveWorkout.exercises, recommendations)
+        };
+      }
+
       // Оновлюємо план тренувань з адаптивним планом
       setWellnessProcessingStep('Зберігаємо план...');
       const updatedPlan = currentWorkoutPlan.map(dayPlan => 
@@ -1027,7 +1071,7 @@ const App: React.FC = () => {
       setIsProcessingWellness(false);
       setWellnessProcessingStep('');
     }
-  }, [userProfile, currentWorkoutPlan, workoutLogs, saveWorkoutPlan, pendingWorkoutDay, startWorkout, updateWellnessCheck, updateAdaptiveWorkoutPlan, updateWellnessRecommendations]);
+  }, [userProfile, currentWorkoutPlan, workoutLogs, saveWorkoutPlan, pendingWorkoutDay, startWorkout, updateWellnessCheck, updateAdaptiveWorkoutPlan, updateWellnessRecommendations, exerciseRecommendations, applyAIRecommendationsToPlan]);
 
   const handleWellnessCheckSkip = useCallback(async () => {
     if (pendingWorkoutDay === null || !currentWorkoutPlan) {
@@ -1047,7 +1091,27 @@ const App: React.FC = () => {
     setIsLoading(true);
 
     try {
-      await startWorkout(dayPlan.day, dayPlan.exercises);
+      // Застосовуємо рекомендації ШІ до плану перед стартом
+      const recommendations = exerciseRecommendations.length > 0 
+        ? exerciseRecommendations 
+        : backgroundAnalysisService.getRecommendationsForDay(workoutLogs, dayPlan.day);
+      
+      let exercisesToStart = dayPlan.exercises;
+      if (recommendations.length > 0) {
+        console.log('🎯 [handleWellnessCheckSkip] Застосовуємо рекомендації ШІ до плану');
+        exercisesToStart = applyAIRecommendationsToPlan(dayPlan.exercises, recommendations);
+        
+        // Оновлюємо план в currentWorkoutPlan для збереження змін
+        const updatedPlan = currentWorkoutPlan.map(plan => 
+          plan.day === dayPlan.day 
+            ? { ...plan, exercises: exercisesToStart }
+            : plan
+        );
+        setCurrentWorkoutPlan(updatedPlan);
+        await saveWorkoutPlan(updatedPlan);
+      }
+      
+      await startWorkout(dayPlan.day, exercisesToStart);
       setPendingWorkoutDay(null);
     } catch (error: any) {
       console.error('Error starting workout without wellness check:', error);
@@ -1055,7 +1119,7 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [pendingWorkoutDay, currentWorkoutPlan, startWorkout]);
+  }, [pendingWorkoutDay, currentWorkoutPlan, startWorkout, exerciseRecommendations, workoutLogs, applyAIRecommendationsToPlan, saveWorkoutPlan]);
 
   const renderView = () => {
     if (!user) {

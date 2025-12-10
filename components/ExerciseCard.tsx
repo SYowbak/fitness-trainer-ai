@@ -44,10 +44,11 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
 
   const [isExpanded, setIsExpanded] = useState(false);
   const [showLogForm, setShowLogForm] = useState(false);
-  const [isCompleted, setIsCompleted] = useState<boolean>(exercise.isCompletedDuringSession);
-  const [isSkipped, setIsSkipped] = useState<boolean>(exercise.isSkipped ?? false); // Додаємо стан для пропущеної вправи
+  const [isCompleted, setIsCompleted] = useState<boolean>(isActive ? exercise.isCompletedDuringSession : false);
+  const [isSkipped, setIsSkipped] = useState<boolean>(isActive ? (exercise.isSkipped ?? false) : false); // Додаємо стан для пропущеної вправи
   const [loggedSetsData, setLoggedSetsData] = useState<LoggedSetWithAchieved[]>([]);
   const [numSets, setNumSets] = useState(3);
+  const [currentRecommendationIndex, setCurrentRecommendationIndex] = useState(0);
   const [allSetsSuccessful, setAllSetsSuccessful] = useState<boolean>(true);
   const [restTimer, setRestTimer] = useState<number>(0);
   const [isResting, setIsResting] = useState<boolean>(false);
@@ -120,54 +121,72 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
     }
   };
 
-  // Система пріоритетів рекомендацій - повертає найважливішу рекомендацію
-  const exerciseRecommendation = (() => {
-    // 1. НАЙВИЩИЙ ПРІОРИТЕТ: Адаптація на основі самопочуття
-    // Якщо вправа була адаптована через аналіз самопочуття - показуємо це
-    // АЛЕ тільки якщо адаптація справді щось змінила (не безглузда "4×8-12 → 4×8-12")
+  // Збираємо всі доступні рекомендації (не тільки найвищу)
+  const allRecommendations = (() => {
+    const recs: Array<{
+      exerciseName: string;
+      recommendation: string;
+      suggestedWeight?: number;
+      suggestedReps?: number;
+      suggestedSets?: number;
+      reason: string;
+    }> = [];
+
+    // 1. Адаптація на основі самопочуття
     if (exerciseAdaptation) {
       const setsChanged = exerciseAdaptation.originalSets !== exerciseAdaptation.adaptedSets;
       const repsChanged = exerciseAdaptation.originalReps !== exerciseAdaptation.adaptedReps;
       
-      // Показуємо адаптацію тільки якщо щось реально змінилося
       if (setsChanged || repsChanged) {
-        return {
+        recs.push({
           exerciseName: exercise.name,
           recommendation: `${exerciseAdaptation.adaptationReason}. Змінено: ${exerciseAdaptation.originalSets}×${exerciseAdaptation.originalReps} → ${exerciseAdaptation.adaptedSets}×${exerciseAdaptation.adaptedReps}`,
           reason: "Адаптація на основі самопочуття",
-          suggestedSets: parseInt(exerciseAdaptation.adaptedSets),
-          suggestedReps: exerciseAdaptation.adaptedReps,
+          suggestedSets: parseInt(exerciseAdaptation.adaptedSets) || undefined,
+          suggestedReps: exerciseAdaptation.adaptedReps as any, // adaptedReps може бути string, але ми зберігаємо як є
           suggestedWeight: undefined
-        };
+        });
       }
-      // Якщо адаптація нічого не змінила - пропускаємо її і йдемо далі до AI рекомендацій
     }
     
-    // 2. Пріоритет: Рекомендації з аналізу попереднього тренування (з AI)
-    // АЛЕ тільки якщо тренування активне (isActive) - щоб не показувати застарілі рекомендації
-    const aiRecommendation = recommendations.find(rec => rec.exerciseName === exercise.name);
-    if (aiRecommendation && isActive) {
-      return aiRecommendation;
+    // 2. Рекомендації з аналізу попереднього тренування (з AI)
+    if (isActive) {
+      const aiRecommendation = recommendations.find(rec => rec.exerciseName === exercise.name);
+      if (aiRecommendation) {
+        recs.push(aiRecommendation);
+      }
     }
     
-    // 3. Пріоритет: Базові рекомендації з плану тренувань (перетворюємо в формат AI рекомендацій)
+    // 3. Базові рекомендації з плану тренувань
     if (exercise.recommendation?.text) {
-      return {
+      recs.push({
         exerciseName: exercise.name,
         recommendation: exercise.recommendation.text,
         reason: "Базова рекомендація для прогресу",
         suggestedWeight: undefined,
         suggestedReps: undefined,
         suggestedSets: undefined
-      };
+      });
     }
     
-    return null;
+    return recs;
   })();
+
+  // Для зворотної сумісності - залишаємо першу рекомендацію як основну
+  const exerciseRecommendation = allRecommendations.length > 0 ? allRecommendations[0] : null;
   const hasVariations = !variationsHidden && variations.length > 0;
 
   // Ініціалізуємо або оновлюємо isCompleted, isSkipped та allSetsSuccessful, коли exercise змінюється
   useEffect(() => {
+    console.log(`[ExerciseCard] ${exercise.name} - isActive: ${isActive}, isCompleted: ${isCompleted}, isSkipped: ${isSkipped}`);
+
+    // У режимі перегляду плану (коли тренування не активне) завжди показуємо картки як "звичайні"
+    if (!isActive) {
+      if (isCompleted) setIsCompleted(false);
+      if (isSkipped) setIsSkipped(false);
+      setAllSetsSuccessful(true);
+      return;
+    }
 
     const newIsCompleted = exercise.isCompletedDuringSession;
     const newIsSkipped = exercise.isSkipped ?? false;
@@ -192,7 +211,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
     if ((newIsCompleted || newIsSkipped) && !showLogForm) {
       setIsExpanded(false);
     }
-  }, [exercise.isCompletedDuringSession, exercise.sessionSuccess, exercise.isSkipped, exercise.name, isCompleted, isSkipped, showLogForm]);
+  }, [exercise.isCompletedDuringSession, exercise.sessionSuccess, exercise.isSkipped, exercise.name, isCompleted, isSkipped, showLogForm, isActive]);
 
   useEffect(() => {
 
@@ -333,6 +352,15 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   
   // Правильна логіка кольорів: спочатку перевіряємо пропуск, потім завершення
   const getCardStyles = () => {
+    // У режимі перегляду плану (без активного тренування) завжди показуємо стандартний сірий стиль
+    if (!isActive) {
+      return {
+        bgClasses: "bg-gray-700/60 hover:bg-gray-700/80",
+        textClasses: "text-yellow-300",
+        borderClasses: "border-l-4 border-fitness-gold-600"
+      };
+    }
+
     if (isSkipped) {
       return {
         bgClasses: "bg-orange-800/50 hover:bg-orange-700/60",
@@ -367,8 +395,8 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
         aria-expanded={isExpanded}
         aria-controls={`exercise-details-${exercise.name.replace(/\s+/g, '-')}`}
       >
-        <h5 className={`text-md sm:text-lg font-semibold ${completedTextClasses} hover:text-yellow-200 ${isCompleted ? 'line-through' : (isSkipped ? 'line-through' : '')}`}>
-          {exercise.name} {isCompleted && <i className="fas fa-check-circle text-green-300 ml-2"></i>} {isSkipped && <i className="fas fa-forward text-orange-300 ml-2"></i>}
+        <h5 className={`text-md sm:text-lg font-semibold ${completedTextClasses} hover:text-yellow-200 ${(isActive && (isCompleted || isSkipped)) ? 'line-through' : ''}`}>
+          {exercise.name} {isActive && isCompleted && <i className="fas fa-check-circle text-green-300 ml-2"></i>} {isActive && isSkipped && <i className="fas fa-forward text-orange-300 ml-2"></i>}
         </h5>
         <i className={`fas ${isExpanded ? 'fa-chevron-up' : 'fa-chevron-down'} text-fitness-gold-300 text-lg sm:text-xl transition-transform duration-200`}></i>
       </button>
@@ -400,62 +428,121 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
             </div>
           )}
 
-          {/* Рекомендації з системою пріоритетів */}
-          {exerciseRecommendation && (
-            <div className={`mb-4 p-4 rounded-lg ${
-              exerciseRecommendation.reason === "Базова рекомендація для прогресу" 
-                ? "bg-green-900/30 border border-green-500/30" 
-                : exerciseRecommendation.reason === "Адаптація на основі самопочуття"
-                  ? "bg-orange-900/30 border border-orange-500/30"
-                  : "bg-blue-900/30 border border-blue-500/30"
-            }`}>
-              <div className="flex items-start space-x-3">
-                <i className={`fas mt-1 ${
-                  exerciseRecommendation.reason === "Базова рекомендація для прогресу" 
-                    ? "fa-lightbulb text-green-400" 
-                    : exerciseRecommendation.reason === "Адаптація на основі самопочуття"
-                      ? "fa-heart-pulse text-orange-400"
-                      : "fa-robot text-blue-400"
-                }`}></i>
-                <div className="flex-1">
-                  <h4 className={`font-semibold mb-2 ${
-                    exerciseRecommendation.reason === "Базова рекомендація для прогресу" 
-                      ? "text-green-300" 
-                      : exerciseRecommendation.reason === "Адаптація на основі самопочуття"
-                        ? "text-orange-300"
-                        : "text-blue-300"
-                  }`}>
-                    {exerciseRecommendation.reason === "Базова рекомендація для прогресу" 
-                      ? "Рекомендація для прогресу" 
-                      : exerciseRecommendation.reason === "Адаптація на основі самопочуття"
-                        ? "Адаптація на основі самопочуття"
-                        : "Рекомендація на основі аналізу"}
-                  </h4>
-                  <p className={`text-sm mb-2 ${
-                    exerciseRecommendation.reason === "Базова рекомендація для прогресу" 
-                      ? "text-green-200" 
-                      : exerciseRecommendation.reason === "Адаптація на основі самопочуття"
-                        ? "text-orange-200"
-                        : "text-blue-200"
-                  }`}>{exerciseRecommendation.recommendation}</p>
-                  {exerciseRecommendation.reason !== "Базова рекомендація для прогресу" && (
-                    <div className={`text-xs ${
-                      exerciseRecommendation.reason === "Адаптація на основі самопочуття"
-                        ? "text-orange-300"
-                        : "text-blue-300"
-                    }`}>
-                      <p><strong>Причина:</strong> {exerciseRecommendation.reason}</p>
-                      {exerciseRecommendation.suggestedWeight && (
-                        <p><strong>Рекомендована вага:</strong> {exerciseRecommendation.suggestedWeight} кг</p>
-                      )}
-                      {exerciseRecommendation.suggestedReps && (
-                        <p><strong>Рекомендовані повторення:</strong> {exerciseRecommendation.suggestedReps}</p>
-                      )}
-                      {exerciseRecommendation.suggestedSets && (
-                        <p><strong>Рекомендовані підходи:</strong> {exerciseRecommendation.suggestedSets}</p>
-                      )}
+          {/* Свайпний карусель рекомендацій */}
+          {allRecommendations.length > 0 && (
+            <div className="mb-4">
+              {/* Індикатор поточної позиції */}
+              {allRecommendations.length > 1 && (
+                <div className="flex items-center justify-center gap-1.5 mb-2">
+                  {allRecommendations.map((_, index) => (
+                    <div
+                      key={index}
+                      className={`h-2 rounded-full transition-all duration-300 ${
+                        index === currentRecommendationIndex
+                          ? 'w-6 bg-fitness-gold-500'
+                          : 'w-2 bg-gray-600'
+                      }`}
+                    />
+                  ))}
+                </div>
+              )}
+              
+              {/* Карусель з рекомендаціями */}
+              <div className="relative">
+                <div 
+                  className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide gap-3"
+                  style={{
+                    scrollbarWidth: 'none',
+                    msOverflowStyle: 'none',
+                    WebkitOverflowScrolling: 'touch'
+                  }}
+                  onScroll={(e) => {
+                    const element = e.currentTarget;
+                    const scrollLeft = element.scrollLeft;
+                    const cardWidth = element.offsetWidth;
+                    const newIndex = Math.round(scrollLeft / cardWidth);
+                    if (newIndex !== currentRecommendationIndex && newIndex >= 0 && newIndex < allRecommendations.length) {
+                      setCurrentRecommendationIndex(newIndex);
+                    }
+                  }}
+                  onTouchStart={(e) => {
+                    const touch = e.touches[0];
+                    (e.currentTarget as any).touchStartX = touch.clientX;
+                    (e.currentTarget as any).touchStartScrollLeft = (e.currentTarget as HTMLElement).scrollLeft;
+                  }}
+                  onTouchMove={(e) => {
+                    const touch = e.touches[0];
+                    const element = e.currentTarget as HTMLElement;
+                    const startX = (element as any).touchStartX;
+                    const startScrollLeft = (element as any).touchStartScrollLeft;
+                    if (startX !== undefined) {
+                      const diff = startX - touch.clientX;
+                      element.scrollLeft = startScrollLeft + diff;
+                    }
+                  }}
+                >
+                  {allRecommendations.map((rec, index) => (
+                    <div
+                      key={index}
+                      className={`flex-shrink-0 w-full snap-start p-4 rounded-lg ${
+                        rec.reason === "Базова рекомендація для прогресу" 
+                          ? "bg-green-900/30 border border-green-500/30" 
+                          : rec.reason === "Адаптація на основі самопочуття"
+                            ? "bg-orange-900/30 border border-orange-500/30"
+                            : "bg-blue-900/30 border border-blue-500/30"
+                      }`}
+                    >
+                      <div className="flex items-start space-x-3">
+                        <i className={`fas mt-1 ${
+                          rec.reason === "Базова рекомендація для прогресу" 
+                            ? "fa-lightbulb text-green-400" 
+                            : rec.reason === "Адаптація на основі самопочуття"
+                              ? "fa-heart-pulse text-orange-400"
+                              : "fa-robot text-blue-400"
+                        }`}></i>
+                        <div className="flex-1">
+                          <h4 className={`font-semibold mb-2 ${
+                            rec.reason === "Базова рекомендація для прогресу" 
+                              ? "text-green-300" 
+                              : rec.reason === "Адаптація на основі самопочуття"
+                                ? "text-orange-300"
+                                : "text-blue-300"
+                          }`}>
+                            {rec.reason === "Базова рекомендація для прогресу" 
+                              ? "Рекомендація для прогресу" 
+                              : rec.reason === "Адаптація на основі самопочуття"
+                                ? "Адаптація на основі самопочуття"
+                                : "Рекомендація на основі аналізу"}
+                          </h4>
+                          <p className={`text-sm mb-2 ${
+                            rec.reason === "Базова рекомендація для прогресу" 
+                              ? "text-green-200" 
+                              : rec.reason === "Адаптація на основі самопочуття"
+                                ? "text-orange-200"
+                                : "text-blue-200"
+                          }`}>{rec.recommendation}</p>
+                          {rec.reason !== "Базова рекомендація для прогресу" && (
+                            <div className={`text-xs ${
+                              rec.reason === "Адаптація на основі самопочуття"
+                                ? "text-orange-300"
+                                : "text-blue-300"
+                            }`}>
+                              <p><strong>Причина:</strong> {rec.reason}</p>
+                              {rec.suggestedWeight && (
+                                <p><strong>Рекомендована вага:</strong> {rec.suggestedWeight} кг</p>
+                              )}
+                              {rec.suggestedReps && (
+                                <p><strong>Рекомендовані повторення:</strong> {rec.suggestedReps}</p>
+                              )}
+                              {rec.suggestedSets && (
+                                <p><strong>Рекомендовані підходи:</strong> {rec.suggestedSets}</p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  )}
+                  ))}
                 </div>
               </div>
             </div>
