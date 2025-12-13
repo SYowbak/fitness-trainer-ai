@@ -53,11 +53,15 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
   const handlePointerDown = (e: React.PointerEvent, index: number) => {
     if (disabled) return;
     
+    // Блокуємо стандартну поведінку браузера (скрол/виділення) ТІЛЬКИ на ручці
+    e.preventDefault();
+    
     const target = e.currentTarget as HTMLElement;
     const cardElement = itemsRefs.current.get(index);
     
     if (!cardElement) return;
 
+    // Дозволяємо ловити події pointermove за межами елемента
     target.releasePointerCapture(e.pointerId);
 
     const rect = cardElement.getBoundingClientRect();
@@ -65,8 +69,10 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
     setDraggingIndex(index);
     setPlaceholderIndex(index);
     
+    // Встановлюємо висоту компактного елемента (60px)
     setDragDimensions({ width: rect.width, height: 60 }); 
     
+    // Центруємо елемент під пальцем по вертикалі (30px = половина від 60px)
     setDragOffset({
       x: e.clientX - rect.left,
       y: 30 
@@ -112,6 +118,7 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
     window.addEventListener('pointermove', handlePointerMove, { passive: false });
     window.addEventListener('pointerup', handlePointerUp);
     
+    // Глобальне блокування виділення під час активного перетягування
     document.body.style.userSelect = 'none';
     document.body.style.touchAction = 'none';
     document.body.style.cursor = 'grabbing';
@@ -150,7 +157,7 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
 
   // === Розрахунок позиції вставки ===
   const findNewIndex = (y: number) => {
-    // !!! ВИПРАВЛЕННЯ TS ПОМИЛКИ: Перевіряємо, чи є активний індекс
+    // Перевірка на null для TypeScript
     if (draggingIndex === null) return;
 
     let closestIndex = -1;
@@ -174,7 +181,6 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
     if (closestIndex !== -1) {
         let finalIndex = closestIndex;
         
-        // Тепер TypeScript знає, що draggingIndex не null
         if (draggingIndex < finalIndex) finalIndex -= 1; 
         
         const lastItem = itemsRefs.current.get(exercises.length - 1);
@@ -191,7 +197,7 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
     }
   };
 
-  // Допоміжний компонент для компактного рядка (з чистим стилем)
+  // Компонент компактного рядка
   const CompactRowContent = ({ name }: { name: string }) => (
     <div className="flex items-center justify-between w-full h-full px-4">
       <span className="text-lg font-bold text-gray-300 truncate">
@@ -235,30 +241,35 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
               style={{
                  height: isHidden ? 0 : (isCompact ? '60px' : 'auto'),
                  transition: 'height 0.2s ease',
-                 touchAction: 'none'
+                 // [FIX] Дозволяємо вертикальний скрол на самій картці
+                 touchAction: 'pan-y' 
               }}
             >
               
-              {/* Handle */}
+              {/* [FIX] Вузька ручка перетягування (w-8) */}
               {!disabled && (
                 <div
                   onPointerDown={(e) => handlePointerDown(e, index)}
                   className={`
-                    w-12 flex-shrink-0 cursor-grab active:cursor-grabbing
+                    w-5 flex-shrink-0 cursor-grab active:cursor-grabbing
                     bg-gray-700/30 hover:bg-fitness-gold-500/10 transition-colors
                     flex flex-col items-center justify-center
                     border-r border-gray-700
                   `}
+                  style={{
+                    // [FIX] Забороняємо скрол ТІЛЬКИ на цій ручці, щоб спрацював drag
+                    touchAction: 'none' 
+                  }}
                 >
                     <div className="flex flex-col gap-1 pointer-events-none opacity-40">
-                        <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
-                        <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
-                        <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
+                        <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
+                        <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
+                        <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
                     </div>
                 </div>
               )}
 
-              {/* Content */}
+              {/* Контент картки */}
               <div className="flex-grow min-w-0 flex flex-col justify-center">
                  {isCompact ? (
                     <CompactRowContent name={exercise.name} />
@@ -280,7 +291,7 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
         );
       })}
 
-      {/* === OVERLAY === */}
+      {/* === OVERLAY (Летюча картка) === */}
       {draggingIndex !== null && (
         <DragOverlay
           x={dragPosition.x}
@@ -289,7 +300,8 @@ const DraggableExerciseList: React.FC<DraggableExerciseListProps> = ({
           height={dragDimensions.height}
         >
             <div className="flex h-full bg-gray-800">
-                <div className="w-12 flex items-center justify-center bg-fitness-gold-500 text-black border-r border-gray-600">
+                {/* [FIX] Ручка в Overlay теж вузька (w-8) */}
+                <div className="w-8 flex items-center justify-center bg-fitness-gold-500 text-black border-r border-gray-600">
                     <i className="fas fa-grip-lines"></i>
                 </div>
                 <div className="flex-1 flex items-center px-4 overflow-hidden bg-gray-900">

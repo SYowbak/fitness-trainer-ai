@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Exercise, LoggedSetWithAchieved, WeightType, ExerciseRecommendation } from '../types';
+import React, { useState, useEffect, useRef } from 'react';
+import { Exercise, LoggedSetWithAchieved, WeightType } from '../types';
 import { UI_TEXT, formatTime } from '../constants';
 import { fixExerciseWeightType } from '../utils/exerciseTypeDetector';
 
@@ -8,7 +8,7 @@ interface ExerciseCardProps {
   isActive: boolean;
   onLogExercise: (loggedSets: LoggedSetWithAchieved[], success: boolean) => void;
   onSkipExercise: () => void;
-  onUndoSkipExercise?: () => void; // Додаємо новий пропс для скасування пропуску
+  onUndoSkipExercise?: () => void;
   recommendations?: {
     exerciseName: string;
     recommendation: string;
@@ -35,7 +35,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   isActive,
   onLogExercise,
   onSkipExercise,
-  onUndoSkipExercise, // Додаємо новий пропс
+  onUndoSkipExercise,
   recommendations = [],
   exerciseAdaptation,
   variations = [],
@@ -45,7 +45,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   const [isExpanded, setIsExpanded] = useState(false);
   const [showLogForm, setShowLogForm] = useState(false);
   const [isCompleted, setIsCompleted] = useState<boolean>(isActive ? exercise.isCompletedDuringSession : false);
-  const [isSkipped, setIsSkipped] = useState<boolean>(isActive ? (exercise.isSkipped ?? false) : false); // Додаємо стан для пропущеної вправи
+  const [isSkipped, setIsSkipped] = useState<boolean>(isActive ? (exercise.isSkipped ?? false) : false);
   const [loggedSetsData, setLoggedSetsData] = useState<LoggedSetWithAchieved[]>([]);
   const [numSets, setNumSets] = useState(3);
   const [currentRecommendationIndex, setCurrentRecommendationIndex] = useState(0);
@@ -58,7 +58,37 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   const [variationsHidden, setVariationsHidden] = useState<boolean>(false);
   const [focusedWeightInput, setFocusedWeightInput] = useState<number | null>(null);
 
-  // Виправляємо weightType, якщо він неправильний
+  // === ЛОГІКА ДЛЯ DRAG-TO-SCROLL (МИШКА) ===
+  const carouselRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!carouselRef.current) return;
+    setIsDragging(true);
+    setStartX(e.pageX - carouselRef.current.offsetLeft);
+    setScrollLeft(carouselRef.current.scrollLeft);
+  };
+
+  const handleMouseLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !carouselRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - carouselRef.current.offsetLeft;
+    const walk = (x - startX) * 8; // Швидкість скролу
+    carouselRef.current.scrollLeft = scrollLeft - walk;
+  };
+  // ==========================================
+
+  // Виправляємо weightType
   const correctedWeightType = fixExerciseWeightType(exercise.name, exercise.weightType);
 
   const getWeightLabel = (weightType: WeightType) => {
@@ -98,7 +128,6 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
     if (weightType === 'bodyweight') return 0;
     if (targetWeight) return targetWeight;
     
-    // Прості рекомендації на основі назви вправи
     const name = exerciseName?.toLowerCase() || '';
     if (name.includes('присідання') && weightType === 'total') return 60;
     if (name.includes('жим') && name.includes('штанга') && weightType === 'total') return 50;
@@ -121,7 +150,6 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
     }
   };
 
-  // Збираємо всі доступні рекомендації (не тільки найвищу)
   const allRecommendations = (() => {
     const recs: Array<{
       exerciseName: string;
@@ -132,7 +160,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
       reason: string;
     }> = [];
 
-    // 1. Адаптація на основі самопочуття
+    // 1. Адаптація
     if (exerciseAdaptation) {
       const setsChanged = exerciseAdaptation.originalSets !== exerciseAdaptation.adaptedSets;
       const repsChanged = exerciseAdaptation.originalReps !== exerciseAdaptation.adaptedReps;
@@ -143,13 +171,13 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
           recommendation: `${exerciseAdaptation.adaptationReason}. Змінено: ${exerciseAdaptation.originalSets}×${exerciseAdaptation.originalReps} → ${exerciseAdaptation.adaptedSets}×${exerciseAdaptation.adaptedReps}`,
           reason: "Адаптація на основі самопочуття",
           suggestedSets: parseInt(exerciseAdaptation.adaptedSets) || undefined,
-          suggestedReps: exerciseAdaptation.adaptedReps as any, // adaptedReps може бути string, але ми зберігаємо як є
+          suggestedReps: exerciseAdaptation.adaptedReps as any, 
           suggestedWeight: undefined
         });
       }
     }
     
-    // 2. Рекомендації з аналізу попереднього тренування (з AI)
+    // 2. AI Рекомендації
     if (isActive) {
       const aiRecommendation = recommendations.find(rec => rec.exerciseName === exercise.name);
       if (aiRecommendation) {
@@ -157,7 +185,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
       }
     }
     
-    // 3. Базові рекомендації з плану тренувань
+    // 3. Базові
     if (exercise.recommendation?.text) {
       recs.push({
         exerciseName: exercise.name,
@@ -172,15 +200,10 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
     return recs;
   })();
 
-  // Для зворотної сумісності - залишаємо першу рекомендацію як основну
   const exerciseRecommendation = allRecommendations.length > 0 ? allRecommendations[0] : null;
   const hasVariations = !variationsHidden && variations.length > 0;
 
-  // Ініціалізуємо або оновлюємо isCompleted, isSkipped та allSetsSuccessful, коли exercise змінюється
   useEffect(() => {
-    console.log(`[ExerciseCard] ${exercise.name} - isActive: ${isActive}, isCompleted: ${isCompleted}, isSkipped: ${isSkipped}`);
-
-    // У режимі перегляду плану (коли тренування не активне) завжди показуємо картки як "звичайні"
     if (!isActive) {
       if (isCompleted) setIsCompleted(false);
       if (isSkipped) setIsSkipped(false);
@@ -191,31 +214,18 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
     const newIsCompleted = exercise.isCompletedDuringSession;
     const newIsSkipped = exercise.isSkipped ?? false;
     
-    // Оновлюємо стан тільки якщо він справді змінився
-    if (isCompleted !== newIsCompleted) {
-      setIsCompleted(newIsCompleted);
-    }
-    if (isSkipped !== newIsSkipped) {
-      setIsSkipped(newIsSkipped);
-    }
+    if (isCompleted !== newIsCompleted) setIsCompleted(newIsCompleted);
+    if (isSkipped !== newIsSkipped) setIsSkipped(newIsSkipped);
     
     setAllSetsSuccessful(exercise.sessionSuccess ?? true);
     
-    // Приховуємо форму логування, якщо вправу вже завершено або пропущено
-    // АЛЕ тільки якщо форма не відкрита для редагування
     if ((newIsCompleted || newIsSkipped) && !showLogForm) {
       setShowLogForm(false);
     }
-    // Згортаємо картку при завершенні або пропуску
-    // АЛЕ тільки якщо форма не відкрита для редагування
     if ((newIsCompleted || newIsSkipped) && !showLogForm) {
       setIsExpanded(false);
     }
   }, [exercise.isCompletedDuringSession, exercise.sessionSuccess, exercise.isSkipped, exercise.name, isCompleted, isSkipped, showLogForm, isActive]);
-
-  useEffect(() => {
-
-  }, [loggedSetsData, exercise.name]);
 
   useEffect(() => {
     let animationFrameId: number | null = null;
@@ -232,7 +242,6 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
         setRestTimer(Math.max(0, remaining));
 
         if (remaining <= 0) {
-          console.log('[ExerciseCard] Таймер завершено, відтворюємо звук.');
           audioElement.play().catch(e => console.error("Помилка відтворення звуку:", e));
           
           if ('Notification' in window) {
@@ -269,28 +278,23 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   };
 
   const handleSetDataChange = (setIndex: number, field: keyof LoggedSetWithAchieved, value: string) => {
-
     const newLoggedSetsData = [...loggedSetsData];
     newLoggedSetsData[setIndex] = { 
       ...newLoggedSetsData[setIndex], 
       [field]: value === '' ? null : parseFloat(value),
-      // Автоматично встановлюємо правильний weightContext
       weightContext: getAutomaticWeightContext(exercise.weightType)
     };
     setLoggedSetsData(newLoggedSetsData);
   };
 
-
   const handleLogFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Фільтруємо підходи, щоб включити лише ті, які мають введені дані
-    // Для bodyweight вправ weightUsed може бути 0 або null (обидва валідні)
     const validSets = loggedSetsData.filter(s => {
       const hasReps = s.repsAchieved !== null;
       const hasWeight = correctedWeightType === 'bodyweight' || correctedWeightType === 'none' 
-        ? true // Для bodyweight та none вага не обов'язкова
-        : s.weightUsed !== null; // Для інших типів вага обов'язкова
+        ? true 
+        : s.weightUsed !== null;
       return hasReps && hasWeight;
     }) as LoggedSetWithAchieved[];
     
@@ -298,9 +302,8 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
         if (!confirm("Ви не ввели дані для жодного підходу. Залогувати вправу як пропущену (без зарахування прогресу)?")) {
           return; 
         }
-      onLogExercise([], false); // Вважаємо не успішною, якщо даних немає
+      onLogExercise([], false); 
     } else {
-        // Нормалізуємо дані для bodyweight вправ - встановлюємо weightUsed в 0, якщо воно null
         const normalizedSets = validSets.map(set => ({
           ...set,
           weightUsed: (correctedWeightType === 'bodyweight' || correctedWeightType === 'none') && set.weightUsed === null 
@@ -350,9 +353,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   
   const cardBaseClasses = "p-3 sm:p-4 rounded-lg shadow-md transition-all duration-300";
   
-  // Правильна логіка кольорів: спочатку перевіряємо пропуск, потім завершення
   const getCardStyles = () => {
-    // У режимі перегляду плану (без активного тренування) завжди показуємо стандартний сірий стиль
     if (!isActive) {
       return {
         bgClasses: "bg-gray-700/60 hover:bg-gray-700/80",
@@ -428,7 +429,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
             </div>
           )}
 
-          {/* Свайпний карусель рекомендацій */}
+          {/* Свайпний карусель рекомендацій (MOUSE + TOUCH) */}
           {allRecommendations.length > 0 && (
             <div className="mb-4">
               {/* Індикатор поточної позиції */}
@@ -436,7 +437,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                 <div className="flex items-center justify-center gap-1.5 mb-2">
                   {allRecommendations.map((_, index) => (
                     <div
-                      key={index}
+                      key={`indicator-${index}`}
                       className={`h-2 rounded-full transition-all duration-300 ${
                         index === currentRecommendationIndex
                           ? 'w-6 bg-fitness-gold-500'
@@ -450,7 +451,8 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
               {/* Карусель з рекомендаціями */}
               <div className="relative">
                 <div 
-                  className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide gap-3"
+                  ref={carouselRef}
+                  className={`flex overflow-x-auto snap-x snap-mandatory scrollbar-hide gap-3 ${isDragging ? 'cursor-grabbing snap-none' : 'cursor-grab'}`}
                   style={{
                     scrollbarWidth: 'none',
                     msOverflowStyle: 'none',
@@ -465,26 +467,16 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                       setCurrentRecommendationIndex(newIndex);
                     }
                   }}
-                  onTouchStart={(e) => {
-                    const touch = e.touches[0];
-                    (e.currentTarget as any).touchStartX = touch.clientX;
-                    (e.currentTarget as any).touchStartScrollLeft = (e.currentTarget as HTMLElement).scrollLeft;
-                  }}
-                  onTouchMove={(e) => {
-                    const touch = e.touches[0];
-                    const element = e.currentTarget as HTMLElement;
-                    const startX = (element as any).touchStartX;
-                    const startScrollLeft = (element as any).touchStartScrollLeft;
-                    if (startX !== undefined) {
-                      const diff = startX - touch.clientX;
-                      element.scrollLeft = startScrollLeft + diff;
-                    }
-                  }}
+                  // Обробники для миші
+                  onMouseDown={handleMouseDown}
+                  onMouseLeave={handleMouseLeave}
+                  onMouseUp={handleMouseUp}
+                  onMouseMove={handleMouseMove}
                 >
                   {allRecommendations.map((rec, index) => (
                     <div
-                      key={index}
-                      className={`flex-shrink-0 w-full snap-start p-4 rounded-lg ${
+                      key={`${rec.exerciseName}-${index}`}
+                      className={`flex-shrink-0 w-full snap-start p-4 rounded-lg select-none ${ // select-none щоб текст не виділявся при свайпі
                         rec.reason === "Базова рекомендація для прогресу" 
                           ? "bg-green-900/30 border border-green-500/30" 
                           : rec.reason === "Адаптація на основі самопочуття"
@@ -568,8 +560,8 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                           try {
                             setIsSelectingVariation(true);
                             await onSelectVariation?.(variation);
-                            setVariationsHidden(true); // сховати варіації після успішного вибору
-                            setIsExpanded(false); // згорнути картку для чіткої індикації
+                            setVariationsHidden(true); 
+                            setIsExpanded(false); 
                           } finally {
                             setIsSelectingVariation(false);
                           }
@@ -599,7 +591,6 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs sm:text-sm">
             <div className="bg-gray-600/70 p-2 rounded shadow">
               <strong className="block text-fitness-gold-200 mb-0.5"><i className="fas fa-layer-group mr-1"></i>{UI_TEXT.sets}</strong>
-              {/* Якщо є рекомендація з кількістю підходів і тренування активне, показуємо рекомендоване значення та оригінал як підказку */}
               {exerciseRecommendation && exerciseRecommendation.suggestedSets && isActive ? (
                 <span className="text-gray-100 font-semibold">{exerciseRecommendation.suggestedSets}</span>
               ) : (
@@ -635,7 +626,6 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
 
               <button 
                   onClick={() => {
-
                     if (exercise.sessionLoggedSets && exercise.sessionLoggedSets.length > 0) {
                       setLoggedSetsData(exercise.sessionLoggedSets.map(set => ({
                         repsAchieved: set.repsAchieved !== undefined ? set.repsAchieved : null,
@@ -645,7 +635,6 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                       })));
                       setNumSets(exercise.sessionLoggedSets.length);
                     } else {
-                      // Якщо є AI-рекомендація з кількістю підходів, використовуємо її, інакше — план
                       const preferredSets = (exerciseRecommendation && exerciseRecommendation.suggestedSets) ? exerciseRecommendation.suggestedSets : (parseInt(exercise.sets.toString()) || 3);
                       const initialLoggedSets = Array.from({ length: preferredSets }).map(() => ({
                         repsAchieved: null,
@@ -664,12 +653,10 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
               </button>
               <button
                 onClick={() => {
-                  // Immediately update local state to provide instant feedback
                   setIsSkipped(true);
                   setIsCompleted(false);
                   setShowLogForm(false);
                   setIsExpanded(false);
-                  // Call the parent's skip function
                   onSkipExercise();
                 }}
                 className="w-full sm:w-auto bg-orange-600 hover:bg-orange-700 text-white font-medium py-2 px-3 rounded-md shadow-sm transition duration-300 ease-in-out flex items-center justify-center text-xs sm:text-sm"
@@ -686,14 +673,12 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
               </div>
               {isActive && (
                 <div className="flex space-x-2">
-                  {!isSkipped && ( // Дозволяємо редагувати лише якщо не пропущено
+                  {!isSkipped && ( 
                     <button
                       onClick={() => {
-                        // Спочатку відкриваємо форму і розгортаємо картку
                         setShowLogForm(true);
                         setIsExpanded(true);
                         
-                        // Потім завантажуємо дані
                         if (exercise.sessionLoggedSets && exercise.sessionLoggedSets.length > 0) {
                           const loadedSets = exercise.sessionLoggedSets.map(set => {
                             const loadedSet = {
@@ -717,7 +702,6 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                           setLoggedSetsData(initialLoggedSets);
                           setNumSets(initialSets);
                         }
-                        // Прокручуємо до початку форми після короткої затримки
                         setTimeout(() => {
                           const modal = document.querySelector('[class*="fixed inset-0"]');
                           if (modal) {
@@ -733,13 +717,11 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                       <i className="fas fa-edit mr-2"></i>Редагувати
                     </button>
                   )}
-                  {isSkipped && ( // Додаємо кнопку "Скасувати пропуск"
+                  {isSkipped && ( 
                     <button
                       onClick={() => {
-                        // Скасовуємо пропуск вправи
                         setIsSkipped(false);
                         setIsCompleted(false);
-                        // Викликаємо функцію скасування пропуску у батьківському компоненті
                         if (onUndoSkipExercise) {
                           onUndoSkipExercise();
                         }
@@ -764,7 +746,6 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
             <p className="text-xs sm:text-sm text-gray-300 mb-1">План: {exercise.sets} підходів по {exercise.targetReps ?? exercise.reps} повторень.</p>
             {exercise.targetWeight !== null && exercise.targetWeight !== undefined && <p className="text-xs sm:text-sm text-gray-300 mb-2">Цільова вага: {exercise.targetWeight} кг.</p>}
             
-            {/* Інформація про вагу */}
             {correctedWeightType === 'bodyweight' ? (
               <div className="bg-green-900/30 border border-green-500/30 rounded-md p-2 mb-3">
                 <p className="text-xs text-green-200 flex items-start">
@@ -866,7 +847,6 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                               onFocus={() => setFocusedWeightInput(setIndex)}
                               onBlur={() => setFocusedWeightInput(null)}
                             />
-                            {/* Показуємо підказку тільки коли поле порожнє і не в фокусі */}
                             <div className={`absolute right-2 top-1/2 transform -translate-y-1/2 text-[10px] sm:text-xs text-gray-400 pointer-events-none font-medium transition-opacity duration-200 ${
                               (loggedSetsData[setIndex]?.weightUsed !== null && 
                                loggedSetsData[setIndex]?.weightUsed !== undefined && 
