@@ -1,4 +1,5 @@
 import { UserProfile, DailyWorkoutPlan, WorkoutLog, ExerciseRecommendation } from '../types';
+import { detectTimeInfo } from '../utils/exerciseTypeDetector';
 import { generateWorkoutAnalysis } from './geminiService';
 import { isOnline } from '../utils/offlineUtils';
 import { quotaManager } from '../utils/apiQuotaManager';
@@ -225,12 +226,20 @@ export class BackgroundWorkoutAnalysisService {
 
 ДЕТАЛІ ВИКОНАННЯ (КОНКРЕТНІ ЦИФРИ):
 ${completedExercises.map(ex => {
-  const totalVolume = ex.loggedSets?.reduce((sum, set) => 
-    sum + ((set.weightUsed || 0) * (set.repsAchieved || 0)), 0) || 0;
-  
-  const setsDetails = ex.loggedSets?.map((set, index) => 
-    `Підхід ${index + 1}: ${set.repsAchieved || 0} повт. @ ${set.weightUsed || 0}кг`
-  ).join(', ') || 'Деталі відсутні';
+  const totalVolume = ex.loggedSets?.reduce((sum, set) => {
+    const effectiveWeight = (set.weightUsed || 0) + (set.extraWeightKg || 0);
+    return sum + (effectiveWeight * (set.repsAchieved || 0));
+  }, 0) || 0;
+
+  const setsDetails = ex.loggedSets?.map((set, index) => {
+    const effectiveWeight = (set.weightUsed || 0) + (set.extraWeightKg || 0);
+    const extraNote = set.extraWeightKg ? ` (в т.ч. +${set.extraWeightKg}кг)` : '';
+    const timeInfo = detectTimeInfo(ex.exerciseName || '');
+    if (timeInfo.isTime) {
+      return `Підхід ${index + 1}: ${set.repsAchieved || 0} сек. @ ${effectiveWeight}кг${extraNote}`;
+    }
+    return `Підхід ${index + 1}: ${set.repsAchieved || 0} повт. @ ${effectiveWeight}кг${extraNote}`;
+  }).join(', ') || 'Деталі відсутні';
   
   return `- ${ex.exerciseName}:
     * Всього підходів: ${ex.loggedSets?.length || 0}

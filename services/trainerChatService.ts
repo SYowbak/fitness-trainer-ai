@@ -7,8 +7,22 @@ import { v4 as uuidv4 } from 'uuid';
 
 const ai = new GoogleGenerativeAI((import.meta as any).env.VITE_API_KEY || '');
 
+/**
+ * Очищує текст від markdown форматування
+ */
+const cleanMarkdownFormatting = (text: string | null | undefined): string => {
+  if (!text || typeof text !== 'string') return '';
+  return text
+    .replace(/\*\*/g, '').replace(/\*/g, '')
+    .replace(/__/g, '').replace(/_/g, '')
+    .replace(/~~(.+?)~~/g, '$1')
+    .replace(/\[(.+?)\]\(.+?\)/g, '$1')
+    .replace(/#+\s/g, '')
+    .trim();
+};
+
 interface TrainerAction {
-  type: 'chat' | 'modify_workout' | 'replace_exercise' | 'add_exercise' | 'remove_exercise' | 'modify_exercise_params' | 'confirm_action';
+  type: 'chat' | 'modify_workout' | 'replace_exercise' | 'add_exercise' | 'remove_exercise' | 'modify_exercise_params' | 'confirm_action' | 'select_replacement';
   data?: any;
 }
 
@@ -18,65 +32,47 @@ interface TrainerResponse {
   modifiedPlan?: DailyWorkoutPlan;
 }
 
-// Допоміжна функція для генерації звичайних (не модифікаційних) відповідей чату
+// Глобальна змінна для збереження очікуваних змін
+let pendingModification: any = null;
+
+// Генерація звичайних (не модифікаційних) відповідей чату
 const generateRegularChatResponse = async (
   userProfile: UserProfile,
   userMessage: string,
   conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>,
   todaysWorkout?: DailyWorkoutPlan | null
 ): Promise<TrainerResponse> => {
-  const recentHistory = conversationHistory.slice(-4); // Останні 4 повідомлення для контексту
+  const recentHistory = conversationHistory.slice(-4);
   
   const chatPrompt = `Ти - розумний персональний фітнес-тренер з можливістю змінювати тренування. Відповідай коротко, зрозуміло та по суті.
 
 Профіль: Вік ${userProfile.age}, ціль: ${userProfile.goal}
 
-${todaysWorkout ? `План на сьогодні: ${todaysWorkout.exercises.map(e => `${e.name} (${e.sets} підходи, ${e.reps} повторень, відпочинок ${e.rest})`).join(', ')}` : ''}
+${todaysWorkout ? `План на сьогодні: ${todaysWorkout.exercises.map((e: any) => `${e.name} (${e.sets} підходи, ${e.reps} повторень, відпочинок ${e.rest})`).join(', ')}` : ''}
 
-${recentHistory.length > 0 ? `Останні повідомлення:\n${recentHistory.map(msg => `${msg.role === 'user' ? 'Користувач' : 'Тренер'}: ${msg.content}`).join('\n')}\n` : ''}
+${recentHistory.length > 0 ? `Останні повідомлення:\n${recentHistory.map((msg: any) => `${msg.role === 'user' ? 'Користувач' : 'Тренер'}: ${msg.content}`).join('\n')}\n` : ''}
 
 Повідомлення: ${userMessage}
 
-МОЖЛИВОСТІ РОЗУМНОГО ТРЕНЕРА:
-🔧 МОДИФІКАЦІЯ ТРЕНУВАНЬ:
-- Заміна вправ: "заміни присідання на жим ногами"
-- Зміна підходів: "зроби 4 підходи замість 3 для жиму"
-- Зміна повторень: "збільш повторення до 15 для віджимань"
-- Зміна відпочинку: "зменш відпочинок до 45 секунд"
-- Встановлення цільової ваги: "встанови цільову вагу 60кг для присідань"
-- Додавання вправ: "додай вправу на трицепс"
-- Видалення вправ: "прибери планку"
-
-📊 АНАЛІЗ ТА ПОРАДИ:
-- Аналіз прогресу: "як мій прогрес?", "що покращити?"
-- Техніка виконання: "як правильно робити жим лежачи?"
-- Рекомендації по вазі: "яку вагу взяти для присідань?"
-- Поради по відновленню: "як краще відпочивати між тренуваннями?"
-
-💡 МОТИВАЦІЯ ТА ПІДТРИМКА:
-- Мотиваційні поради
-- Пояснення користі вправ
-- Допомога з дисципліною
-
-ВАЖЛИВО: Перед будь-якими змінами тренування ЗАВЖДИ уточнюй у користувача що ти зрозумів і чекай підтвердження!
-
-Відповідай українською, дружньо та професійно. Будь розумним помічником, а не просто чат-ботом!`;
+Відповідай українською, дружньо та професійно!`;
 
   return withQuotaManagement(async () => {
     const selectedModel = getSmartModel(GEMINI_MODELS.CHAT);
-    console.log(`Чат використовує модель: ${selectedModel}`);
-    
     const model = ai!.getGenerativeModel({ model: selectedModel });
     const response = await model.generateContent(chatPrompt);
     const result = await response.response;
+    const rawText = result.text();
+    const cleanedMessage = cleanMarkdownFormatting(rawText);
     
-    return {
-      message: result.text()
-    };
+    if (!cleanedMessage) {
+      return { message: 'Не вдалося отримати відповідь. Спробуйте пізніше.' };
+    }
+    
+    return { message: cleanedMessage };
   }, { message: 'Пробачте, сталася помилка з AI. Спробуйте пізніше.' }, { 
     priority: 'high',
     bypassQuotaInDev: true,
-  skipOnQuotaExceeded: false  // Встановлено false для чату — хочемо, щоб працювало
+    skipOnQuotaExceeded: false
   });
 };
 
@@ -99,8 +95,7 @@ const generateEnhancedChatResponse = async (
     contextPrompt += `\n\nПоточний план тренувань:
 ${todaysWorkout.exercises.map((e, i) => `${i + 1}. ${e.name}
    - Підходи: ${e.sets}, Повторення: ${e.reps}
-   - Відпочинок: ${e.rest}
-   - Опис: ${e.description.substring(0, 100)}...`).join('\n')}`;
+   - Відпочинок: ${e.rest}`).join('\n')}`;
   }
 
   if (currentWorkoutPlan) {
@@ -117,41 +112,37 @@ ${todaysWorkout.exercises.map((e, i) => `${i + 1}. ${e.name}
 
   if (context?.wantsAnalysis) {
     contextPrompt += `\n\n🎯 ФОКУС НА АНАЛІЗІ:
-- Проаналізуй поточний план тренувань
-- Дай конкретні рекомендації для покращення
-- Вкажи на сильні та слабкі сторони
-- Запропонуй конкретні кроки для прогресу`;
+- Проаналізуй поточний план
+- Дай конкретні рекомендації`;
   }
 
   if (context?.wantsTechnique) {
     contextPrompt += `\n\n🏋️ ФОКУС НА ТЕХНІЦІ:
-- Дай детальні інструкції з техніки виконання
-- Вкажи на типові помилки та як їх уникнути
-- Поясни правильне дихання та положення тіла
-- Дай поради для безпечного виконання`;
+- Дай детальні інструкції
+- Вкажи на типові помилки`;
   }
 
   if (context?.wantsMotivation) {
     contextPrompt += `\n\n💪 ФОКУС НА МОТИВАЦІЇ:
 - Дай мотиваційну підтримку
-- Поясни користь від тренувань
-- Допоможи подолати лінь або втому
-- Нагадай про досягнення та цілі`;
+- Поясни користь`;
   }
 
-  contextPrompt += `\n\nВідповідай українською, будь корисним та підтримуючим. Давай конкретні, практичні поради!`;
+  contextPrompt += `\n\nВідповідай українською!`;
 
   return withQuotaManagement(async () => {
     const selectedModel = getSmartModel(GEMINI_MODELS.CHAT);
-    console.log(`Розширений чат використовує модель: ${selectedModel}`);
-    
     const model = ai!.getGenerativeModel({ model: selectedModel });
     const response = await model.generateContent(contextPrompt);
     const result = await response.response;
+    const rawText = result.text();
+    const cleanedMessage = cleanMarkdownFormatting(rawText);
     
-    return {
-      message: result.text()
-    };
+    if (!cleanedMessage) {
+      return { message: 'Не вдалося отримати відповідь. Спробуйте пізніше.' };
+    }
+    
+    return { message: cleanedMessage };
   }, { message: 'Пробачте, сталася помилка з AI. Спробуйте пізніше.' }, { 
     priority: 'medium',
     bypassQuotaInDev: true,
@@ -159,7 +150,7 @@ ${todaysWorkout.exercises.map((e, i) => `${i + 1}. ${e.name}
   });
 };
 
-// Допоміжна функція для обробки змін у плані тренувань
+// Обробка змін у плані тренувань - ДЕТЕРМІНІСТИЧНА (без AI JSON парсингу)
 const handleWorkoutModification = async (
   userProfile: UserProfile,
   userMessage: string,
@@ -167,541 +158,346 @@ const handleWorkoutModification = async (
   currentWorkoutPlan: DailyWorkoutPlan[],
   conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>
 ): Promise<TrainerResponse> => {
-  const modificationPrompt = `Користувач хоче змінити тренування. Проаналізуй повідомлення:
+  const message = userMessage.toLowerCase();
+  
+  console.log('🔧 [handleWorkoutModification] Обробляємо запит:', message);
 
-"Повідомлення: ${userMessage}"
+  const replaceKeywords = ['замін', 'заміни'];
+  const addKeywords = ['додай', 'добав', 'додати', 'добавити', 'добавляю'];
+  const removeKeywords = ['прибер', 'вилуч', 'видал', 'видали', 'видаліть', 'вилучи', 'приберіть', 'прибери'];
+  const modifyKeywords = ['зроби', 'збільш', 'зменш', 'встанов', 'змін'];
 
-Поточні вправи на сьогодні:
-${todaysWorkout.exercises.map((ex, i) => `${i + 1}. ${ex.name}
-   - Підходи: ${ex.sets}
-   - Повторення: ${ex.reps}
-   - Відпочинок: ${ex.rest}
-   - Цільова вага: ${ex.targetWeight || 'не вказано'}
-   - Рекомендації: ${ex.recommendation?.text || 'немає'}`).join('\n')}
-
-Визнач конкретну дію:
-1. replace_exercise: заміна конкретної вправи
-2. add_exercise: додавання нової вправи  
-3. remove_exercise: видалення вправи
-4. modify_exercise_params: зміна параметрів вправи (підходи, повторення, вага, відпочинок)
-5. confirm_action: підтвердження дії (якщо користувач підтверджує зміни)
-6. chat: просто розмова
-
-ВАЖЛИВО: Для будь-яких змін тренування ЗАВЖДИ спочатку запитуй підтвердження у користувача!
-
-Для modify_exercise_params додай поля: "exercise_name", "sets", "reps", "rest", "target_weight", "recommendations", "confirmation_needed": true
-
-ПРИКЛАДИ JSON ВІДПОВІДЕЙ:
-- Зміна підходів: {"action": "modify_exercise_params", "exercise_name": "Жим лежачи", "sets": "4", "confirmation_needed": true}
-- Зміна ваги: {"action": "modify_exercise_params", "exercise_name": "Присідання", "target_weight": "70кг", "confirmation_needed": true}
-- Зміна відпочинку: {"action": "modify_exercise_params", "exercise_name": "Віджимання", "rest": "45 секунд", "confirmation_needed": true}
-- Заміна вправи: {"action": "replace_exercise", "exercise_name": "Присідання", "reason": "Біль в колінах", "confirmation_needed": true}
-
-КРИТИЧНО ВАЖЛИВО: 
-1. ЗАВЖДИ повертай ТІЛЬКИ валідний JSON без додаткового тексту!
-2. НЕ додавай пояснення до або після JSON!
-3. Якщо вправу не знайдено, використовуй найближчу за назвою!
-
-Відповідь JSON: {"action": "modify_exercise_params", "exercise_name": "Назва вправи", "sets": "3", "reps": "10-12", "rest": "60 секунд", "target_weight": "50", "recommendations": "Нові поради", "reason": "Причина", "confirmation_needed": true}`;
+  const isReplace = replaceKeywords.some(k => message.includes(k));
+  const isAdd = addKeywords.some(k => message.includes(k));
+  const isRemove = removeKeywords.some(k => message.includes(k));
+  const isModify = modifyKeywords.some(k => message.includes(k)) && !isReplace;
 
   try {
-    const analysisResult = await withQuotaManagement(async () => {
-      const selectedModel = getSmartModel(GEMINI_MODELS.ANALYSIS);
-      const model = ai!.getGenerativeModel({ model: selectedModel });
-      const response = await model.generateContent(modificationPrompt);
-      return response.response.text();
-    }, null, { 
-      priority: 'high',
-      bypassQuotaInDev: true,
-  skipOnQuotaExceeded: false  // Встановлено false для модифікацій — хочемо, щоб працювало
-    });
-
-  // Парсимо JSON-відповідь
-    if (!analysisResult) {
-      return {
-        message: `Не вдалося обробити ваш запит. Спробуйте написати: "заміни вправу [назва] на іншу" або "додай вправу".`
-      };
-    }
-    
-    let cleanResponse = analysisResult.replace(/```json|```/g, '').trim();
-    
-  // Спробувати витягти JSON з текстової відповіді
-    const jsonMatch = cleanResponse.match(/\{[^}]*\}/);
-    if (jsonMatch) {
-      cleanResponse = jsonMatch[0];
-    }
-    
-  let parsedAction: any;
-    
-    console.log('🤖 [handleWorkoutModification] AI відповідь:', {
-      rawResponse: analysisResult.substring(0, 200) + '...',
-      cleanResponse: cleanResponse.substring(0, 200) + '...',
-      isValidJSON: cleanResponse.startsWith('{') && cleanResponse.endsWith('}')
-    });
-    
-    try {
-      parsedAction = JSON.parse(cleanResponse);
-      console.log('✅ [handleWorkoutModification] Розпарсили JSON:', {
-        action: parsedAction.action,
-        exerciseName: parsedAction.exercise_name,
-        confirmationNeeded: parsedAction.confirmation_needed
-      });
-    } catch (parseError) {
-      console.error('❌ [handleWorkoutModification] JSON parse error:', parseError, 'Response:', cleanResponse);
+    // REPLACE EXERCISE
+    if (isReplace) {
+      console.log('➡️ Обробляємо ЗАМІНУ вправи');
       
-  // Запасний варіант: спробувати визначити намір з тексту
-      if (analysisResult.toLowerCase().includes('заміни') || analysisResult.toLowerCase().includes('замін')) {
+      let exerciseIndex = -1;
+      let foundExerciseName = '';
+      
+      for (let i = 0; i < todaysWorkout.exercises.length; i++) {
+        const exerciseName = todaysWorkout.exercises[i].name.toLowerCase();
+        const words = exerciseName.split(' ');
+        
+        for (const word of words) {
+          if (word.length > 2 && message.includes(word)) {
+            exerciseIndex = i;
+            foundExerciseName = todaysWorkout.exercises[i].name;
+            break;
+          }
+        }
+        if (exerciseIndex !== -1) break;
+      }
+
+      if (exerciseIndex === -1) {
         return {
-          message: `Я розумію що ви хочете щось замінити, але не можу точно визначити деталі. Спробуйте написати: "заміни [назва вправи] на іншу"`
+          message: `Не знайшов вправу з вашого опису. Спробуйте назвати точну назву вправи яку хочете замінити.`
         };
       }
-      
-      return {
-        message: `Не вдалося розпарсити відповідь AI. Спробуйте переформулювати запит більш конкретно.`
-      };
-    }
 
-    // Валідація обов'язкових полів
-    if (!parsedAction.action) {
-      return {
-        message: `Не вдалося визначити тип дії. Спробуйте написати більш конкретно що ви хочете змінити.`
-      };
-    }
+      console.log(`✅ Знайшли вправу для заміни: "${foundExerciseName}"`);
 
-    // Handle different actions
-    switch (parsedAction.action) {
-      case 'replace_exercise': {
-        const exerciseIndex = todaysWorkout.exercises.findIndex(ex => 
-          ex.name.toLowerCase().includes(parsedAction.exercise_name.toLowerCase()) ||
-          parsedAction.exercise_name.toLowerCase().includes(ex.name.toLowerCase())
-        );
+      try {
+        // Генеруємо варіанти послідовно з обробкою помилок
+        const variants = [];
+        const maxAttempts = 4; // Спробуємо генерувати до 4 варіантів
+        
+        for (let attempt = 0; attempt < maxAttempts && variants.length < 3; attempt++) {
+          try {
+            const newExercise = await regenerateExercise(
+              userProfile,
+              currentWorkoutPlan,
+              todaysWorkout.day,
+              exerciseIndex
+            );
+            variants.push(newExercise);
+            console.log(`✅ Генерував варіант ${variants.length}:`, newExercise.name);
+          } catch (e) {
+            console.warn(`⚠️ Спроба ${attempt + 1}: помилка при генеруванні варіанта:`, e);
+            // Чекаємо трохи перед наступною спробою
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        }
 
-        if (exerciseIndex === -1) {
-          return {
-            message: `Не знайшов вправу "${parsedAction.exercise_name}". Повторіть запит, вказавши точну назву.`
+        if (variants.length === 0) {
+          return { 
+            message: `Не вдалося згенерувати варіанти. Спробуйте пізніше або напишіть яку саме вправу бажаєте.` 
           };
         }
 
-        // Generate a replacement exercise
-        try {
-          const newExercise = await regenerateExercise(
-            userProfile, 
-            currentWorkoutPlan, 
-            todaysWorkout.day, 
-            exerciseIndex
-          );
+        console.log(`✅ Успішно генерував ${variants.length} варіантів`);
 
-          const modifiedWorkout: DailyWorkoutPlan = {
-            ...todaysWorkout,
-            exercises: todaysWorkout.exercises.map((ex, i) => 
-              i === exerciseIndex ? newExercise : ex
-            )
-          };
+        // Зберігаємо варіанти для подальшого вибору
+        pendingModification = {
+          actionType: 'replace_exercise',
+          data: { 
+            originalIndex: exerciseIndex, 
+            variants: variants,
+            oldExerciseName: foundExerciseName
+          },
+          modifiedWorkout: null
+        };
 
-          // Зберігаємо зміни для підтвердження
-          pendingModification = {
-            actionType: 'replace_exercise',
-            data: { originalIndex: exerciseIndex, newExercise },
-            modifiedWorkout
-          };
+        // Форматуємо варіанти для відображення
+        const variantsList = variants.map((ex, idx) => 
+          `${idx + 1}. *${ex.name}*${ex.description ? ' — ' + ex.description.substring(0, 60) + '...' : ''}`
+        ).join('\n');
 
-          return {
-            message: `🤔 Я правильно зрозумів? Ви хочете замінити "${todaysWorkout.exercises[exerciseIndex].name}" на "${newExercise.name}" (День ${modifiedWorkout.day})?\n\n📝 Напишіть "так" або "підтверджую" для застосування змін, або "ні" для скасування.`,
-            action: {
-              type: 'confirm_action',
-              data: { originalIndex: exerciseIndex, newExercise }
-            }
-          };
-        } catch (error) {
-          return {
-            message: `Не вдалося згенерувати заміну. Спробуйте пізніше.`
-          };
+        const confirmText = variants.length < 3 
+          ? ` (генерував ${variants.length} із 3 варіантів)`
+          : '';
+
+        return {
+          message: `Знайшов варіанти для заміни "${foundExerciseName}"${confirmText}:\n\n${variantsList}\n\nНапишіть цифру (1${variants.length > 1 ? `, 2${variants.length > 2 ? ', 3' : ''}` : ''}) для вибору, або "ні" щоб скасувати.`,
+          action: { type: 'select_replacement', data: { variants } }
+        };
+      } catch (error: any) {
+        console.error('❌ Помилка при заміні:', error);
+        
+        // Check for quota/rate limit errors
+        if (error.message && error.message.includes('429')) {
+          return { message: `На жаль, перевищено щоденний ліміт запитів до AI (20 за день). Спробуйте завтра.` };
+        }
+        
+        if (error.message && (error.message.includes('rate') || error.message.includes('RATE_LIMITED'))) {
+          return { message: `Занадто часто звертаємося до AI. Зачекайте кілька хвилин і спробуйте щe раз.` };
+        }
+        
+        return { message: `Виникла помилка при генеруванні варіантів. Спробуйте пізніше або напишіть яку саме вправу бажаєте.` };
+      }
+    }
+
+    // REMOVE EXERCISE
+    if (isRemove) {
+      console.log('➡️ Обробляємо ВИДАЛЕННЯ вправи');
+
+      let exerciseIndex = -1;
+      let foundExerciseName = '';
+      let bestMatchScore = 0;
+
+      for (let i = 0; i < todaysWorkout.exercises.length; i++) {
+        const exerciseName = todaysWorkout.exercises[i].name.toLowerCase();
+        const words = exerciseName.split(' ');
+        let matchScore = 0;
+
+        // Count how many words from exercise name are in the message
+        for (const word of words) {
+          if (word.length > 2 && message.includes(word)) {
+            matchScore++;
+          }
+        }
+
+        // Update if this is a better match than previous best
+        if (matchScore > bestMatchScore) {
+          bestMatchScore = matchScore;
+          exerciseIndex = i;
+          foundExerciseName = todaysWorkout.exercises[i].name;
         }
       }
 
-      case 'add_exercise': {
-        try {
-          const newExercise = await generateNewExercise(
-            userProfile,
-            currentWorkoutPlan,
-            todaysWorkout.day
-          );
-
-          const modifiedWorkout: DailyWorkoutPlan = {
-            ...todaysWorkout,
-            exercises: [...todaysWorkout.exercises, newExercise]
-          };
-
-          // Зберігаємо зміни для підтвердження
-          pendingModification = {
-            actionType: 'add_exercise',
-            data: { newExercise },
-            modifiedWorkout
-          };
-
-          return {
-            message: `🤔 Я правильно зрозумів? Ви хочете додати нову вправу: "${newExercise.name}" до Дня ${modifiedWorkout.day}?\n\n📝 Напишіть "так" або "підтверджую" для застосування змін, або "ні" для скасування.`,
-            action: {
-              type: 'confirm_action',
-              data: { newExercise }
-            }
-          };
-        } catch (error) {
-          return {
-            message: `Не вдалося додати нову вправу. Спробуйте пізніше.`
-          };
-        }
+      if (exerciseIndex === -1) {
+        return { message: `Не знайшов яку вправу видалити. Спробуйте назвати точну назву.` };
       }
 
-      case 'remove_exercise': {
-        const exerciseIndex = todaysWorkout.exercises.findIndex(ex => 
-          ex.name.toLowerCase().includes(parsedAction.exercise_name.toLowerCase()) ||
-          parsedAction.exercise_name.toLowerCase().includes(ex.name.toLowerCase())
+      if (todaysWorkout.exercises.length <= 1) {
+        return { message: `Не можу видалити останню вправу. На день мінімум 1 вправа.` };
+      }
+
+      const modifiedWorkout: DailyWorkoutPlan = {
+        ...todaysWorkout,
+        exercises: todaysWorkout.exercises.filter((_, i) => i !== exerciseIndex)
+      };
+
+      pendingModification = {
+        actionType: 'remove_exercise',
+        data: { removedIndex: exerciseIndex },
+        modifiedWorkout
+      };
+
+      return {
+        message: `Розумію, хочете видалити "${foundExerciseName}". Напишіть "так" для підтвердження або "ні" для скасування.`,
+        action: { type: 'confirm_action', data: { removedIndex: exerciseIndex } }
+      };
+    }
+
+    // ADD EXERCISE
+    if (isAdd) {
+      console.log('➡️ Обробляємо ДОДАВАННЯ вправи');
+
+      try {
+        const newExercise = await generateNewExercise(
+          userProfile,
+          currentWorkoutPlan,
+          todaysWorkout.day
         );
-
-        if (exerciseIndex === -1) {
-          return {
-            message: `Не знайшов вправу "${parsedAction.exercise_name}".`
-          };
-        }
-
-        if (todaysWorkout.exercises.length <= 1) {
-          return {
-            message: `Не можу видалити останню вправу. Мінімум 1 вправа на день.`
-          };
-        }
 
         const modifiedWorkout: DailyWorkoutPlan = {
           ...todaysWorkout,
-          exercises: todaysWorkout.exercises.filter((_, i) => i !== exerciseIndex)
+          exercises: [...todaysWorkout.exercises, newExercise]
         };
 
-        // Зберігаємо зміни для підтвердження
         pendingModification = {
-          actionType: 'remove_exercise',
-          data: { removedIndex: exerciseIndex },
+          actionType: 'add_exercise',
+          data: { newExercise },
           modifiedWorkout
         };
 
         return {
-          message: `🤔 Я правильно зрозумів? Ви хочете видалити вправу "${todaysWorkout.exercises[exerciseIndex].name}" з Дня ${modifiedWorkout.day}?\n\n📝 Напишіть "так" або "підтверджую" для застосування змін, або "ні" для скасування.`,
-          action: {
-            type: 'confirm_action',
-            data: { removedIndex: exerciseIndex }
-          }
+          message: `Розумію, хочете додати нову вправу: "${newExercise.name}". Напишіть "так" для підтвердження або "ні" для скасування.`,
+          action: { type: 'confirm_action', data: { newExercise } }
         };
-      }
-
-      case 'modify_exercise_params': {
-        const exerciseIndex = todaysWorkout.exercises.findIndex(ex => 
-          ex.name.toLowerCase().includes(parsedAction.exercise_name.toLowerCase()) ||
-          parsedAction.exercise_name.toLowerCase().includes(ex.name.toLowerCase())
-        );
-
-        if (exerciseIndex === -1) {
-          return {
-            message: `Не знайшов вправу "${parsedAction.exercise_name}". Повторіть запит, вказавши точну назву.`
+      } catch (error: any) {
+        console.error('❌ Error adding exercise:', error);
+        
+        // Check for specific error types
+        if (error.message === 'QUOTA_EXCEEDED') {
+          return { 
+            message: `На жаль, перевищено щоденний ліміт запитів до AI (20 за день). Спробуйте завтра або розгляньте платний план Gemini.` 
           };
         }
-
-        const originalExercise = todaysWorkout.exercises[exerciseIndex];
-        const updatedExercise = {
-          ...originalExercise,
-          // Оновлюємо тільки ті поля, які були змінені
-          sets: parsedAction.sets || originalExercise.sets,
-          reps: parsedAction.reps || originalExercise.reps,
-          rest: parsedAction.rest || originalExercise.rest,
-          targetWeight: parsedAction.target_weight ? Number(parsedAction.target_weight.replace(/[^\d.]/g, '')) : originalExercise.targetWeight,
-          recommendation: parsedAction.recommendations ? {
-            text: parsedAction.recommendations,
-            action: "updated"
-          } : originalExercise.recommendation,
-          // Зберігаємо всі інші поля без змін
-          id: originalExercise.id,
-          name: originalExercise.name,
-          description: originalExercise.description,
-          weightType: originalExercise.weightType,
-          videoSearchQuery: originalExercise.videoSearchQuery,
-          targetReps: originalExercise.targetReps,
-          isCompletedDuringSession: originalExercise.isCompletedDuringSession,
-          sessionLoggedSets: originalExercise.sessionLoggedSets,
-          sessionSuccess: originalExercise.sessionSuccess,
-          isSkipped: originalExercise.isSkipped,
-          notes: originalExercise.notes
-        };
-
-        const modifiedWorkout: DailyWorkoutPlan = {
-          ...todaysWorkout,
-          exercises: todaysWorkout.exercises.map((ex, i) => 
-            i === exerciseIndex ? updatedExercise : ex
-          )
-        };
-
-        // Створюємо детальне повідомлення про зміни
-        const changes = [];
-        if (parsedAction.sets && parsedAction.sets !== originalExercise.sets) {
-          changes.push(`підходи: ${originalExercise.sets} → ${parsedAction.sets}`);
-        }
-        if (parsedAction.reps && parsedAction.reps !== originalExercise.reps) {
-          changes.push(`повторення: ${originalExercise.reps} → ${parsedAction.reps}`);
-        }
-        if (parsedAction.rest && parsedAction.rest !== originalExercise.rest) {
-          changes.push(`відпочинок: ${originalExercise.rest} → ${parsedAction.rest}`);
-        }
-        if (parsedAction.target_weight) {
-          const newWeight = Number(parsedAction.target_weight.replace(/[^\d.]/g, ''));
-          if (newWeight !== originalExercise.targetWeight) {
-            changes.push(`цільова вага: ${originalExercise.targetWeight || 'не вказано'} → ${newWeight}кг`);
-          }
-        }
-        if (parsedAction.recommendations) {
-          const currentRecommendation = originalExercise.recommendation?.text || 'немає';
-          if (parsedAction.recommendations !== currentRecommendation) {
-            changes.push(`рекомендації: оновлено`);
-          }
-        }
-
-        const changesText = changes.length > 0 ? `${changes.join(', ')}` : 'параметри';
-
-        // Якщо потрібне підтвердження, зберігаємо зміни для подальшого застосування
-        if (parsedAction.confirmation_needed !== false) {
-          // Зберігаємо зміни в глобальній змінній
-          console.log('💾 [modify_exercise_params] Зберігаємо зміни для підтвердження:', {
-            exerciseIndex,
-            originalName: originalExercise.name,
-            updatedName: updatedExercise.name,
-            changes: changes,
-            workoutDay: modifiedWorkout.day,
-            exercisesCount: modifiedWorkout.exercises.length
-          });
-
-          pendingModification = {
-            actionType: 'modify_exercise_params',
-            data: { 
-              exerciseIndex, 
-              originalExercise, 
-              updatedExercise,
-              changes: changes
-            },
-            modifiedWorkout
-          };
-
-          return {
-            message: `🤔 Я правильно зрозумів? Ви хочете змінити для "${originalExercise.name}" (День ${modifiedWorkout.day}): ${changesText}?\n\n📝 Напишіть "так" або "підтверджую" для застосування змін, або "ні" для скасування.`,
-            action: {
-              type: 'confirm_action',
-              data: { 
-                pendingAction: 'modify_exercise_params',
-                exerciseIndex, 
-                originalExercise, 
-                updatedExercise,
-                changes: changes,
-                modifiedWorkout
-              }
-            }
+        
+        if (error.message === 'RATE_LIMITED') {
+          return { 
+            message: `Занадто часто звертаємося до AI. Зачекайте кілька хвилин і спробуйте ще раз.` 
           };
         }
-
-        return {
-          message: `✅ Оновив параметри для "${originalExercise.name}". Змінено: ${changesText}. ${parsedAction.message || parsedAction.reason || ''}`,
-          action: {
-            type: 'modify_exercise_params',
-            data: { 
-              exerciseIndex, 
-              originalExercise, 
-              updatedExercise,
-              changes: changes
-            }
-          },
-          modifiedPlan: modifiedWorkout
-        };
+        
+        // Generic error
+        if (error.message && error.message.includes('429')) {
+          return { 
+            message: `На жаль, перевищено щоденний ліміт запитів до AI. Спробуйте завтра.` 
+          };
+        }
+        
+        return { message: `Не вдалось додати вправу. Спробуйте пізніше або напишіть назву вправи вручну.` };
       }
-
-      case 'confirm_action': {
-        return {
-          message: `Будь ласка, підтвердіть дію написавши "так" або "підтверджую", або скасуйте написавши "ні" або "скасувати".`
-        };
-      }
-
-      default:
-        return await generateRegularChatResponse(
-          userProfile,
-          userMessage,
-          conversationHistory,
-          todaysWorkout
-        );
     }
-  } catch (error) {
-    console.error('Error in workout modification:', error);
+
+    // MODIFY PARAMETERS
+    if (isModify) {
+      console.log('➡️ Обробляємо ЗМІНУ параметрів вправи');
+
+      let exerciseIndex = -1;
+      let foundExerciseName = '';
+
+      for (let i = 0; i < todaysWorkout.exercises.length; i++) {
+        const exerciseName = todaysWorkout.exercises[i].name.toLowerCase();
+        const words = exerciseName.split(' ');
+
+        for (const word of words) {
+          if (word.length > 2 && message.includes(word)) {
+            exerciseIndex = i;
+            foundExerciseName = todaysWorkout.exercises[i].name;
+            break;
+          }
+        }
+        if (exerciseIndex !== -1) break;
+      }
+
+      if (exerciseIndex === -1) {
+        return { message: `Не знайшов вправу для зміни. Спробуйте назвати точну назву.` };
+      }
+
+      const originalExercise = todaysWorkout.exercises[exerciseIndex];
+      const changes: string[] = [];
+
+      const numbers = message.match(/\d+(?:[\.,]\d+)?/g) || [];
+      const sets = numbers[0];
+      const reps = numbers[1];
+      const weight = numbers[2];
+
+      const updatedExercise = { ...originalExercise };
+
+      if (sets) {
+        updatedExercise.sets = sets;
+        changes.push(`підходи: ${originalExercise.sets} → ${sets}`);
+      }
+      if (reps) {
+        updatedExercise.reps = reps;
+        changes.push(`повторення: ${originalExercise.reps} → ${reps}`);
+      }
+      if (weight) {
+        updatedExercise.targetWeight = Number(weight);
+        changes.push(`цільова вага: ${originalExercise.targetWeight || 'не вказано'} → ${weight}кг`);
+      }
+
+      if (changes.length === 0) {
+        return { message: `Не вдалося розпізнати параметри для зміни. Спробуйте написати: "зроби 4 підходи" або "встанови вагу 60".` };
+      }
+
+      const modifiedWorkout: DailyWorkoutPlan = {
+        ...todaysWorkout,
+        exercises: todaysWorkout.exercises.map((ex, i) =>
+          i === exerciseIndex ? updatedExercise : ex
+        )
+      };
+
+      pendingModification = {
+        actionType: 'modify_exercise_params',
+        data: { exerciseIndex, originalExercise, updatedExercise, changes },
+        modifiedWorkout
+      };
+
+      const changesText = changes.join(', ');
+      return {
+        message: `Розумію, хочете змінити для "${foundExerciseName}": ${changesText}. Напишіть "так" для підтвердження або "ні" для скасування.`,
+        action: { type: 'confirm_action', data: { exerciseIndex, updatedExercise, changes } }
+      };
+    }
+
     return {
-      message: `Не вдалося обробити ваш запит. Спробуйте написати: "заміни вправу [назва] на іншу" або "додай вправу".`
+      message: `На жаль, не вдалося розпізнати що ви хочете. Спробуйте: "заміни [вправа] на іншу", "додай вправу", "прибери [вправа]" чи "зроби X підходів"`
+    };
+
+  } catch (error) {
+    console.error('❌ [handleWorkoutModification] Загальна помилка:', error);
+    return {
+      message: `Виникла помилка при обробці. Спробуйте пізніше.`
     };
   }
 };
 
-// Глобальна змінна для збереження очікуваних змін
-let pendingModification: any = null;
-
-// Допоміжна функція для обчислення схожості рядків (0-1, де 1 — ідентичні)
-const calculateStringSimilarity = (str1: string, str2: string): number => {
-  const longer = str1.length > str2.length ? str1 : str2;
-  const shorter = str1.length > str2.length ? str2 : str1;
-  
-  if (longer.length === 0) return 1.0;
-  
-  // Обчислюємо відстань Левенштейна
-  const editDistance = levenshteinDistance(longer, shorter);
-  return (longer.length - editDistance) / longer.length;
-};
-
-// Алгоритм відстані Левенштейна
-const levenshteinDistance = (str1: string, str2: string): number => {
-  const matrix = [];
-  
-  for (let i = 0; i <= str2.length; i++) {
-    matrix[i] = [i];
-  }
-  
-  for (let j = 0; j <= str1.length; j++) {
-    matrix[0][j] = j;
-  }
-  
-  for (let i = 1; i <= str2.length; i++) {
-    for (let j = 1; j <= str1.length; j++) {
-      if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
-        matrix[i][j] = matrix[i - 1][j - 1];
-      } else {
-        matrix[i][j] = Math.min(
-          matrix[i - 1][j - 1] + 1, // substitution
-          matrix[i][j - 1] + 1,     // insertion
-          matrix[i - 1][j] + 1      // deletion
-        );
-      }
-    }
-  }
-  
-  return matrix[str2.length][str1.length];
-};
-
-// Допоміжна функція для пошуку вправи в плані тренувань
-const findExerciseInPlan = (userMessage: string, workoutPlan: DailyWorkoutPlan[]): DailyWorkoutPlan | null => {
-  const message = userMessage.toLowerCase();
-  
+// Пошук вправи в плані
+const findExerciseInPlan = (message: string, plan: DailyWorkoutPlan[]): DailyWorkoutPlan | null => {
   console.log('🔍 [findExerciseInPlan] Шукаємо вправу для:', message);
+
+  const messageLower = message.toLowerCase();
   
-  // Очищаємо повідомлення від слів-дій (щоб лишити тільки назву вправи)
-  const cleanMessage = message.replace(/замін|заміни|додай|прибер|зроби|для|на/g, '').trim();
-  
-  // Знайти день, що містить вправу, яка відповідає повідомленню користувача
-  let bestMatch: { day: DailyWorkoutPlan; similarity: number; exercise: string } | null = null;
-  
-  for (const day of workoutPlan) {
+  for (const day of plan) {
     for (const exercise of day.exercises) {
       const exerciseName = exercise.name.toLowerCase();
       
-  // Обчислити схожість між очищеним повідомленням і назвою вправи
-      const fullSimilarity = calculateStringSimilarity(cleanMessage, exerciseName);
+      if (messageLower.includes(exerciseName)) {
+        console.log('📌 [findExerciseInPlan] Знайшли точну вправу:', exercise.name);
+        return day;
+      }
+
+      const words = exerciseName.split(' ');
+      let matchedWords = 0;
       
-  // Також перевірити схожість окремих слів
-      const exerciseWords = exerciseName.split(' ');
-      const messageWords = cleanMessage.split(' ').filter(word => word.length > 2);
-      
-      let maxWordSimilarity = 0;
-      for (const messageWord of messageWords) {
-        for (const exerciseWord of exerciseWords) {
-          const wordSimilarity = calculateStringSimilarity(messageWord, exerciseWord);
-          maxWordSimilarity = Math.max(maxWordSimilarity, wordSimilarity);
+      for (const word of words) {
+        if (word.length > 2 && messageLower.includes(word)) {
+          matchedWords++;
         }
       }
-      
-  // Комбінований бал: 70% — повна схожість + 30% — найкраща відповідність слова
-      const combinedSimilarity = fullSimilarity * 0.7 + maxWordSimilarity * 0.3;
-      
-      if (combinedSimilarity > 0.3) { // Minimum threshold
-        console.log('🎯 [findExerciseInPlan] Кандидат:', {
-          day: day.day,
-          exercise: exercise.name,
-          fullSimilarity: Math.round(fullSimilarity * 100),
-          maxWordSimilarity: Math.round(maxWordSimilarity * 100),
-          combinedSimilarity: Math.round(combinedSimilarity * 100)
-        });
-        
-        if (!bestMatch || combinedSimilarity > bestMatch.similarity) {
-          bestMatch = { day, similarity: combinedSimilarity, exercise: exercise.name };
-        }
+
+      if (matchedWords > 0 && matchedWords / words.length >= 0.5) {
+        console.log(`📌 [findExerciseInPlan] Знайшли вправу по частковому матчу: ${exercise.name}`);
+        return day;
       }
     }
   }
-  
-  if (bestMatch) {
-    console.log('✅ [findExerciseInPlan] Найкращий збіг:', {
-      day: bestMatch.day.day,
-      exercise: bestMatch.exercise,
-      similarity: Math.round(bestMatch.similarity * 100) + '%'
-    });
-    return bestMatch.day;
-  }
-  
-  console.log('❌ [findExerciseInPlan] Не знайшли вправу в жодному дні');
+
+  console.log('❌ [findExerciseInPlan] Вправу не знайшли');
   return null;
 };
 
-// Допоміжна функція для обробки підтверджень/скасувань від користувача
-const handleConfirmation = (
-  userMessage: string,
-  conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>
-): TrainerResponse | null => {
-  // Шукаємо останнє повідомлення тренера з підтвердженням
-  const lastAssistantMessage = conversationHistory
-    .slice()
-    .reverse()
-    .find(msg => msg.role === 'assistant' && msg.content.includes('📝 Напишіть "так"'));
-
-  if (!lastAssistantMessage || !pendingModification) return null;
-
-  const confirmationKeywords = ['так', 'підтверджую', 'згоден', 'згодна', 'добре', 'окей', 'ok', 'да', 'yes'];
-  const cancelKeywords = ['ні', 'скасувати', 'відміна', 'не треба', 'no', 'cancel'];
-
-  const isConfirmation = confirmationKeywords.some(keyword => 
-    userMessage.toLowerCase().includes(keyword)
-  );
-  
-  const isCancellation = cancelKeywords.some(keyword => 
-    userMessage.toLowerCase().includes(keyword)
-  );
-
-  if (isConfirmation && pendingModification) {
-    // Застосовуємо збережені зміни
-    console.log('🔧 [handleConfirmation] Застосовуємо збережені зміни:', {
-      actionType: pendingModification.actionType,
-      hasModifiedWorkout: !!pendingModification.modifiedWorkout,
-      workoutDay: pendingModification.modifiedWorkout?.day,
-      exercisesCount: pendingModification.modifiedWorkout?.exercises?.length
-    });
-
-    const result = {
-      message: `✅ Зрозуміло! Застосовую зміни...`,
-      action: {
-        type: pendingModification.actionType,
-        data: pendingModification.data
-      },
-      modifiedPlan: pendingModification.modifiedWorkout
-    };
-    
-    // Очищуємо збережені зміни
-    pendingModification = null;
-    return result;
-  } else if (isCancellation) {
-    // Скасовуємо збережені зміни
-    pendingModification = null;
-    return {
-      message: `❌ Зрозуміло, скасовую зміни. Що ще можу для вас зробити?`
-    };
-  }
-
-  return null;
-};
-
+// Основна функція генерації відповіді тренера
 export const generateTrainerResponse = async ({
   userProfile,
   userMessage,
@@ -715,113 +511,133 @@ export const generateTrainerResponse = async ({
   currentWorkoutPlan?: DailyWorkoutPlan[] | null;
   activeDay?: number | null;
 }): Promise<TrainerResponse> => {
-  if (!ai) {
-    throw new Error(UI_TEXT.apiKeyMissing);
+  console.log('🤖 [generateTrainerResponse] Отримали повідомлення:', userMessage);
+
+  // Валідація
+  if (!userMessage || typeof userMessage !== 'string') {
+    return { message: 'Будь ласка, напишіть повідомлення.' };
   }
 
-  // Check if chat feature is enabled based on quota
-  if (!shouldEnableAIFeature('chat')) {
-    throw new Error(UI_TEXT.aiOverloaded);
+  // Перевіра підтвердження або скасування
+  const confirmKeywords = ['так', 'так!', 'та', 'окей', 'підтверджую'];
+  const cancelKeywords = ['ні', 'ні!', 'скасувати', 'скасуй'];
+
+  const isConfirming = confirmKeywords.some(k => userMessage.toLowerCase().includes(k));
+  const isCanceling = cancelKeywords.some(k => userMessage.toLowerCase().includes(k));
+
+  // Перевіра вибору варіанта (цифри 1, 2, 3)
+  const variantChoice = userMessage.trim().match(/^[1-3]$/);
+  const isSelectingVariant = !!variantChoice && pendingModification?.data?.variants;
+
+  if (isSelectingVariant) {
+    console.log('✅ [generateTrainerResponse] Користувач вибрав варіант:', variantChoice[0]);
+    
+    const selectedIndex = Number(variantChoice[0]) - 1;
+    const selectedExercise = pendingModification.data.variants[selectedIndex];
+    const originalIndex = pendingModification.data.originalIndex;
+    const oldExercise = currentWorkoutPlan![0].exercises[originalIndex];
+
+    const newExerciseWithLogged = {
+      ...selectedExercise,
+      sessionLoggedSets: oldExercise.sessionLoggedSets || [],
+      isCompletedDuringSession: oldExercise.isCompletedDuringSession || false,
+      sessionSuccess: oldExercise.sessionSuccess ?? true,
+      isSkipped: oldExercise.isSkipped || false
+    };
+
+    const modifiedWorkout: DailyWorkoutPlan = {
+      ...currentWorkoutPlan![0],
+      exercises: currentWorkoutPlan![0].exercises.map((ex, i) =>
+        i === originalIndex ? newExerciseWithLogged : ex
+      )
+    };
+
+    pendingModification = {
+      actionType: 'replace_exercise',
+      data: { originalIndex, newExercise: newExerciseWithLogged },
+      modifiedWorkout
+    };
+
+    return {
+      message: `✅ Вибрав "${selectedExercise.name}". Напишіть "так" для підтвердження або "ні" для скасування.`,
+      action: { type: 'confirm_action', data: { originalIndex, newExercise: newExerciseWithLogged } }
+    };
   }
 
-  // Check if this is a confirmation/cancellation response
-  const confirmationResponse = handleConfirmation(userMessage, conversationHistory);
-  if (confirmationResponse) {
-    return confirmationResponse;
+  if (isConfirming && pendingModification) {
+    console.log('✅ [generateTrainerResponse] Користувач підтвердив зміни');
+    
+    const result: TrainerResponse = {
+      message: `Зрозуміло! Застосовую зміни...`,
+      modifiedPlan: pendingModification.modifiedWorkout
+    };
+
+    pendingModification = null;
+    return result;
   }
 
-  // Get current day's workout if available
-  let todaysWorkout = currentWorkoutPlan && activeDay ? 
-    currentWorkoutPlan.find(day => day.day === activeDay) : null;
-
-  // If no active day but user wants modification, try to find the exercise in any day
-  if (!todaysWorkout && currentWorkoutPlan && currentWorkoutPlan.length > 0) {
-    // Try to find which day contains the exercise mentioned in the message
-    const foundDay = findExerciseInPlan(userMessage, currentWorkoutPlan);
-    if (foundDay) {
-      todaysWorkout = foundDay;
-      console.log('🔍 [generateTrainerResponse] Знайшли вправу в дні:', {
-        selectedDay: foundDay.day,
-        exercisesCount: foundDay.exercises.length
-      });
-    } else {
-      // Use first available day as fallback
-      todaysWorkout = currentWorkoutPlan[0];
-      console.log('🔄 [generateTrainerResponse] Не знайшли конкретну вправу, використовуємо перший день:', {
-        selectedDay: currentWorkoutPlan[0].day,
-        exercisesCount: currentWorkoutPlan[0].exercises.length
-      });
-    }
+  if (isCanceling && pendingModification) {
+    console.log('❌ [generateTrainerResponse] Користувач скасував зміни');
+    
+    pendingModification = null;
+    return {
+      message: `Зрозуміло. Скасовую зміни.`
+    };
   }
 
-  // Detect different types of requests
+  if (!currentWorkoutPlan || currentWorkoutPlan.length === 0) {
+    console.log('⚠️ [generateTrainerResponse] Немає плану тренувань');
+    return await generateRegularChatResponse(userProfile, userMessage, conversationHistory);
+  }
+
+  let todaysWorkout: DailyWorkoutPlan | undefined = activeDay
+    ? currentWorkoutPlan.find(day => day.day === activeDay)
+    : currentWorkoutPlan[0];
+
+  if (!todaysWorkout) {
+    todaysWorkout = currentWorkoutPlan[0];
+  }
+
+  const foundDay = findExerciseInPlan(userMessage, currentWorkoutPlan);
+  if (foundDay) {
+    todaysWorkout = foundDay;
+    console.log('🔍 [generateTrainerResponse] Знайшли вправу в дні:', foundDay.day);
+  }
+
+  // Виявлення типів запитань
   const modificationKeywords = [
-    'замін', 'змін', 'інш', 'болить', 'біль', 'травм', 'не можу', 'важко', 
-    'складно', 'додай', 'прибер', 'вилуч', 'убер', 'напряжк', 'лікт',
-    'підход', 'повторен', 'відпочин', 'вага', 'кг', 'секунд', 'хвилин',
-    'збільш', 'зменш', 'більше', 'менше', 'легше', 'важче', 'швидше', 'повільніше',
-    'рекоменд', 'порад', 'цільов', 'встанов', 'зроби'
+    'замін', 'змін', 'болить', 'біль', 'додай', 'добав', 'добавити', 'прибер', 'вилуч', 'видал',
+    'підход', 'повторен', 'вага', 'кг', 'зроби', 'збільш', 'зменш', 'встанов'
   ];
-  
-  console.log('🔍 [generateTrainerResponse] Перевіряємо запит на модифікацію:', {
-    userMessage: userMessage.toLowerCase(),
-    foundKeywords: modificationKeywords.filter(keyword => 
-      userMessage.toLowerCase().includes(keyword)
-    ),
-    wantsModification: modificationKeywords.some(keyword => 
-      userMessage.toLowerCase().includes(keyword)
-    ),
-    hasTodaysWorkout: !!todaysWorkout
-  });
 
   const analysisKeywords = [
-    'прогрес', 'покращ', 'аналіз', 'статистик', 'результат', 'досягнен',
-    'як справ', 'що нового', 'як іду', 'чи добре', 'оцін'
+    'прогрес', 'покращ', 'аналіз', 'результат', 'як справ'
   ];
 
   const techniqueKeywords = [
-    'техніка', 'як правильно', 'як робити', 'поясни', 'покаж', 'навчи',
-    'правильн', 'помилк', 'дихання', 'положення'
+    'техніка', 'як правильно', 'як робити', 'поясни', 'помилк'
   ];
 
   const motivationKeywords = [
-    'мотивац', 'лінь', 'не хочеться', 'важко почати', 'втомився', 'здався',
-    'навіщо', 'користь', 'результат', 'коли буде', 'підтримк'
+    'мотивац', 'лінь', 'не хочеться', 'втомився', 'користь'
   ];
-  
-  const wantsModification = modificationKeywords.some(keyword => 
-    userMessage.toLowerCase().includes(keyword)
-  );
 
-  const wantsAnalysis = analysisKeywords.some(keyword => 
-    userMessage.toLowerCase().includes(keyword)
-  );
+  const wantsModification = modificationKeywords.some(k => userMessage.toLowerCase().includes(k));
+  const wantsAnalysis = analysisKeywords.some(k => userMessage.toLowerCase().includes(k));
+  const wantsTechnique = techniqueKeywords.some(k => userMessage.toLowerCase().includes(k));
+  const wantsMotivation = motivationKeywords.some(k => userMessage.toLowerCase().includes(k));
 
-  const wantsTechnique = techniqueKeywords.some(keyword => 
-    userMessage.toLowerCase().includes(keyword)
-  );
-
-  const wantsMotivation = motivationKeywords.some(keyword => 
-    userMessage.toLowerCase().includes(keyword)
-  );
-
-  // Handle different types of requests with priority
   if (wantsModification && todaysWorkout) {
     console.log('✅ [generateTrainerResponse] Викликаємо handleWorkoutModification');
     return await handleWorkoutModification(
       userProfile, 
       userMessage, 
       todaysWorkout, 
-      currentWorkoutPlan!,
+      currentWorkoutPlan,
       conversationHistory
     );
-  } else if (wantsModification && !todaysWorkout) {
-    console.log('⚠️ [generateTrainerResponse] Хочуть модифікацію, але немає активного дня');
-  } else {
-    console.log('ℹ️ [generateTrainerResponse] Не розпізнано як модифікацію, йдемо до звичайного чату');
   }
 
-  // Enhanced chat with context awareness
   if (wantsAnalysis || wantsTechnique || wantsMotivation) {
     return await generateEnhancedChatResponse(
       userProfile,
@@ -833,7 +649,6 @@ export const generateTrainerResponse = async ({
     );
   }
 
-  // Regular chat response
   return await generateRegularChatResponse(
     userProfile,
     userMessage,
@@ -841,3 +656,6 @@ export const generateTrainerResponse = async ({
     todaysWorkout
   );
 };
+
+export const getPendingModification = () => pendingModification;
+export const clearPendingModification = () => { pendingModification = null; };

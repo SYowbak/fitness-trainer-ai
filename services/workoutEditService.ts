@@ -169,7 +169,19 @@ export const generateNewExercise = async (
     }
   } catch (error: any) {
     console.error("Error during exercise generation:", error);
-    throw new Error(`Помилка генерації вправи: ${error.message || 'Невідома помилка'}`);
+    
+    // Check for quota/rate limit errors
+    if (error.message && error.message.includes('429')) {
+      console.error('⚠️ Quota exceeded error detected');
+      throw new Error('QUOTA_EXCEEDED');
+    }
+    
+    if (error.message && error.message.includes('rate')) {
+      console.error('⚠️ Rate limit error detected');
+      throw new Error('RATE_LIMITED');
+    }
+    
+    throw error; // Re-throw original error for other cases
   }
 };
 
@@ -177,13 +189,23 @@ export const regenerateExercise = async (
   profile: UserProfile,
   currentPlan: DailyWorkoutPlan[],
   targetDay: number,
-  exerciseIndex: number
+  exerciseIndex: number,
+  variantStyle?: 'heavy' | 'light' | 'alternative'
 ): Promise<Exercise> => {
   if (!ai) {
     throw new Error("API ключ для Gemini не налаштовано");
   }
 
-  const prompt = constructExercisePrompt(profile, currentPlan, targetDay, exerciseIndex);
+  let prompt = constructExercisePrompt(profile, currentPlan, targetDay, exerciseIndex);
+  
+  // Додаємо конкретні вказівки для різних варіантів
+  if (variantStyle === 'heavy') {
+    prompt += `\n\n⚠️ ВАЖЛИВО: Генеруй вправу з БІЛЬШОЮ вагою та МЕНШОЮ кількістю повторень (енергійний стиль, 3-6 повторень), щоб максимально задіяти силу.`;
+  } else if (variantStyle === 'light') {
+    prompt += `\n\n⚠️ ВАЖЛИВО: Генеруй вправу з МЕНШОЮ вагою та БІЛЬШОЮ кількістю повторень (10-15 повторень), щоб задіяти витривалість.`;
+  } else if (variantStyle === 'alternative') {
+    prompt += `\n\n⚠️ ВАЖЛИВО: Генеруй вправу з ІНШИХ обладнання (альтернативні тренажери, гантелі, штанга, або власна вага), щоб змінити рух.`;
+  }
   
   try {
     const model = ai.getGenerativeModel({ model: GEMINI_MODELS.WORKOUT_GENERATION });

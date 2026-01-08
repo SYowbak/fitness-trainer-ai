@@ -79,11 +79,13 @@ export const analyzeProgressTrends = (workoutHistory: WorkoutLog[]): {
           if (exercise.loggedSets && Array.isArray(exercise.loggedSets)) {
             exercise.loggedSets.forEach(set => {
               // Перевіряємо, чи встановлені значення, навіть якщо completed не визначено
-              if (set.weightUsed !== null && set.weightUsed !== undefined && set.repsAchieved !== null && set.repsAchieved !== undefined) {
-                totalWeight += set.weightUsed;
+              const hasAnyWeight = (set.weightUsed !== null && set.weightUsed !== undefined) || (set.extraWeightKg !== null && set.extraWeightKg !== undefined);
+              if (hasAnyWeight && set.repsAchieved !== null && set.repsAchieved !== undefined) {
+                const effectiveWeight = (set.weightUsed || 0) + (set.extraWeightKg || 0);
+                totalWeight += effectiveWeight;
                 totalReps += set.repsAchieved;
                 totalSets++;
-                totalVolume += set.weightUsed * set.repsAchieved;
+                totalVolume += effectiveWeight * set.repsAchieved;
               }
             });
           }

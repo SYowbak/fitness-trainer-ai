@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Exercise, LoggedSetWithAchieved, WeightType } from '../types';
 import { UI_TEXT, formatTime } from '../constants';
-import { fixExerciseWeightType } from '../utils/exerciseTypeDetector';
+import { fixExerciseWeightType, detectExtraWeight, detectTimeInfo } from '../utils/exerciseTypeDetector';
 
 interface ExerciseCardProps {
   exercise: Exercise;
@@ -90,6 +90,8 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
 
   // Виправляємо weightType
   const correctedWeightType = fixExerciseWeightType(exercise.name, exercise.weightType);
+  const extraDetected = detectExtraWeight(exercise.name);
+  const timeInfo = detectTimeInfo(exercise.name);
 
   const getWeightLabel = (weightType: WeightType) => {
     switch (weightType) {
@@ -279,11 +281,19 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
 
   const handleSetDataChange = (setIndex: number, field: keyof LoggedSetWithAchieved, value: string) => {
     const newLoggedSetsData = [...loggedSetsData];
-    newLoggedSetsData[setIndex] = { 
-      ...newLoggedSetsData[setIndex], 
-      [field]: value === '' ? null : parseFloat(value),
-      weightContext: getAutomaticWeightContext(exercise.weightType)
+    const parsedValue = value === '' ? null : parseFloat(value);
+    
+    newLoggedSetsData[setIndex] = {
+      ...newLoggedSetsData[setIndex],
+      [field]: parsedValue,
+      weightContext: getAutomaticWeightContext(exercise.weightType),
     };
+
+    // Для bodyweight вправ: значення в weightUsed = додаткова вага (extraWeightKg)
+    if (correctedWeightType === 'bodyweight' && field === 'weightUsed') {
+      newLoggedSetsData[setIndex].extraWeightKg = parsedValue ?? null;
+    }
+    
     setLoggedSetsData(newLoggedSetsData);
   };
 
@@ -304,12 +314,23 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
         }
       onLogExercise([], false); 
     } else {
-        const normalizedSets = validSets.map(set => ({
-          ...set,
-          weightUsed: (correctedWeightType === 'bodyweight' || correctedWeightType === 'none') && set.weightUsed === null 
-            ? 0 
-            : set.weightUsed
-        }));
+        const normalizedSets = validSets.map(set => {
+          // Для bodyweight вправ: weightUsed = додаткова вага (якщо вказана), інакше null
+          if (correctedWeightType === 'bodyweight') {
+            return {
+              ...set,
+              weightUsed: 0, // завжди 0 для bodyweight (логується як власна вага + екстра)
+              extraWeightKg: set.weightUsed ?? null, // те що в polі weightUsed = додаткова вага
+            };
+          }
+          
+          // Для інших: звичайна логіка
+          return {
+            ...set,
+            weightUsed: set.weightUsed ?? 0,
+            extraWeightKg: null
+          };
+        });
         onLogExercise(normalizedSets, allSetsSuccessful);
     }
     setShowLogForm(false);
@@ -319,9 +340,10 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
     setNumSets(prev => prev + 1);
     setLoggedSetsData(prev => [...prev, { 
       repsAchieved: null, 
-      weightUsed: exercise.weightType === 'bodyweight' ? 0 : null, 
+      weightUsed: null, 
       completed: false,
-      weightContext: getAutomaticWeightContext(exercise.weightType)
+      weightContext: getAutomaticWeightContext(exercise.weightType),
+      extraWeightKg: null
     }]);
   };
 
@@ -333,19 +355,22 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   };
 
   const handleQuickFill = () => {
-    const targetRepsValue = typeof exercise.targetReps === 'number' 
-      ? exercise.targetReps 
-      : typeof exercise.reps === 'string' 
-        ? parseInt(exercise.reps.split('-')[0]) || 10
-        : 10;
+    const targetRepsValue = timeInfo.isTime
+      ? (timeInfo.seconds ?? (typeof exercise.targetReps === 'number' ? exercise.targetReps : (typeof exercise.reps === 'string' ? parseInt(exercise.reps.split('-')[0]) || 45 : 45)))
+      : (typeof exercise.targetReps === 'number' 
+        ? exercise.targetReps 
+        : typeof exercise.reps === 'string' 
+          ? parseInt(exercise.reps.split('-')[0]) || 10
+          : 10);
     
     const suggestedWeight = getSmartWeightSuggestion(exercise.weightType, exercise.targetWeight, exercise.name) || 0;
     
     const filledSets = Array(numSets).fill(null).map(() => ({
       repsAchieved: targetRepsValue,
-      weightUsed: exercise.weightType === 'bodyweight' ? 0 : suggestedWeight,
+      weightUsed: exercise.weightType === 'bodyweight' ? null : suggestedWeight,
       completed: false,
-      weightContext: getAutomaticWeightContext(exercise.weightType)
+      weightContext: getAutomaticWeightContext(exercise.weightType),
+      extraWeightKg: null
     }));
     
     setLoggedSetsData(filledSets);
@@ -632,15 +657,17 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                         weightUsed: set.weightUsed !== undefined ? set.weightUsed : null,
                         completed: set.completed ?? false,
                         weightContext: set.weightContext || getAutomaticWeightContext(exercise.weightType),
+                        extraWeightKg: set.extraWeightKg ?? null,
                       })));
                       setNumSets(exercise.sessionLoggedSets.length);
                     } else {
                       const preferredSets = (exerciseRecommendation && exerciseRecommendation.suggestedSets) ? exerciseRecommendation.suggestedSets : (parseInt(exercise.sets.toString()) || 3);
                       const initialLoggedSets = Array.from({ length: preferredSets }).map(() => ({
-                        repsAchieved: null,
-                        weightUsed: exercise.weightType === 'bodyweight' ? 0 : null,
+                        repsAchieved: timeInfo.isTime ? (timeInfo.seconds ?? null) : null,
+                        weightUsed: null,
                         completed: false,
                         weightContext: getAutomaticWeightContext(exercise.weightType),
+                        extraWeightKg: null,
                       }));
                       setLoggedSetsData(initialLoggedSets);
                       setNumSets(preferredSets);
@@ -686,6 +713,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                               weightUsed: set.weightUsed ?? null,
                               completed: set.completed ?? false,
                               weightContext: set.weightContext || getAutomaticWeightContext(exercise.weightType),
+                              extraWeightKg: set.extraWeightKg ?? null,
                             };
                             return loadedSet;
                           });
@@ -694,10 +722,11 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                         } else {
                           const initialSets = parseInt(exercise.sets.toString()) || 3;
                           const initialLoggedSets = Array(initialSets).fill(null).map(() => ({
-                            repsAchieved: null,
-                            weightUsed: exercise.weightType === 'bodyweight' ? 0 : null,
+                            repsAchieved: timeInfo.isTime ? (timeInfo.seconds ?? null) : null,
+                            weightUsed: null,
                             completed: false,
                             weightContext: getAutomaticWeightContext(exercise.weightType),
+                            extraWeightKg: null,
                           }));
                           setLoggedSetsData(initialLoggedSets);
                           setNumSets(initialSets);
@@ -743,14 +772,14 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
         <div className="fixed inset-0 bg-gray-900/80 backdrop-blur-sm flex items-center justify-center p-4 z-[100]" onClick={() => setShowLogForm(false)}>
           <div className="bg-gray-700 p-4 sm:p-5 rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg sm:text-xl font-semibold text-fitness-gold-300 mb-3">{UI_TEXT.logExercise}: {exercise.name}</h3>
-            <p className="text-xs sm:text-sm text-gray-300 mb-1">План: {exercise.sets} підходів по {exercise.targetReps ?? exercise.reps} повторень.</p>
+            <p className="text-xs sm:text-sm text-gray-300 mb-1">План: {exercise.sets} підходів по {timeInfo.isTime ? `${timeInfo.seconds ?? (exercise.targetReps ?? exercise.reps)} сек утримання` : `${exercise.targetReps ?? exercise.reps} повторень`}.</p>
             {exercise.targetWeight !== null && exercise.targetWeight !== undefined && <p className="text-xs sm:text-sm text-gray-300 mb-2">Цільова вага: {exercise.targetWeight} кг.</p>}
             
             {correctedWeightType === 'bodyweight' ? (
-              <div className="bg-green-900/30 border border-green-500/30 rounded-md p-2 mb-3">
-                <p className="text-xs text-green-200 flex items-start">
-                  <i className="fas fa-check-circle mr-2 mt-0.5"></i>
-                  <span>Використовується ваша власна вага тіла (вводити не потрібно)</span>
+              <div className="bg-blue-900/30 border border-blue-500/30 rounded-md p-2 mb-3">
+                <p className="text-xs text-blue-200 flex items-start">
+                  <i className="fas fa-info-circle mr-2 mt-0.5"></i>
+                  <span>Власна вага тіла — додаткова вага вводиться у полі справа (за потреби).</span>
                 </p>
               </div>
             ) : correctedWeightType !== 'none' && (
@@ -808,14 +837,16 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                   <p className="text-xs font-medium text-yellow-300 mb-2">Підхід {setIndex + 1}</p>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label htmlFor={`reps-${setIndex}`} className="block text-xs text-fitness-gold-200 mb-1">{UI_TEXT.repsAchieved}</label>
+                      <label htmlFor={`reps-${setIndex}`} className="block text-xs text-fitness-gold-200 mb-1">{timeInfo.isTime ? 'Час (сек)' : UI_TEXT.repsAchieved}</label>
                       <input
                         type="number"
                         id={`reps-${setIndex}`}
                         min="0"
-                        placeholder={typeof (exercise.targetReps || exercise.reps) === 'string'
-                          ? (exercise.targetReps || exercise.reps).toString().split('-')[0]
-                          : (exercise.targetReps || exercise.reps)?.toString()}
+                        placeholder={timeInfo.isTime
+                          ? (timeInfo.seconds ? `${timeInfo.seconds}` : (typeof (exercise.targetReps || exercise.reps) === 'string' ? (exercise.targetReps || exercise.reps).toString().split('-')[0] : (exercise.targetReps || exercise.reps)?.toString()))
+                          : (typeof (exercise.targetReps || exercise.reps) === 'string'
+                              ? (exercise.targetReps || exercise.reps).toString().split('-')[0]
+                              : (exercise.targetReps || exercise.reps)?.toString())}
                         value={loggedSetsData[setIndex]?.repsAchieved ?? ''}
                         onChange={(e) => handleSetDataChange(setIndex, 'repsAchieved', e.target.value)}
                         className="w-full p-2.5 bg-gray-500 border border-gray-400 rounded-md text-gray-100 text-sm"
@@ -826,7 +857,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                       <>
                         <div>
                           <label htmlFor={`weight-${setIndex}`} className="block text-xs text-fitness-gold-200 mb-1">
-                            {getWeightLabel(correctedWeightType)}
+                            {correctedWeightType === 'bodyweight' ? 'Додаткова вага (кг)' : getWeightLabel(correctedWeightType)}
                           </label>
                           <div className="relative">
                             <input
@@ -834,16 +865,11 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                               id={`weight-${setIndex}`}
                               min="0"
                               step="0.5"
-                              placeholder={correctedWeightType === 'bodyweight' ? 'Авто' : ''}
-                              value={loggedSetsData[setIndex]?.weightUsed ?? (correctedWeightType === 'bodyweight' ? 0 : '')}
+                              placeholder={correctedWeightType === 'bodyweight' ? '' : ''}
+                              value={loggedSetsData[setIndex]?.weightUsed ?? ''}
                               onChange={(e) => handleSetDataChange(setIndex, 'weightUsed', e.target.value)}
-                              className={`w-full p-2.5 pr-16 border border-gray-400 rounded-md text-sm ${
-                                correctedWeightType === 'bodyweight' 
-                                  ? 'bg-gray-600 text-gray-400 cursor-not-allowed' 
-                                  : 'bg-gray-500 text-gray-100'
-                              }`}
+                              className={`w-full p-2.5 pr-16 border border-gray-400 rounded-md text-sm bg-gray-500 text-gray-100`}
                               required={correctedWeightType !== 'bodyweight'}
-                              disabled={correctedWeightType === 'bodyweight'}
                               onFocus={() => setFocusedWeightInput(setIndex)}
                               onBlur={() => setFocusedWeightInput(null)}
                             />
@@ -853,7 +879,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                                loggedSetsData[setIndex]?.weightUsed !== 0) || 
                               focusedWeightInput === setIndex ? 'opacity-0' : 'opacity-60'
                             }`}>
-                              {getWeightDisplayHint(correctedWeightType, exercise.name)}
+                              {correctedWeightType === 'bodyweight' ? 'Власна вага' : getWeightDisplayHint(correctedWeightType, exercise.name)}
                             </div>
                           </div>
                         </div>

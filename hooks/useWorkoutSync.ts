@@ -511,6 +511,7 @@ export const useWorkoutSync = (userId: string, workoutLogs: WorkoutLog[] = []) =
       repsAchieved: set.repsAchieved ?? null,
       weightUsed: set.weightUsed ?? null,
       completed: set.completed ?? false,
+      extraWeightKg: (set as any).extraWeightKg ?? null,
     }));
 
     const updatedExercises = session.sessionExercises.map((ex, idx) =>

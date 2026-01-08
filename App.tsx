@@ -1288,21 +1288,37 @@ const App: React.FC = () => {
                   currentWorkoutPlan={currentWorkoutPlan}
                   activeDay={session.activeDay}
                   onWorkoutPlanModified={async (modifiedPlan) => {
-                    if (!currentWorkoutPlan) return;
-                    
-                    // Update the current workout plan
-                    const updatedPlan = currentWorkoutPlan.map(day => 
-                      day.day === modifiedPlan.day ? modifiedPlan : day
-                    );
-                    
-                    setCurrentWorkoutPlan(updatedPlan);
-                    await saveWorkoutPlan(updatedPlan);
-                    
-                    // If currently in an active workout, update session exercises
-                    if (session.activeDay === modifiedPlan.day) {
-                      updateExerciseOrder(modifiedPlan.exercises);
-                    }
-                  }}
+                      // If we don't have a current plan yet, initialize with the modified plan
+                      if (!currentWorkoutPlan || !Array.isArray(currentWorkoutPlan) || currentWorkoutPlan.length === 0) {
+                        const initialPlan = [modifiedPlan];
+                        setCurrentWorkoutPlan(initialPlan);
+                        await saveWorkoutPlan(initialPlan);
+                        if (session.activeDay === modifiedPlan.day) {
+                          updateExerciseOrder(modifiedPlan.exercises);
+                        }
+                        return;
+                      }
+
+                      // Update the current workout plan (replace the matching day or append if missing)
+                      let found = false;
+                      const updatedPlan = currentWorkoutPlan.map(day => {
+                        if (day.day === modifiedPlan.day) {
+                          found = true;
+                          return modifiedPlan;
+                        }
+                        return day;
+                      });
+
+                      if (!found) updatedPlan.push(modifiedPlan);
+
+                      setCurrentWorkoutPlan(updatedPlan);
+                      await saveWorkoutPlan(updatedPlan);
+
+                      // If currently in an active workout, update session exercises
+                      if (session.activeDay === modifiedPlan.day) {
+                        updateExerciseOrder(modifiedPlan.exercises);
+                      }
+                    }}
                 />
               </div>
             </div>

@@ -152,6 +152,8 @@ export interface LoggedSetWithAchieved {
   weightUsed: number | null;
   completed?: boolean;
   weightContext?: 'total' | 'per_dumbbell' | 'bodyweight';
+  // Якщо вправа виконувалася з додатковою вагою (жилет, пласти, гиря тощо)
+  extraWeightKg?: number | null;
 }
 
 export interface LoggedExercise {
@@ -161,6 +163,8 @@ export interface LoggedExercise {
   targetWeightAtLogging?: number | null; // Цільова вага з плану на момент логування
   
   loggedSets: LoggedSetWithAchieved[]; // Масив виконаних підходів
+  // Якщо вправа виконувалася з додатковою вагою, можна зберегти її тут (загальне поле)
+  extraWeightKg?: number | null;
   
   completedSuccessfully?: boolean; // Чи була вправа успішно виконана
   notes?: string | null; // Додаткові нотатки до логу

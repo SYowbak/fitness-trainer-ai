@@ -311,13 +311,13 @@ const recommendationTemplates: Record<MovementPattern, RecommendationTemplate> =
   [MovementPattern.CORE]: {
     success: {
       text: (sets, reps, weight, weightType) =>
-        `Відмінно! ${sets} підходів по ${reps} повторень${weight > 0 ? ` з ${weight}${weightType === 'single' ? 'кг в кожній руці' : 'кг'}` : ''}. Тримайте тіло напруженим, контролюйте дихання.`,
+        `Відмінно! ${sets} підходів по ${reps} сек утримання${weight > 0 ? ` з ${weight}${weightType === 'single' ? 'кг в кожній руці' : 'кг'}` : ''}. Тримайте тіло напруженим, контролюйте дихання.`,
       weightIncrement: () => 0,
       action: 'increase_reps'
     },
     difficulty: {
       text: (sets, reps, weight, weightType) =>
-        `Виконано з труднощами. ${sets} підходів по ${reps} повторень${weight > 0 ? ` з ${weight}${weightType === 'single' ? 'кг в кожній руці' : 'кг'}` : ''}. Тримайте тіло напруженим, зосередьтеся на техніці.`,
+        `Виконано з труднощами. ${sets} підходів по ${reps} сек утримання${weight > 0 ? ` з ${weight}${weightType === 'single' ? 'кг в кожній руці' : 'кг'}` : ''}. Тримайте тіло напруженим, зосередьтеся на техніці.`,
       action: 'focus_technique'
     },
     base: {
@@ -365,7 +365,10 @@ export const generateExerciseRecommendation = (
   
   if (loggedExercise) {
     // Рекомендація на основі виконання
-    const avgWeight = loggedExercise.loggedSets?.reduce((sum, set) => sum + (set.weightUsed || 0), 0) / (loggedExercise.loggedSets?.length || 1) || 0;
+    const avgWeight = loggedExercise.loggedSets?.reduce((sum, set) => {
+      const effective = (set.weightUsed || 0) + (set.extraWeightKg || 0);
+      return sum + effective;
+    }, 0) / (loggedExercise.loggedSets?.length || 1) || 0;
     const avgReps = Math.round(loggedExercise.loggedSets?.reduce((sum, set) => sum + (set.repsAchieved || 0), 0) / (loggedExercise.loggedSets?.length || 1) || 0);
     const totalSets = loggedExercise.loggedSets?.length || 0;
     

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { WorkoutLog, LoggedExercise, EnergyLevel, SleepQuality, StressLevel, WellnessRecommendation } from '../types';
+import { detectTimeInfo } from '../utils/exerciseTypeDetector';
 import { UI_TEXT } from '../constants';
 
 // ExerciseLogRow з можливістю розгортання
@@ -20,11 +21,14 @@ const ExerciseLogRow: React.FC<{loggedEx: LoggedExercise}> = ({ loggedEx }) => {
       {isExpanded && (
         <div className="mt-2 space-y-1 pl-2 border-l-2 border-gray-600">
           <p>План: {loggedEx.originalSets ?? '-'} x {loggedEx.originalReps ?? '-'} @ {loggedEx.targetWeightAtLogging ?? 'N/A'}kg</p>
-          {loggedEx.loggedSets.map((set, i) => (
-            <p key={`${loggedEx.exerciseName}-${i}`} className="text-gray-300">
-              Підхід {i + 1}: {set.repsAchieved ?? '-'} повт. @ {set.weightUsed ?? '-'} кг
-            </p>
-          ))}
+          {loggedEx.loggedSets.map((set, i) => {
+            const timeInfo = detectTimeInfo(loggedEx.exerciseName || '');
+            return (
+              <p key={`${loggedEx.exerciseName}-${i}`} className="text-gray-300">
+                Підхід {i + 1}: {set.repsAchieved ?? '-'} {timeInfo.isTime ? 'сек.' : 'повт.'} @ {((set.weightUsed ?? '-') as any)} кг
+              </p>
+            );
+          })}
         </div>
       )}
     </div>
