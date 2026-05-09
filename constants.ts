@@ -99,33 +99,33 @@ export const EXPERIENCE_LEVEL_OPTIONS: Array<{ value: ExperienceLevel; label: st
 export const DEFAULT_TRAINING_FREQUENCY = 3;
 export const DEFAULT_WEIGHT_DECREMENT = 5; // kg for example
 
-export const GEMINI_MODEL_TEXT = 'gemini-3.1-flash';
+export const GEMINI_MODEL_TEXT = 'gemini-3-flash-preview';
 
 // Актуальні моделі Gemini 3.1 (оновлено 09.05.2026)
 export const GEMINI_MODELS = {
   // Швидкі інтерактивні відповіді (чат з тренером, генерація планів)
-  // gemini-3.1-flash — оптимальний баланс швидкості та інтелекту
-  CHAT: 'gemini-3.1-flash',
-  WORKOUT_GENERATION: 'gemini-3.1-flash',
+  // gemini-3-flash-preview — оптимальний баланс швидкості та інтелекту
+  CHAT: 'gemini-3-flash-preview',
+  WORKOUT_GENERATION: 'gemini-3-flash-preview',
   
   // Складний аналіз — найрозумніша модель для складних логічних задач
-  // gemini-3.1-pro-latest — максимальна якість для аналізу прогресу, трендів
-  ANALYSIS: 'gemini-3.1-pro-latest',
+  // gemini-3.1-pro-preview — максимальна якість для аналізу прогресу, трендів
+  ANALYSIS: 'gemini-3.1-pro-preview',
   
   // Легкі та швидкі задачі (варіації вправ, рекомендації самопочуття)
-  // gemini-3.1-flash-lite-latest — максимально дешева та швидка для простих запитів
-  LIGHT_TASKS: 'gemini-3.1-flash-lite-latest',
+  // gemini-3-flash-lite — максимально дешева та швидка для простих запитів
+  LIGHT_TASKS: 'gemini-3-flash-lite',
   
   // За замовчуванням
-  DEFAULT: 'gemini-3.1-flash'
+  DEFAULT: 'gemini-3-flash-preview'
 } as const;
 
 // Інформація про ліміти Free Tier для моніторингу (Gemini 3.1)
 export const FREE_TIER_LIMITS = {
-  'gemini-3.1-pro-latest': { rpm: 5, rpd: 100 },           // Найрозумніша, але обмежена квота
-  'gemini-3.1-flash': { rpm: 10, rpd: 250 },               // Збалансована — основна робоча модель
-  'gemini-3.1-flash-lite-latest': { rpm: 15, rpd: 1000 },  // Найекономніша — для частого використання
-  'gemini-3.1-flash-live': { rpm: 10, rpd: 250 },          // Потокове аудіо/відео (Multimodal Live API)
+  'gemini-3.1-pro-preview': { rpm: 5, rpd: 100 },           // Найрозумніша, але обмежена квота
+  'gemini-3-flash-preview': { rpm: 10, rpd: 250 },               // Збалансована — основна робоча модель
+  'gemini-3-flash-lite': { rpm: 15, rpd: 1000 },  // Найекономніша — для частого використання
+  'gemini-3-flash-live': { rpm: 10, rpd: 250 },          // Потокове аудіо/відео (Multimodal Live API)
 } as const;
 
 export const UI_TEXT = {

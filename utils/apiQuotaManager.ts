@@ -514,9 +514,9 @@ export const quotaManager = ApiQuotaManager.getInstance();
  * При наближенні до ліміту перемикаємось на більш економні моделі
  * 
  * Ліміти моделей (Free Tier):
- * - pro-latest: 100 RPD (найдорожча)
- * - flash: 250 RPD (основна)
- * - flash-lite-latest: 1000 RPD (найдешевша)
+ * - pro-preview: 100 RPD (найдорожча)
+ * - flash-preview: 250 RPD (основна)
+ * - flash-lite: 1000 RPD (найдешевша)
  */
 export function getSmartModel(preferredModel: string): string {
   const status = quotaManager.getQuotaStatus();
@@ -536,7 +536,7 @@ export function getSmartModel(preferredModel: string): string {
   if (usagePercent >= 50 && usagePercent < 75) {
     if (preferredModel.includes('pro')) {
       console.log(`📉 [QUOTA] Downgrade pro → flash (usage: ${usagePercent.toFixed(0)}%)`);
-      return 'gemini-3.1-flash';
+      return 'gemini-3-flash-preview';
     }
     return preferredModel;
   }
@@ -545,14 +545,14 @@ export function getSmartModel(preferredModel: string): string {
   if (usagePercent >= 75 && usagePercent < 90) {
     if (!preferredModel.includes('lite')) {
       console.log(`📉 [QUOTA] Downgrade ${preferredModel} → flash-lite (usage: ${usagePercent.toFixed(0)}%)`);
-      return 'gemini-3.1-flash-lite-latest';
+      return 'gemini-3-flash-lite';
     }
     return preferredModel;
   }
   
   // При 90%+ — все на найекономнішу модель
   console.log(`🚨 [QUOTA] Critical usage (${usagePercent.toFixed(0)}%) — forcing flash-lite`);
-  return 'gemini-3.1-flash-lite-latest';
+  return 'gemini-3-flash-lite';
 }
 /**
  * Force clear quota exceeded status and reset to usable state
