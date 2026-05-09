@@ -79,10 +79,22 @@ const App: React.FC = () => {
     // Це гарантує, що рекомендації з аналізу завжди використовуються, навіть після перезавантаження
     if (session.exerciseRecommendations) {
       setExerciseRecommendations(session.exerciseRecommendations);
-    } else {
+      return;
+    }
+
+    if (session.activeDay !== null) {
+      const restored = backgroundAnalysisService.getRecommendationsForDay(workoutLogs, session.activeDay);
+      if (restored.length > 0) {
+        setExerciseRecommendations(restored);
+        updateExerciseRecommendations(restored);
+        return;
+      }
+    }
+
+    if ((session.exerciseRecommendations?.length ?? 0) === 0) {
       setExerciseRecommendations([]);
     }
-  }, [session.exerciseRecommendations]);
+  }, [session.exerciseRecommendations, session.activeDay, workoutLogs, updateExerciseRecommendations]);
 
   // Виділення обмежень здоров'я з нотаток самопочуття
   const extractConstraintsFromNotes = useCallback((notes?: string): string[] => {
@@ -387,36 +399,7 @@ const App: React.FC = () => {
     }
   }, [workoutLogs]);
 
-  // Отримуємо варіації вправ для поточного плану
-  const loadExerciseVariations = useCallback(async () => {
-    if (!userProfile || !currentWorkoutPlan || !workoutLogs || !workoutLogs.length) return;
 
-    const variationsMap = new Map<string, any[]>();
-    
-    for (const dayPlan of currentWorkoutPlan) {
-      for (const exercise of dayPlan.exercises) {
-        try {
-          const variations = await getExerciseVariations(
-            userProfile,
-            exercise,
-            workoutLogs,
-            'general' // Можна покращити визначення цільової групи м'язів
-          );
-          if (variations.length > 0) {
-            variationsMap.set(exercise.name, variations);
-          }
-        } catch (error) {
-          console.error(`Помилка при отриманні варіацій для ${exercise.name}:`, error);
-        }
-      }
-    }
-    
-    setExerciseVariations(variationsMap);
-  }, [userProfile, currentWorkoutPlan, workoutLogs]);
-
-  useEffect(() => {
-    loadExerciseVariations();
-  }, [loadExerciseVariations]);
 
   // Оновлення профілю БЕЗ генерації плану (тільки збереження)
   const handleProfileUpdate = useCallback(async (profile: UserProfile) => {
@@ -766,6 +749,39 @@ const App: React.FC = () => {
     });
   }, [currentWorkoutPlan, saveWorkoutPlan]);
 
+  // Фонове завантаження варіацій вправ при старті тренування
+  const loadExerciseVariations = useCallback(async (dayExercises: Exercise[]) => {
+    if (!userProfile || workoutLogs.length < 3) return;
+
+    console.log('🔄 [APP] Loading exercise variations for', dayExercises.length, 'exercises');
+    
+    // Очищаємо попередні варіації
+    setExerciseVariations(new Map());
+
+    // Перевіряємо кожну вправу на необхідність варіації (в фоні, без блокування)
+    for (const exercise of dayExercises) {
+      try {
+        const variations = await getExerciseVariations(
+          userProfile,
+          exercise,
+          workoutLogs,
+          exercise.name
+        );
+        
+        if (variations.length > 0) {
+          console.log(`✅ [APP] Got ${variations.length} variations for "${exercise.name}"`);
+          setExerciseVariations(prev => {
+            const newMap = new Map(prev);
+            newMap.set(exercise.name, variations);
+            return newMap;
+          });
+        }
+      } catch (error) {
+        console.warn(`⚠️ [APP] Failed to load variations for "${exercise.name}":`, error);
+      }
+    }
+  }, [userProfile, workoutLogs]);
+
   const handleDeleteAccount = async () => {
     if (!user) return;
     
@@ -1019,6 +1035,11 @@ const App: React.FC = () => {
       await updateAdaptiveWorkoutPlan(adaptiveWorkout);
       // Оновлення wellnessRecommendations відбудеться після фонового отримання
       
+      // Фонове завантаження варіацій вправ (не блокує UI)
+      loadExerciseVariations(adaptiveWorkout.exercises).catch(err => 
+        console.warn('⚠️ [APP] Background variation loading failed:', err)
+      );
+      
       setPendingWorkoutDay(null);
     } catch (error: any) {
       console.error('❌ [APP] Error in handleWellnessCheckSubmit:', error);
@@ -1071,7 +1092,11 @@ const App: React.FC = () => {
       setIsProcessingWellness(false);
       setWellnessProcessingStep('');
     }
+<<<<<<< HEAD
   }, [userProfile, currentWorkoutPlan, workoutLogs, saveWorkoutPlan, pendingWorkoutDay, startWorkout, updateWellnessCheck, updateAdaptiveWorkoutPlan, updateWellnessRecommendations, exerciseRecommendations, applyAIRecommendationsToPlan]);
+=======
+  }, [userProfile, currentWorkoutPlan, workoutLogs, saveWorkoutPlan, pendingWorkoutDay, startWorkout, updateWellnessCheck, updateAdaptiveWorkoutPlan, updateWellnessRecommendations, loadExerciseVariations]);
+>>>>>>> d570a43 (feat: update gemini model constants and api quotas)
 
   const handleWellnessCheckSkip = useCallback(async () => {
     if (pendingWorkoutDay === null || !currentWorkoutPlan) {
@@ -1091,6 +1116,7 @@ const App: React.FC = () => {
     setIsLoading(true);
 
     try {
+<<<<<<< HEAD
       // Застосовуємо рекомендації ШІ до плану перед стартом
       const recommendations = exerciseRecommendations.length > 0 
         ? exerciseRecommendations 
@@ -1112,6 +1138,15 @@ const App: React.FC = () => {
       }
       
       await startWorkout(dayPlan.day, exercisesToStart);
+=======
+      await startWorkout(dayPlan.day, dayPlan.exercises);
+      
+      // Фонове завантаження варіацій вправ (не блокує UI)
+      loadExerciseVariations(dayPlan.exercises).catch(err => 
+        console.warn('⚠️ [APP] Background variation loading failed:', err)
+      );
+      
+>>>>>>> d570a43 (feat: update gemini model constants and api quotas)
       setPendingWorkoutDay(null);
     } catch (error: any) {
       console.error('Error starting workout without wellness check:', error);
@@ -1119,7 +1154,11 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
+<<<<<<< HEAD
   }, [pendingWorkoutDay, currentWorkoutPlan, startWorkout, exerciseRecommendations, workoutLogs, applyAIRecommendationsToPlan, saveWorkoutPlan]);
+=======
+  }, [pendingWorkoutDay, currentWorkoutPlan, startWorkout, loadExerciseVariations]);
+>>>>>>> d570a43 (feat: update gemini model constants and api quotas)
 
   const renderView = () => {
     if (!user) {

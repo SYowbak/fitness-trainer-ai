@@ -1021,23 +1021,179 @@ export const generateExerciseVariations = async (
   exerciseName: string,
   userProfile: UserProfile,
   reason: string = "general"
-): Promise<any[]> => {
+): Promise<Exercise[]> => {
   console.log('🔄 [VARIATIONS] Generating variations for:', exerciseName);
   
-  // Повертаємо порожній масив для простоти
-  return [];
+  if (!ai) {
+    console.warn('❌ [VARIATIONS] AI not initialized');
+    return [];
+  }
+
+  // Перевіряємо квоту перед генерацією — варіації мають низький пріоритет
+  if (!shouldEnableAIFeature('variations')) {
+    console.log('⏸️ [VARIATIONS] Skipped — quota too high for low-priority features');
+    return [];
+  }
+
+  try {
+    // Використовуємо LIGHT_TASKS напряму — це вже найекономніша модель,
+    // getSmartModel не потрібен (нема куди далі downgrade)
+    const model = ai.getGenerativeModel({ 
+      model: GEMINI_MODELS.LIGHT_TASKS,
+      generationConfig: {
+        temperature: 0.8,
+        topK: 40,
+        topP: 0.95,
+        maxOutputTokens: 3000
+      }
+    });
+
+    const experienceText = getUkrainianExperienceLevel(userProfile.experienceLevel);
+    const goalText = getUkrainianGoal(userProfile.goal);
+    const genderText = getUkrainianGender(userProfile.gender);
+
+    const prompt = `Ти — досвідчений фітнес-тренер. Запропонуй 2 альтернативні варіації для вправи "${exerciseName}".
+
+ПРОФІЛЬ КОРИСТУВАЧА:
+- Стать: ${genderText}
+- Рівень: ${experienceText}
+- Ціль: ${goalText}
+- Вага тіла: ${userProfile.weight} кг
+
+ПРИЧИНА ЗАМІНИ: ${reason}
+
+ВИМОГИ:
+1. Варіації мають працювати на ті самі групи м'язів
+2. Одна варіація — легша/простіша альтернатива, друга — складніша або інший кут навантаження
+3. Кожна варіація повинна мати детальний опис техніки (4-6 речень)
+4. Вказуй реалістичну цільову вагу для рівня користувача
+
+Надай відповідь ВИКЛЮЧНО у JSON форматі (масив з 2 об'єктів):
+[
+  {
+    "name": "Назва вправи українською",
+    "description": "Детальний покроковий опис техніки виконання",
+    "sets": "3-4",
+    "reps": "10-12",
+    "rest": "60-90 секунд",
+    "weightType": "total|single|bodyweight|none",
+    "targetWeight": null,
+    "videoSearchQuery": "пошуковий запит для YouTube",
+    "reason": "Чому ця варіація корисна (коротко)"
+  }
+]`;
+
+    const result = await withQuotaManagement(async () => {
+      const response = await model.generateContent(prompt);
+      return response.response.text();
+    }, '', { priority: 'low', skipOnQuotaExceeded: true });
+
+    if (!result) return [];
+
+    let jsonStr = result.trim();
+
+    // Видаляємо markdown-розмітки
+    const fenceRegex = /^```(?:json)?\s*\n?(.*?)\n?\s*```$/s;
+    const match = jsonStr.match(fenceRegex);
+    if (match && match[1]) {
+      jsonStr = match[1].trim();
+    }
+
+    // Знаходимо JSON масив
+    if (!jsonStr.startsWith('[')) {
+      const arrayMatch = jsonStr.match(/\[[\s\S]*\]/);
+      if (arrayMatch) {
+        jsonStr = arrayMatch[0];
+      } else {
+        console.warn('⚠️ [VARIATIONS] No JSON array found in response');
+        return [];
+      }
+    }
+
+    const parsed = JSON.parse(jsonStr);
+    
+    if (!Array.isArray(parsed)) return [];
+
+    // Перетворюємо на Exercise об'єкти
+    const variations: Exercise[] = parsed.slice(0, 2).map((v: any) => ({
+      id: uuidv4(),
+      name: v.name || 'Варіація',
+      description: v.description || '',
+      sets: v.sets || '3',
+      reps: v.reps || '10-12',
+      rest: v.rest || '60 секунд',
+      weightType: v.weightType || 'total',
+      targetWeight: v.targetWeight || null,
+      targetReps: null,
+      videoSearchQuery: v.videoSearchQuery || null,
+      recommendation: null,
+      isCompletedDuringSession: false,
+      sessionLoggedSets: [],
+      sessionSuccess: null,
+      notes: v.reason || null
+    }));
+
+    console.log('✅ [VARIATIONS] Generated', variations.length, 'variations for', exerciseName);
+    return variations;
+
+  } catch (error: any) {
+    console.error('❌ [VARIATIONS] Error generating variations:', error.message);
+    return [];
+  }
 };
 
+/**
+ * Визначає чи потрібно пропонувати варіації для вправи
+ * Враховує кількість тренувань з цією вправою, наявність плато, час від останньої заміни
+ */
 export const shouldVaryExercise = (
   exerciseName: string,
   userProfile: UserProfile,
   workoutHistory: WorkoutLog[]
 ): boolean => {
-  // Перевіряємо чи workoutHistory існує та не порожній
-  if (!workoutHistory || !Array.isArray(workoutHistory)) {
+  if (!workoutHistory || !Array.isArray(workoutHistory) || workoutHistory.length < 3) {
     return false;
   }
-  
-  // Проста логіка - варіювати кожну 5-ту вправу
-  return workoutHistory.length % 5 === 0;
+
+  // Рахуємо скільки разів ця вправа виконувалась
+  const exerciseOccurrences = workoutHistory.filter(log =>
+    log.loggedExercises?.some(ex => ex.exerciseName === exerciseName)
+  ).length;
+
+  // Пропонуємо варіації якщо вправа виконувалась 5+ разів
+  if (exerciseOccurrences < 5) {
+    return false;
+  }
+
+  // Перевіряємо чи є плато (вага та повторення не змінювались 3+ тренування поспіль)
+  const recentLogs = workoutHistory
+    .filter(log => log.loggedExercises?.some(ex => ex.exerciseName === exerciseName))
+    .slice(0, 4); // Останні 4 тренування з цією вправою
+
+  if (recentLogs.length >= 3) {
+    const weights = recentLogs.map(log => {
+      const ex = log.loggedExercises?.find(e => e.exerciseName === exerciseName);
+      if (!ex?.loggedSets?.length) return null;
+      const avgWeight = ex.loggedSets.reduce((sum, s) => sum + (s.weightUsed || 0), 0) / ex.loggedSets.length;
+      return Math.round(avgWeight * 10) / 10;
+    }).filter(w => w !== null);
+
+    // Якщо всі останні 3+ тренування з однаковою вагою — плато
+    if (weights.length >= 3) {
+      const allSameWeight = weights.slice(0, 3).every(w => w === weights[0]);
+      if (allSameWeight) {
+        console.log(`📊 [VARIATIONS] Plateau detected for "${exerciseName}" — weight unchanged for 3+ sessions`);
+        return true;
+      }
+    }
+  }
+
+  // Пропонуємо варіації кожне 8-е виконання вправи (для різноманітності)
+  if (exerciseOccurrences % 8 === 0) {
+    console.log(`🔄 [VARIATIONS] Periodic variation suggestion for "${exerciseName}" (${exerciseOccurrences} occurrences)`);
+    return true;
+  }
+
+  return false;
 };
+

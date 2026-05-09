@@ -39,11 +39,13 @@ function cleanWorkoutPlanForFirestore(plan: DailyWorkoutPlan[]): DailyWorkoutPla
       ...day,
       exercises: day.exercises.map(ex => {
         const cleanedExercise = {
+          id: ex.id,                // Критично: без id ламається key prop, drag-and-drop, варіації
           name: ex.name,
           description: ex.description,
           sets: ex.sets,
           reps: ex.reps,
           rest: ex.rest, // ex.rest повинен бути рядком відповідно до інтерфейсу Exercise
+          weightType: ex.weightType || 'total',  // Критично: без weightType ламається UI ваги
           videoSearchQuery: ex.videoSearchQuery ?? null,
           targetWeight: ex.targetWeight ?? null,
           targetReps: ex.targetReps ?? null,

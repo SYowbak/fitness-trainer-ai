@@ -22,7 +22,7 @@ interface RetryInfo {
 class ApiQuotaManager {
   private static instance: ApiQuotaManager;
   private readonly STORAGE_KEY = 'gemini_quota_status';
-  private readonly DEFAULT_DAILY_LIMIT = 100; // Підвищуємо ліміт для Flash моделей (250 RPD)
+  private readonly DEFAULT_DAILY_LIMIT = 200; // Flash = 250 RPD, залишаємо запас 50 RPD для безпеки
   private readonly RESET_HOUR = 0; // Reset at midnight
 
   private constructor() {}
@@ -56,6 +56,14 @@ class ApiQuotaManager {
       if (status.isExceeded && status.retryAfter && Date.now() >= status.retryAfter) {
         status.isExceeded = false;
         status.retryAfter = undefined;
+        this.saveQuotaStatus(status);
+      }
+
+      // Міграція ліміту: якщо збережений ліміт менший за поточний DEFAULT,
+      // оновлюємо (користувач мав стару версію з DEFAULT_DAILY_LIMIT = 100)
+      if (status.dailyLimit < this.DEFAULT_DAILY_LIMIT) {
+        console.log(`📈 [QUOTA] Migrating daily limit: ${status.dailyLimit} → ${this.DEFAULT_DAILY_LIMIT}`);
+        status.dailyLimit = this.DEFAULT_DAILY_LIMIT;
         this.saveQuotaStatus(status);
       }
 
@@ -476,26 +484,24 @@ export function shouldEnableAIFeature(feature: 'variations' | 'analysis' | 'chat
   }
   
   // Смарт-логіка для Free Tier: зберігаємо запити для важливих функцій
+  // DEFAULT_DAILY_LIMIT = 200 (з запасом від flash 250 RPD)
   const usagePercent = (status.requestCount / status.dailyLimit) * 100;
   
-  // Пріоритетні функції за важливістю
-  const highPriorityFeatures = ['chat']; // Чат - найважливіше
-  const mediumPriorityFeatures = ['analysis']; // Аналіз - середній пріоритет
-  const lowPriorityFeatures = ['variations', 'recommendations']; // Низький пріоритет
-  
-  // Чат завжди доступний (навіть при 90% використання)
-  if (highPriorityFeatures.includes(feature)) {
+  // Чат завжди доступний (навіть при 95% використання)
+  if (feature === 'chat') {
     return usagePercent < 95;
   }
   
-  // Аналіз доступний до 70% використання
-  if (mediumPriorityFeatures.includes(feature)) {
-    return usagePercent < 70;
+  // Аналіз тренувань — важливий, доступний до 80%
+  if (feature === 'analysis') {
+    return usagePercent < 80;
   }
   
-  // Низькопріоритетні до 50%
-  if (lowPriorityFeatures.includes(feature)) {
-    return usagePercent < 50;
+  // Варіації та рекомендації — низький пріоритет, вимикаються при 60%
+  // (варіації використовують flash-lite з лімітом 1000 RPD,
+  //  але рахуємо в загальний лічильник для безпеки)
+  if (feature === 'variations' || feature === 'recommendations') {
+    return usagePercent < 60;
   }
   
   return usagePercent < 80; // За замовчуванням
@@ -506,33 +512,47 @@ export const quotaManager = ApiQuotaManager.getInstance();
 /**
  * Розумний вибір моделі на основі поточного використання квоти
  * При наближенні до ліміту перемикаємось на більш економні моделі
+ * 
+ * Ліміти моделей (Free Tier):
+ * - pro-latest: 100 RPD (найдорожча)
+ * - flash: 250 RPD (основна)
+ * - flash-lite-latest: 1000 RPD (найдешевша)
  */
 export function getSmartModel(preferredModel: string): string {
   const status = quotaManager.getQuotaStatus();
   const usagePercent = (status.requestCount / status.dailyLimit) * 100;
   
-  // Якщо використано менше 50% - використовуємо оригінальну модель
+  // flash-lite — вже найекономніша модель, далі downgrade немає сенсу
+  if (preferredModel.includes('lite')) {
+    return preferredModel;
+  }
+  
+  // Якщо використано менше 50% — використовуємо оригінальну модель
   if (usagePercent < 50) {
     return preferredModel;
   }
   
-  // При 50-80% використання - перемикаємось на Flash-Lite для некритичних задач
-  if (usagePercent >= 50 && usagePercent < 80) {
-    // Для некритичних задач перемикаємось на Lite версію
-    if (preferredModel.includes('gemini-2.5-flash') && !preferredModel.includes('lite')) {
-      return preferredModel.includes('preview-09-2025') 
-        ? 'gemini-2.5-flash-lite-preview-09-2025' 
-        : 'gemini-2.5-flash-lite';
+  // При 50-75%: pro → flash, flash залишається flash
+  if (usagePercent >= 50 && usagePercent < 75) {
+    if (preferredModel.includes('pro')) {
+      console.log(`📉 [QUOTA] Downgrade pro → flash (usage: ${usagePercent.toFixed(0)}%)`);
+      return 'gemini-3.1-flash';
     }
     return preferredModel;
   }
   
-  // При 80%+ - все на найекономнішу модель
-  if (usagePercent >= 80) {
-    return 'gemini-2.5-flash-lite-preview-09-2025'; // Найекономніша модель
+  // При 75-90%: все крім lite → flash-lite
+  if (usagePercent >= 75 && usagePercent < 90) {
+    if (!preferredModel.includes('lite')) {
+      console.log(`📉 [QUOTA] Downgrade ${preferredModel} → flash-lite (usage: ${usagePercent.toFixed(0)}%)`);
+      return 'gemini-3.1-flash-lite-latest';
+    }
+    return preferredModel;
   }
   
-  return preferredModel;
+  // При 90%+ — все на найекономнішу модель
+  console.log(`🚨 [QUOTA] Critical usage (${usagePercent.toFixed(0)}%) — forcing flash-lite`);
+  return 'gemini-3.1-flash-lite-latest';
 }
 /**
  * Force clear quota exceeded status and reset to usable state
