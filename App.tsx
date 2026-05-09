@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { UserProfile, DailyWorkoutPlan, WorkoutLog, LoggedExercise, LoggedSetWithAchieved, ExerciseRecommendation, Exercise } from './types';
 import { UI_TEXT, GEMINI_MODEL_TEXT, formatTime } from './constants';
 import Navbar from './components/Navbar';
@@ -33,13 +33,13 @@ import AddExerciseModal from './components/AddExerciseModal';
 type View = 'profile' | 'workout' | 'progress';
 
 const App: React.FC = () => {
-  
+
   const { user, loading, logout, setUser } = useAuth();
   const { workoutPlan, saveWorkoutPlan, profile: firestoreProfile, workoutLogs: firestoreWorkoutLogs, saveProfile, saveWorkoutLog } = useUserData();
-  const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
-  const { session, startWorkout, updateExercise, addCustomExercise, endWorkout, updateTimer, updateWellnessCheck, updateAdaptiveWorkoutPlan, updateWellnessRecommendations, updateExerciseOrder, updateExerciseRecommendations } = useWorkoutSync(user?.uid || '', workoutLogs);
+  const { session, startWorkout, updateExercise, addCustomExercise, endWorkout, updateTimer, updateWellnessCheck, updateAdaptiveWorkoutPlan, updateWellnessRecommendations, updateExerciseOrder, updateExerciseRecommendations } = useWorkoutSync(user?.uid || '');
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [currentWorkoutPlan, setCurrentWorkoutPlan] = useState<DailyWorkoutPlan[] | null>(null);
+  const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<View>('workout');
@@ -53,7 +53,7 @@ const App: React.FC = () => {
     consistencyScore: number;
   } | null>(null);
   const [wellnessCheckModalOpen, setWellnessCheckModalOpen] = useState<boolean>(false);
-  
+
   // Debug wellness modal state changes
   useEffect(() => {
   }, [wellnessCheckModalOpen]);
@@ -71,13 +71,8 @@ const App: React.FC = () => {
   const [wellnessProcessingStep, setWellnessProcessingStep] = useState<string>('');
   const [isAddExerciseOpen, setIsAddExerciseOpen] = useState(false);
 
-  // Ref для відстеження чи вже виконана синхронізація при запуску
-  const hasSyncedRef = useRef(false);
-
   useEffect(() => {
-    // Завжди синхронізуємо exerciseRecommendations з session.exerciseRecommendations
-    // Це гарантує, що рекомендації з аналізу завжди використовуються, навіть після перезавантаження
-    if (session.exerciseRecommendations) {
+    if (session.exerciseRecommendations && session.exerciseRecommendations.length > 0) {
       setExerciseRecommendations(session.exerciseRecommendations);
       return;
     }
@@ -128,7 +123,7 @@ const App: React.FC = () => {
     if (typeof (import.meta as any).env === 'undefined' || !(import.meta as any).env.VITE_API_KEY) {
       setApiKeyMissing(true);
     }
-    
+
     // Очищуємо застарілі дані та перевіряємо здоров'я localStorage при запуску
     clearStaleOfflineData();
     if (!checkLocalStorageHealth()) {
@@ -140,7 +135,6 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!user) {
       setHasInitializedView(false);
-      hasSyncedRef.current = false; // Скидаємо синхронізацію при виході
     }
   }, [user]);
 
@@ -162,12 +156,12 @@ const App: React.FC = () => {
           console.log('🔄 Оновлюємо профіль з Firebase');
           setUserProfile(firestoreProfile);
         }
-        
+
         if (JSON.stringify(firestoreWorkoutLogs) !== JSON.stringify(workoutLogs)) {
           console.log('🔄 Оновлюємо логи з Firebase');
           setWorkoutLogs(firestoreWorkoutLogs);
         }
-        
+
         // Зберігаємо в localStorage тільки якщо є нові дані
         if (firestoreProfile || firestoreWorkoutLogs.length > 0) {
           saveOfflineData({
@@ -200,7 +194,7 @@ const App: React.FC = () => {
     const queue = getOfflineQueue();
     if (queue.length > 0) {
       console.log(`🔄 Синхронізуємо ${queue.length} офлайн дій`);
-      
+
       try {
         await syncOfflineQueue({
           saveWorkoutLog: async (data) => {
@@ -222,7 +216,7 @@ const App: React.FC = () => {
             await saveWorkoutPlan(data);
           }
         });
-        
+
         console.log('✅ Офлайн синхронізація завершена успішно');
       } catch (error) {
         console.error('❌ Помилка синхронізації офлайн даних:', error);
@@ -247,9 +241,8 @@ const App: React.FC = () => {
 
   // Синхронізація при запуску додатку (якщо є мережа)
   useEffect(() => {
-    if (user && userProfile && currentWorkoutPlan && isOnline() && !hasSyncedRef.current) {
+    if (user && userProfile && currentWorkoutPlan && isOnline()) {
       console.log('🚀 Додаток запущено - перевіряємо офлайн чергу');
-      hasSyncedRef.current = true;
       // Невелика затримка щоб Firebase встиг ініціалізуватися
       const timer = setTimeout(() => {
         syncOfflineData();
@@ -273,7 +266,7 @@ const App: React.FC = () => {
   useEffect(() => {
     // Безпечна перевірка наявності плану тренувань
     const hasWorkoutPlan = currentWorkoutPlan && Array.isArray(currentWorkoutPlan) && currentWorkoutPlan.length > 0;
-    
+
     // Перевіряємо тільки якщо користувач авторизований, це перше завантаження і ще не було ініціалізації
     if (user && !hasInitializedView) {
       if (hasWorkoutPlan && currentView === 'profile') {
@@ -351,7 +344,7 @@ const App: React.FC = () => {
         mounted = false;
         try {
           registration.removeEventListener('updatefound', onUpdateFound);
-        } catch {}
+        } catch { }
       };
     }).catch((err) => {
       console.warn('⚠️ [SW] Помилка при доступі до service worker ready:', err);
@@ -364,7 +357,7 @@ const App: React.FC = () => {
       navigator.serviceWorker.ready.then(registration => {
         // Повідомляємо Service Worker про готовність до оновлення
         registration.waiting?.postMessage({ type: 'SKIP_WAITING' });
-        
+
         // Перезавантажуємо сторінку для застосування оновлення
         window.location.reload();
       });
@@ -374,7 +367,7 @@ const App: React.FC = () => {
   // Firebase таймер: тільки онлайн для синхронізації між пристроями
   useEffect(() => {
     let timerInterval: number | null = null;
-    
+
     if (user && session.startTime && session.activeDay !== null && navigator.onLine) {
       const startTime = session.startTime;
       timerInterval = window.setInterval(() => {
@@ -383,7 +376,7 @@ const App: React.FC = () => {
         updateTimer(elapsedTime);
       }, 1000);
     }
-    
+
     return () => {
       if (timerInterval) {
         clearInterval(timerInterval);
@@ -404,7 +397,7 @@ const App: React.FC = () => {
   // Оновлення профілю БЕЗ генерації плану (тільки збереження)
   const handleProfileUpdate = useCallback(async (profile: UserProfile) => {
     console.log('🔵 [App.handleProfileUpdate] Оновлення профілю (тільки збереження):', profile.healthProfile?.conditions?.length || 0, 'умов');
-    
+
     if (apiKeyMissing) {
       setError(UI_TEXT.apiKeyMissing);
       return;
@@ -430,23 +423,23 @@ const App: React.FC = () => {
   // Адаптація існуючого плану під проблеми здоров'я
   const handleAdaptExistingPlan = useCallback(async (profile: UserProfile) => {
     console.log('🔄 [App.handleAdaptExistingPlan] Адаптація існуючого плану під проблеми здоров\'я:', profile.healthProfile?.conditions?.length || 0, 'умов');
-    
+
     if (apiKeyMissing) {
       setError(UI_TEXT.apiKeyMissing);
       return;
     }
-    
+
     if (!currentWorkoutPlan || currentWorkoutPlan.length === 0) {
       setError("Немає існуючого плану для адаптації. Спочатку створіть план тренувань.");
       return;
     }
-    
+
     // Перевіряємо чи є активне тренування
     if (session.activeDay !== null) {
-      if(!confirm("У вас є активне тренування. Адаптація плану завершить його без збереження. Продовжити?")) return;
+      if (!confirm("У вас є активне тренування. Адаптація плану завершить його без збереження. Продовжити?")) return;
       endWorkout(); // Завершуємо активну сесію Firebase
     }
-    
+
     setIsLoading(true);
     setError(null);
     try {
@@ -454,7 +447,7 @@ const App: React.FC = () => {
         ...profile,
         targetMuscleGroups: profile.targetMuscleGroups || [],
       };
-      
+
       // Оновлюємо статус адаптації плану
       const activeConditions = profileToSave.healthProfile?.conditions?.filter(c => c.isActive) || [];
       const updatedProfileWithStatus = {
@@ -472,16 +465,16 @@ const App: React.FC = () => {
           }
         }
       };
-      
+
       // Спочатку зберігаємо оновлений профіль зі статусом адаптації
       console.log('🔄 [App.handleAdaptExistingPlan] Зберігаємо оновлений профіль зі статусом адаптації');
       await saveProfile(updatedProfileWithStatus);
-      
+
       // Потім генеруємо новий план з урахуванням проблем здоров'я
       console.log('🏋️ [App.handleAdaptExistingPlan] Генеруємо адаптований план');
       const adaptedPlan = await apiGenerateWorkoutPlan(updatedProfileWithStatus, GEMINI_MODEL_TEXT);
       await saveWorkoutPlan(adaptedPlan);
-      
+
       console.log('✅ [App.handleAdaptExistingPlan] План успішно адаптовано');
       setCurrentView('workout'); // Переходимо до плану тренувань
     } catch (e: any) {
@@ -523,8 +516,8 @@ const App: React.FC = () => {
     }
     if (userProfile) {
       if (session.activeDay !== null) { // Використовуємо session.activeDay
-         if(!confirm("У вас є активне тренування. Створення нового плану завершить його без збереження. Продовжити?")) return;
-         endWorkout(); // Завершуємо активну сесію Firebase
+        if (!confirm("У вас є активне тренування. Створення нового плану завершить його без збереження. Продовжити?")) return;
+        endWorkout(); // Завершуємо активну сесію Firebase
       }
       setIsLoading(true);
       setError(null);
@@ -544,42 +537,11 @@ const App: React.FC = () => {
     }
   }, [userProfile, apiKeyMissing, session.activeDay, endWorkout, saveWorkoutPlan]);
 
-  // Функція для застосування рекомендацій ШІ до плану тренування
-  const applyAIRecommendationsToPlan = useCallback((
-    exercises: Exercise[],
-    recommendations: ExerciseRecommendation[]
-  ): Exercise[] => {
-    if (recommendations.length === 0) {
-      return exercises;
-    }
-
-    // Створюємо мапу рекомендацій для швидкого пошуку
-    const recommendationsMap = new Map<string, ExerciseRecommendation>();
-    recommendations.forEach(rec => {
-      recommendationsMap.set(rec.exerciseName.toLowerCase(), rec);
-    });
-
-    // Оновлюємо вправи з рекомендаціями
-    return exercises.map(exercise => {
-      const recommendation = recommendationsMap.get(exercise.name.toLowerCase());
-      
-      if (recommendation && recommendation.suggestedWeight !== undefined && recommendation.suggestedWeight !== null) {
-        console.log(`🎯 [applyAIRecommendations] Оновлюємо ${exercise.name}: targetWeight ${exercise.targetWeight} → ${recommendation.suggestedWeight}кг`);
-        return {
-          ...exercise,
-          targetWeight: recommendation.suggestedWeight
-        };
-      }
-      
-      return exercise;
-    });
-  }, []);
-
   const handleStartWorkoutWithWellnessCheck = useCallback(async (dayNumber: number) => {
     // Завантажуємо рекомендації для цього дня з попередніх аналізів
     console.log('🔍 [handleStartWorkout] Завантажуємо рекомендації для дня', dayNumber);
     const dayRecommendations = backgroundAnalysisService.getRecommendationsForDay(workoutLogs, dayNumber);
-    
+
     if (dayRecommendations.length > 0) {
       console.log('✅ [handleStartWorkout] Знайдено рекомендації:', dayRecommendations.length);
       setExerciseRecommendations(dayRecommendations);
@@ -589,7 +551,7 @@ const App: React.FC = () => {
       setExerciseRecommendations([]);
       updateExerciseRecommendations([]);
     }
-    
+
     setPendingWorkoutDay(dayNumber);
     setWellnessCheckModalOpen(true);
   }, [workoutLogs]);
@@ -605,7 +567,7 @@ const App: React.FC = () => {
   const handleUndoSkipExercise = useCallback((exerciseIndex: number) => {
     updateExercise(exerciseIndex, [], false, false); // Скасовуємо пропуск, isSkipped = false
   }, [updateExercise]);
-  
+
   const handleEndWorkout = useCallback(async () => {
     if (session.activeDay === null || !currentWorkoutPlan || !Array.isArray(currentWorkoutPlan) || !session.startTime || !userProfile || !user) {
       console.error("[handleEndWorkout] Відсутні необхідні дані для завершення тренування");
@@ -643,7 +605,7 @@ const App: React.FC = () => {
     setAdaptiveWorkoutPlan(null); // Очищаємо адаптивний план
     setWellnessRecommendations([]);
     setWellnessRecommendationsModalOpen(false);
-    
+
     // Створюємо ОБ'ЄКТ логу, але без ID
     let workoutLog: WorkoutLog = {
       userId: user.uid,
@@ -668,7 +630,7 @@ const App: React.FC = () => {
         setWorkoutLogs(prev => [savedLog, ...prev]);
 
         console.log('🔄 [handleEndWorkout] Запускаємо фоновий аналіз тренування');
-        
+
         // Запускаємо фоновий аналіз (не блокує UI)
         backgroundAnalysisService.queueWorkoutForAnalysis(
           savedLog,
@@ -681,11 +643,11 @@ const App: React.FC = () => {
         });
 
         // НЕ очищуємо рекомендації - залишаємо поточні до отримання нових з аналізу
-      } 
+      }
       // Якщо офлайн - зберігаємо локально і додаємо в чергу синхронізації
       else {
         console.log('📵 Офлайн режим - зберігаємо тренування локально');
-        
+
         // Створюємо тимчасовий ID для офлайн логу
         const offlineLog = {
           ...workoutLog,
@@ -693,17 +655,17 @@ const App: React.FC = () => {
           isOffline: true,
           analysisStatus: 'pending' as const // Позначаємо що потрібен аналіз
         };
-        
+
         // Додаємо до локального стану
         setWorkoutLogs(prev => [offlineLog, ...prev]);
-        
+
         // Зберігаємо в офлайн чергу для синхронізації
         addToOfflineQueue({
           type: 'save_workout_log',
           data: workoutLog,
           timestamp: Date.now()
         });
-        
+
         // Оновлюємо офлайн дані
         const offlineData = getOfflineData();
         saveOfflineData({
@@ -712,18 +674,18 @@ const App: React.FC = () => {
         });
       }
       setIsWorkoutCompleteModalOpen(true); // Відкриваємо модальне вікно
-      
+
       // Примусово завантажуємо повний план тренувань з Firestore
       const fullPlan = await saveWorkoutPlan(null, true); // `true` для примусового завантаження
       if (fullPlan) {
         setCurrentWorkoutPlan(fullPlan);
       }
-      
+
     } catch (analysisError) {
       console.error("[handleEndWorkout] Помилка під час аналізу тренування:", analysisError);
       setError("Не вдалося проаналізувати тренування");
     }
-    
+
     setCurrentView('progress');
   }, [session, currentWorkoutPlan, userProfile, endWorkout, saveWorkoutLog, saveWorkoutPlan, workoutLogs, user]);
 
@@ -733,14 +695,14 @@ const App: React.FC = () => {
 
     const newWorkoutPlan = currentWorkoutPlan.map(dayPlan => ({
       ...dayPlan,
-      exercises: dayPlan.exercises.map(exercise => 
+      exercises: dayPlan.exercises.map(exercise =>
         exercise.name === exerciseName ? { ...variation, id: exercise.id } : exercise
       )
     }));
 
     setCurrentWorkoutPlan(newWorkoutPlan);
     await saveWorkoutPlan(newWorkoutPlan);
-    
+
     // Після вибору прибираємо варіації для цієї вправи з мапи, щоб не клікатись повторно
     setExerciseVariations(prev => {
       const newMap = new Map(prev);
@@ -754,7 +716,7 @@ const App: React.FC = () => {
     if (!userProfile || workoutLogs.length < 3) return;
 
     console.log('🔄 [APP] Loading exercise variations for', dayExercises.length, 'exercises');
-    
+
     // Очищаємо попередні варіації
     setExerciseVariations(new Map());
 
@@ -767,7 +729,7 @@ const App: React.FC = () => {
           workoutLogs,
           exercise.name
         );
-        
+
         if (variations.length > 0) {
           console.log(`✅ [APP] Got ${variations.length} variations for "${exercise.name}"`);
           setExerciseVariations(prev => {
@@ -784,21 +746,21 @@ const App: React.FC = () => {
 
   const handleDeleteAccount = async () => {
     if (!user) return;
-    
+
     try {
       // Видаляємо дані з Firestore
       await deleteDoc(doc(db, 'users', user.uid));
       await deleteDoc(doc(db, 'workoutPlans', user.uid));
-      
+
       // Видаляємо всі логи тренувань користувача
       const logsQuery = query(collection(db, 'workoutLogs'), where('userId', '==', user.uid));
       const logsSnapshot = await getDocs(logsQuery);
       const deletePromises = logsSnapshot.docs.map(doc => deleteDoc(doc.ref));
       await Promise.all(deletePromises);
-      
+
       // Видаляємо користувача
       await deleteUser(user);
-      
+
       setUser(null);
       setCurrentView('profile');
     } catch (error) {
@@ -828,14 +790,14 @@ const App: React.FC = () => {
   // Обробник для постійного збереження порядку вправ
   const handleSaveExerciseOrder = useCallback(async (dayNumber: number, exercises: Exercise[]) => {
     if (!currentWorkoutPlan) return;
-    
+
     try {
-      const updatedPlan = currentWorkoutPlan.map(dayPlan => 
-        dayPlan.day === dayNumber 
+      const updatedPlan = currentWorkoutPlan.map(dayPlan =>
+        dayPlan.day === dayNumber
           ? { ...dayPlan, exercises }
           : dayPlan
       );
-      
+
       await saveWorkoutPlan(updatedPlan);
       setCurrentWorkoutPlan(updatedPlan);
     } catch (error) {
@@ -848,9 +810,9 @@ const App: React.FC = () => {
     if (!userProfile || !currentWorkoutPlan || !logToAnalyze.id) return;
     setIsAnalyzing(true);
     setAnalyzingLogId(logToAnalyze.id);
-    
+
     console.log('🔄 [handleAnalyzeWorkoutFromLog] Запускаємо переаналіз тренування:', logToAnalyze.id);
-    
+
     try {
       const currentDayPlan = currentWorkoutPlan.find(p => p.day === logToAnalyze.dayCompleted);
       if (!currentDayPlan) {
@@ -860,7 +822,7 @@ const App: React.FC = () => {
 
       // Використовуємо той самий фоновий аналіз, що і після завершення тренування
       console.log('🧠 [handleAnalyzeWorkoutFromLog] Запускаємо фоновий аналіз (як після завершення тренування)');
-      
+
       await backgroundAnalysisService.queueWorkoutForAnalysis(
         logToAnalyze,
         userProfile,
@@ -870,11 +832,11 @@ const App: React.FC = () => {
       );
 
       console.log('✅ [handleAnalyzeWorkoutFromLog] Фоновий аналіз запущено успішно');
-      
+
       // Очищуємо стан аналізу одразу після запуску (фоновий процес)
       setIsAnalyzing(false);
       setAnalyzingLogId(null);
-      
+
     } catch (error) {
       console.error("Помилка при повторному аналізі:", error);
       setError("Не вдалося проаналізувати тренування. Спробуйте ще раз.");
@@ -928,9 +890,9 @@ const App: React.FC = () => {
       }
       // Генеруємо адаптивний план тренування
       setWellnessProcessingStep('Адаптуємо план тренування...');
-      
-  let adaptiveWorkout: AdaptiveWorkoutPlan | null = null;
-      
+
+      let adaptiveWorkout: AdaptiveWorkoutPlan | null = null;
+
       // Перевіряємо чи є мережа для AI генерації
       if (isOnline()) {
         try {
@@ -945,7 +907,7 @@ const App: React.FC = () => {
           adaptiveWorkout = null;
         }
       }
-      
+
       // Офлайн fallback - використовуємо оригінальний план
       if (!adaptiveWorkout) {
         console.log('📵 [APP] Using offline fallback - original workout plan');
@@ -959,7 +921,7 @@ const App: React.FC = () => {
           }))
         };
       }
-      
+
       setAdaptiveWorkoutPlan(adaptiveWorkout);
 
       // Generate wellness recommendations in background (OPTIONAL - skip if quota issues or offline)
@@ -972,28 +934,28 @@ const App: React.FC = () => {
             setWellnessRecommendations([]);
             return;
           }
-          
+
           // Check quota before making another API call
           const { quotaManager } = await import('./utils/apiQuotaManager');
-          
+
           if (!quotaManager.canMakeRequest()) {
             console.warn('⚠️ [APP] Skipping wellness recommendations due to quota limits');
             setWellnessRecommendations([]);
             return;
           }
-          
+
           const recs = await generateWellnessRecommendations(
             userProfile,
             wellnessCheck,
             workoutLogs
           );
           setWellnessRecommendations(recs);
-          
+
           // Show modal only if there are recommendations
           if (recs.length > 0) {
             setWellnessRecommendationsModalOpen(true);
           }
-          
+
           await updateWellnessRecommendations(recs);
         } catch (e: any) {
           console.error('❌ [APP] Помилка генерації рекомендацій самопочуття (фон):', e);
@@ -1005,22 +967,9 @@ const App: React.FC = () => {
         }
       })();
 
-      // Застосовуємо рекомендації ШІ до адаптивного плану перед стартом
-      const recommendations = exerciseRecommendations.length > 0 
-        ? exerciseRecommendations 
-        : backgroundAnalysisService.getRecommendationsForDay(workoutLogs, adaptiveWorkout.day);
-      
-      if (recommendations.length > 0) {
-        console.log('🎯 [handleWellnessCheckSubmit] Застосовуємо рекомендації ШІ до плану');
-        adaptiveWorkout = {
-          ...adaptiveWorkout,
-          exercises: applyAIRecommendationsToPlan(adaptiveWorkout.exercises, recommendations)
-        };
-      }
-
       // Оновлюємо план тренувань з адаптивним планом
       setWellnessProcessingStep('Зберігаємо план...');
-      const updatedPlan = currentWorkoutPlan.map(dayPlan => 
+      const updatedPlan = currentWorkoutPlan.map(dayPlan =>
         dayPlan.day === adaptiveWorkout!.day ? adaptiveWorkout! : dayPlan
       );
       setCurrentWorkoutPlan(updatedPlan);
@@ -1029,52 +978,52 @@ const App: React.FC = () => {
       // АВТОМАТИЧНО СТАРТУЄМО ТРЕНУВАННЯ
       setWellnessProcessingStep('Запускаємо тренування...');
       await startWorkout(adaptiveWorkout.day, adaptiveWorkout.exercises);
-      
+
       // ОНОВЛЮЄМО LIVE-СЕСІЮ з wellnessCheck, adaptiveWorkoutPlan та wellnessRecommendations
       await updateWellnessCheck(wellnessCheck);
       await updateAdaptiveWorkoutPlan(adaptiveWorkout);
       // Оновлення wellnessRecommendations відбудеться після фонового отримання
-      
+
       // Фонове завантаження варіацій вправ (не блокує UI)
-      loadExerciseVariations(adaptiveWorkout.exercises).catch(err => 
+      loadExerciseVariations(adaptiveWorkout.exercises).catch(err =>
         console.warn('⚠️ [APP] Background variation loading failed:', err)
       );
-      
+
       setPendingWorkoutDay(null);
     } catch (error: any) {
       console.error('❌ [APP] Error in handleWellnessCheckSubmit:', error);
-      
+
       // Handle different types of errors with specific messages
       if (error.message) {
         // Handle quota errors
-        if (error.message.includes('ліміт запитів') || 
-            error.message.includes('quota') || 
-            error.message.includes('429') ||
-            error.message.includes('rate limit')) {
+        if (error.message.includes('ліміт запитів') ||
+          error.message.includes('quota') ||
+          error.message.includes('429') ||
+          error.message.includes('rate limit')) {
           setError('Перевищено ліміт AI запитів. Спробуйте ще раз через 1-2 хвилини.');
-        } 
+        }
         // Handle service unavailable errors
-        else if (error.message.includes('service unavailable') || 
-                 error.message.includes('503') || 
-                 error.message.includes('overloaded')) {
+        else if (error.message.includes('service unavailable') ||
+          error.message.includes('503') ||
+          error.message.includes('overloaded')) {
           setError('Сервіс AI тимчасово недоступний. Спробуйте ще раз через кілька хвилин.');
         }
         // Handle API key errors
-        else if (error.message.includes('API_KEY') || 
-                 error.message.includes('API key') || 
-                 error.message.includes('authentication')) {
+        else if (error.message.includes('API_KEY') ||
+          error.message.includes('API key') ||
+          error.message.includes('authentication')) {
           setError('Помилка API ключа. Перевірте налаштування API ключа.');
         }
         // Handle parsing errors
-        else if (error.message.includes('JSON') || 
-                 error.message.includes('parse') || 
-                 error.message.includes('розпізнати')) {
+        else if (error.message.includes('JSON') ||
+          error.message.includes('parse') ||
+          error.message.includes('розпізнати')) {
           setError('Помилка обробки відповіді від AI. Спробуйте ще раз.');
         }
         // Handle general AI errors
-        else if (error.message.includes('AI') || 
-                 error.message.includes('адаптація') || 
-                 error.message.includes('адаптивний')) {
+        else if (error.message.includes('AI') ||
+          error.message.includes('адаптація') ||
+          error.message.includes('адаптивний')) {
           setError('Помилка AI адаптації: ' + error.message + '. Спробуйте ще раз через кілька секунд.');
         }
         // Handle all other errors
@@ -1085,14 +1034,14 @@ const App: React.FC = () => {
         // Усі інші помилки - лише AI адаптація дозволена
         setError('Помилка AI адаптації: Невідома помилка. Повторіть через кілька секунд для отримання адаптивного плану.');
       }
-      
+
       setPendingWorkoutDay(null);
     } finally {
       setIsLoading(false);
       setIsProcessingWellness(false);
       setWellnessProcessingStep('');
     }
-  }, [userProfile, currentWorkoutPlan, workoutLogs, saveWorkoutPlan, pendingWorkoutDay, startWorkout, updateWellnessCheck, updateAdaptiveWorkoutPlan, updateWellnessRecommendations, exerciseRecommendations, applyAIRecommendationsToPlan, loadExerciseVariations]);
+  }, [userProfile, currentWorkoutPlan, workoutLogs, saveWorkoutPlan, pendingWorkoutDay, startWorkout, updateWellnessCheck, updateAdaptiveWorkoutPlan, updateWellnessRecommendations, loadExerciseVariations]);
 
   const handleWellnessCheckSkip = useCallback(async () => {
     if (pendingWorkoutDay === null || !currentWorkoutPlan) {
@@ -1112,32 +1061,13 @@ const App: React.FC = () => {
     setIsLoading(true);
 
     try {
-      // Застосовуємо рекомендації ШІ до плану перед стартом
-      const recommendations = exerciseRecommendations.length > 0 
-        ? exerciseRecommendations 
-        : backgroundAnalysisService.getRecommendationsForDay(workoutLogs, dayPlan.day);
-      
-      let exercisesToStart = dayPlan.exercises;
-      if (recommendations.length > 0) {
-        console.log('🎯 [handleWellnessCheckSkip] Застосовуємо рекомендації ШІ до плану');
-        exercisesToStart = applyAIRecommendationsToPlan(dayPlan.exercises, recommendations);
-        
-        // Оновлюємо план в currentWorkoutPlan для збереження змін
-        const updatedPlan = currentWorkoutPlan.map(plan => 
-          plan.day === dayPlan.day 
-            ? { ...plan, exercises: exercisesToStart }
-            : plan
-        );
-        setCurrentWorkoutPlan(updatedPlan);
-        await saveWorkoutPlan(updatedPlan);
-      }
-      
-      await startWorkout(dayPlan.day, exercisesToStart);
-      
+      await startWorkout(dayPlan.day, dayPlan.exercises);
+
       // Фонове завантаження варіацій вправ (не блокує UI)
-      loadExerciseVariations(exercisesToStart).catch(err => 
+      loadExerciseVariations(dayPlan.exercises).catch(err =>
         console.warn('⚠️ [APP] Background variation loading failed:', err)
       );
+
       setPendingWorkoutDay(null);
     } catch (error: any) {
       console.error('Error starting workout without wellness check:', error);
@@ -1145,7 +1075,7 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [pendingWorkoutDay, currentWorkoutPlan, startWorkout, exerciseRecommendations, workoutLogs, applyAIRecommendationsToPlan, saveWorkoutPlan, loadExerciseVariations]);
+  }, [pendingWorkoutDay, currentWorkoutPlan, startWorkout, loadExerciseVariations]);
 
   const renderView = () => {
     if (!user) {
@@ -1154,7 +1084,7 @@ const App: React.FC = () => {
 
     if (isLoading) {
       return (
-        <Spinner 
+        <Spinner
           message={isProcessingWellness ? "Обробляємо ваше самопочуття..." : "Завантаження..."}
           showTimer={isProcessingWellness}
           processingStep={wellnessProcessingStep}
@@ -1180,8 +1110,8 @@ const App: React.FC = () => {
               />
               {user && (
                 <div className="max-w-4xl mx-auto px-4">
-                  <QuotaStatus 
-                    className="" 
+                  <QuotaStatus
+                    className=""
                     showDetailed={true}
                   />
                 </div>
@@ -1254,7 +1184,7 @@ const App: React.FC = () => {
           </div>
         </div>
       )}
-      
+
       <header className="header-animated p-3 sm:p-4 sticky top-0 z-50 border-b border-fitness-gold-600/30">
         <div className="container mx-auto flex flex-col sm:flex-row justify-between items-center">
           <div className="flex items-center space-x-4 mb-2 sm:mb-0">
@@ -1270,7 +1200,7 @@ const App: React.FC = () => {
             <Navbar currentView={currentView} onViewChange={(v) => {
               // Дозволяємо переключення на "Прогрес" під час тренування без завершення
               if (session.activeDay !== null && v !== 'workout' && v !== 'progress') {
-                if(!confirm(UI_TEXT.confirmEndWorkout + " Перехід на іншу вкладку завершить його без збереження логів.")) return;
+                if (!confirm(UI_TEXT.confirmEndWorkout + " Перехід на іншу вкладку завершить його без збереження логів.")) return;
                 endWorkout(); // Завершуємо активну сесію Firebase
               }
               setCurrentView(v);
@@ -1281,7 +1211,7 @@ const App: React.FC = () => {
 
       <main className="flex-grow container mx-auto p-3 sm:p-4 md:p-6 content-glow">
         {error && !isLoading && <ErrorMessage message={error} onClear={() => setError(null)} />}
-         {renderView()}
+        {renderView()}
         {/* Плаваюча кнопка чату (видима лише авторизованим користувачам на всіх вкладках крім профілю) */}
         {user && currentView !== 'profile' && (
           <button
@@ -1296,7 +1226,7 @@ const App: React.FC = () => {
         {user && isTrainerChatOpen && (
           <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 sm:p-6">
             {/* Backdrop */}
-            <div 
+            <div
               className="absolute inset-0 bg-black/50 backdrop-blur-sm"
               onClick={() => setIsTrainerChatOpen(false)}
             />
@@ -1314,37 +1244,21 @@ const App: React.FC = () => {
                   currentWorkoutPlan={currentWorkoutPlan}
                   activeDay={session.activeDay}
                   onWorkoutPlanModified={async (modifiedPlan) => {
-                      // If we don't have a current plan yet, initialize with the modified plan
-                      if (!currentWorkoutPlan || !Array.isArray(currentWorkoutPlan) || currentWorkoutPlan.length === 0) {
-                        const initialPlan = [modifiedPlan];
-                        setCurrentWorkoutPlan(initialPlan);
-                        await saveWorkoutPlan(initialPlan);
-                        if (session.activeDay === modifiedPlan.day) {
-                          updateExerciseOrder(modifiedPlan.exercises);
-                        }
-                        return;
-                      }
+                    if (!currentWorkoutPlan) return;
 
-                      // Update the current workout plan (replace the matching day or append if missing)
-                      let found = false;
-                      const updatedPlan = currentWorkoutPlan.map(day => {
-                        if (day.day === modifiedPlan.day) {
-                          found = true;
-                          return modifiedPlan;
-                        }
-                        return day;
-                      });
+                    // Update the current workout plan
+                    const updatedPlan = currentWorkoutPlan.map(day =>
+                      day.day === modifiedPlan.day ? modifiedPlan : day
+                    );
 
-                      if (!found) updatedPlan.push(modifiedPlan);
+                    setCurrentWorkoutPlan(updatedPlan);
+                    await saveWorkoutPlan(updatedPlan);
 
-                      setCurrentWorkoutPlan(updatedPlan);
-                      await saveWorkoutPlan(updatedPlan);
-
-                      // If currently in an active workout, update session exercises
-                      if (session.activeDay === modifiedPlan.day) {
-                        updateExerciseOrder(modifiedPlan.exercises);
-                      }
-                    }}
+                    // If currently in an active workout, update session exercises
+                    if (session.activeDay === modifiedPlan.day) {
+                      updateExerciseOrder(modifiedPlan.exercises);
+                    }
+                  }}
                 />
               </div>
             </div>
@@ -1404,7 +1318,7 @@ const App: React.FC = () => {
 
       {/* Компонент для повідомлень про оновлення додатку */}
       <UpdateNotification onUpdate={handleAppUpdate} />
-      
+
       {/* Старі компоненти тепер інтегровані в SystemStatusBar */}
     </div>
   );

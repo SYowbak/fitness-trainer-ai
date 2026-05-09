@@ -39,13 +39,11 @@ function cleanWorkoutPlanForFirestore(plan: DailyWorkoutPlan[]): DailyWorkoutPla
       ...day,
       exercises: day.exercises.map(ex => {
         const cleanedExercise = {
-          id: ex.id,                // Критично: без id ламається key prop, drag-and-drop, варіації
           name: ex.name,
           description: ex.description,
           sets: ex.sets,
           reps: ex.reps,
           rest: ex.rest, // ex.rest повинен бути рядком відповідно до інтерфейсу Exercise
-          weightType: ex.weightType || 'total',  // Критично: без weightType ламається UI ваги
           videoSearchQuery: ex.videoSearchQuery ?? null,
           targetWeight: ex.targetWeight ?? null,
           targetReps: ex.targetReps ?? null,
@@ -159,12 +157,7 @@ export const useUserData = () => {
         const docRef = doc(db, 'workoutPlans', user.uid);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
-          const loadedPlan = docSnap.data().plan as DailyWorkoutPlan[];
-          const loadedNames = Array.from(new Set(
-            loadedPlan.flatMap(day => day.exercises.map(ex => ex.name)).filter(Boolean)
-          ));
-          console.log('📥 [useUserData.loadWorkoutPlan] Loaded workout plan from Firestore. Unique exercise names:', loadedNames);
-          setWorkoutPlan(loadedPlan);
+          setWorkoutPlan(docSnap.data().plan as DailyWorkoutPlan[]);
         }
       } catch (error) {
         console.error('Error loading workout plan:', error);
@@ -279,11 +272,6 @@ export const useUserData = () => {
     if (plan) {
       try {
         const cleanedPlan = cleanWorkoutPlanForFirestore(plan);
-        const namesToSave = Array.from(new Set(
-          cleanedPlan.flatMap(day => day.exercises.map(ex => ex.name)).filter(Boolean)
-        ));
-        console.log('💾 [useUserData.saveWorkoutPlan] Saving workout plan to Firestore. Unique exercise names:', namesToSave);
-
         const docRef = doc(db, 'workoutPlans', user.uid);
         await setDoc(docRef, { plan: cleanedPlan });
         setWorkoutPlan(cleanedPlan);
