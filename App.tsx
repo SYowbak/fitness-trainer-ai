@@ -1092,11 +1092,7 @@ const App: React.FC = () => {
       setIsProcessingWellness(false);
       setWellnessProcessingStep('');
     }
-<<<<<<< HEAD
-  }, [userProfile, currentWorkoutPlan, workoutLogs, saveWorkoutPlan, pendingWorkoutDay, startWorkout, updateWellnessCheck, updateAdaptiveWorkoutPlan, updateWellnessRecommendations, exerciseRecommendations, applyAIRecommendationsToPlan]);
-=======
-  }, [userProfile, currentWorkoutPlan, workoutLogs, saveWorkoutPlan, pendingWorkoutDay, startWorkout, updateWellnessCheck, updateAdaptiveWorkoutPlan, updateWellnessRecommendations, loadExerciseVariations]);
->>>>>>> d570a43 (feat: update gemini model constants and api quotas)
+  }, [userProfile, currentWorkoutPlan, workoutLogs, saveWorkoutPlan, pendingWorkoutDay, startWorkout, updateWellnessCheck, updateAdaptiveWorkoutPlan, updateWellnessRecommendations, exerciseRecommendations, applyAIRecommendationsToPlan, loadExerciseVariations]);
 
   const handleWellnessCheckSkip = useCallback(async () => {
     if (pendingWorkoutDay === null || !currentWorkoutPlan) {
@@ -1116,7 +1112,6 @@ const App: React.FC = () => {
     setIsLoading(true);
 
     try {
-<<<<<<< HEAD
       // Застосовуємо рекомендації ШІ до плану перед стартом
       const recommendations = exerciseRecommendations.length > 0 
         ? exerciseRecommendations 
@@ -1138,15 +1133,11 @@ const App: React.FC = () => {
       }
       
       await startWorkout(dayPlan.day, exercisesToStart);
-=======
-      await startWorkout(dayPlan.day, dayPlan.exercises);
       
       // Фонове завантаження варіацій вправ (не блокує UI)
-      loadExerciseVariations(dayPlan.exercises).catch(err => 
+      loadExerciseVariations(exercisesToStart).catch(err => 
         console.warn('⚠️ [APP] Background variation loading failed:', err)
       );
-      
->>>>>>> d570a43 (feat: update gemini model constants and api quotas)
       setPendingWorkoutDay(null);
     } catch (error: any) {
       console.error('Error starting workout without wellness check:', error);
@@ -1154,11 +1145,7 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-<<<<<<< HEAD
-  }, [pendingWorkoutDay, currentWorkoutPlan, startWorkout, exerciseRecommendations, workoutLogs, applyAIRecommendationsToPlan, saveWorkoutPlan]);
-=======
-  }, [pendingWorkoutDay, currentWorkoutPlan, startWorkout, loadExerciseVariations]);
->>>>>>> d570a43 (feat: update gemini model constants and api quotas)
+  }, [pendingWorkoutDay, currentWorkoutPlan, startWorkout, exerciseRecommendations, workoutLogs, applyAIRecommendationsToPlan, saveWorkoutPlan, loadExerciseVariations]);
 
   const renderView = () => {
     if (!user) {
