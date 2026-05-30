@@ -6,18 +6,36 @@ import { SpeedInsights } from '@vercel/speed-insights/react';
 
 // Реєстрація Service Worker для PWA
 if ('serviceWorker' in navigator) {
+  // Автоматичне перезавантаження при оновленні Service Worker
+  // Коли новий SW активується і бере контроль — сторінка перезавантажується
+  // з новим кодом автоматично, без дій користувача
+  let isRefreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (isRefreshing) return; // Захист від повторного reload
+    isRefreshing = true;
+    console.log('🔄 Новий Service Worker активовано — перезавантаження...');
+    window.location.reload();
+  });
+
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
       .then((registration) => {
         console.log('✅ Service Worker зареєстровано:', registration.scope);
-        
-        // Перевіряємо оновлення
+
+        // Перевіряємо оновлення кожні 60 секунд
+        setInterval(() => {
+          registration.update().catch(() => {
+            // Ігноруємо помилки перевірки (наприклад, офлайн)
+          });
+        }, 60 * 1000);
+
+        // Логуємо коли знайдено оновлення
         registration.addEventListener('updatefound', () => {
           const newWorker = registration.installing;
           if (newWorker) {
             newWorker.addEventListener('statechange', () => {
               if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                console.log('🔄 Нова версія додатку доступна!');
+                console.log('🔄 Нова версія додатку доступна — оновлення...');
               }
             });
           }
