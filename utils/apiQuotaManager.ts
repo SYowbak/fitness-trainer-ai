@@ -354,7 +354,14 @@ export async function withQuotaManagement<T>(
   while (attempt <= maxAttempts) {
     console.log(`🗺️ Attempt ${attempt}/${maxAttempts}`);
     try {
-      const result = await apiCall();
+      // 35-second timeout for the API call to prevent long hangs on slow connections / VPNs
+      const timeoutMs = 35000;
+      const result = await Promise.race([
+        apiCall(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('TIMEOUT_ERROR')), timeoutMs)
+        )
+      ]);
       console.log('✅ API call successful');
       quotaManager.recordRequest();
       
@@ -365,6 +372,11 @@ export async function withQuotaManagement<T>(
       
       return result;
     } catch (error: any) {
+      if (error.message === 'TIMEOUT_ERROR') {
+        console.warn('⏱️ API call timed out after 35s, failing immediately');
+        throw new Error('🔌 Сервер AI не відповів протягом 35 секунд. Можливо, у вас нестабільний інтернет або увімкнений VPN/блокувальник реклами.');
+      }
+
       console.error(`🚨 API call failed (attempt ${attempt}):`, {
         message: error.message,
         status: error.status,

@@ -42,6 +42,56 @@ const App: React.FC = () => {
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  const getFriendlyErrorMessage = useCallback((error: any): string => {
+    if (!error) return UI_TEXT.errorOccurred;
+    
+    const msg = error.message || String(error);
+    const lowerMsg = msg.toLowerCase();
+    
+    if (lowerMsg.includes('load failed') || 
+        lowerMsg.includes('failed to fetch') || 
+        lowerMsg.includes('network') || 
+        lowerMsg.includes('fetch') ||
+        lowerMsg.includes('timeout') ||
+        lowerMsg.includes('таймаут') ||
+        lowerMsg.includes('не відповів')) {
+      return '🔌 Не вдалося зв\'язатися з сервером AI. Перевірте підключення до інтернету. Якщо у вас увімкнено VPN або блокувальник реклами (наприклад, AdGuard), будь ласка, вимкніть їх і спробуйте знову.';
+    }
+    
+    if (lowerMsg.includes('ліміт запитів') ||
+        lowerMsg.includes('quota') ||
+        lowerMsg.includes('429') ||
+        lowerMsg.includes('rate limit') ||
+        lowerMsg.includes('exhausted')) {
+      return '⏳ Перевищено денний ліміт AI запитів. Спробуйте ще раз через 1-2 хвилини або завтра.';
+    }
+    
+    if (lowerMsg.includes('service unavailable') ||
+        lowerMsg.includes('503') ||
+        lowerMsg.includes('overloaded') ||
+        lowerMsg.includes('temporarily unavailable')) {
+      return '🚀 Сервіс AI тимчасово перевантажений. Спробуйте ще раз через кілька хвилин.';
+    }
+    
+    if (lowerMsg.includes('api_key') ||
+        lowerMsg.includes('api key') ||
+        lowerMsg.includes('authentication') ||
+        lowerMsg.includes('key not valid') ||
+        lowerMsg.includes('forbidden') ||
+        lowerMsg.includes('403')) {
+      return '🔑 Помилка API ключа. Будь ласка, перевірте налаштування вашого API ключа в додатку або зверніться до адміністратора.';
+    }
+    
+    if (lowerMsg.includes('json') ||
+        lowerMsg.includes('parse') ||
+        lowerMsg.includes('розпізнати') ||
+        lowerMsg.includes('формат')) {
+      return '🧩 Помилка обробки відповіді від AI. Будь ласка, спробуйте ще раз.';
+    }
+
+    return msg;
+  }, []);
   const [currentView, setCurrentView] = useState<View>('workout');
   const [apiKeyMissing, setApiKeyMissing] = useState<boolean>(false);
   const [exerciseRecommendations, setExerciseRecommendations] = useState<ExerciseRecommendation[]>([]);
@@ -413,8 +463,8 @@ const App: React.FC = () => {
       await saveProfile(profileToSave);
       console.log('✅ [App.handleProfileUpdate] Профіль успішно збережено');
     } catch (e: any) {
-      console.error("❌ [App.handleProfileUpdate] Помилка при оновленні профілю:", e);
-      setError(e.message || 'Помилка при оновленні профілю');
+      console.error("Error updating profile:", e);
+      setError(getFriendlyErrorMessage(e));
     } finally {
       setIsLoading(false);
     }
@@ -479,7 +529,7 @@ const App: React.FC = () => {
       setCurrentView('workout'); // Переходимо до плану тренувань
     } catch (e: any) {
       console.error("❌ [App.handleAdaptExistingPlan] Помилка при адаптації плану:", e);
-      setError(e.message || 'Помилка при адаптації плану');
+      setError(getFriendlyErrorMessage(e));
     } finally {
       setIsLoading(false);
     }
@@ -503,7 +553,7 @@ const App: React.FC = () => {
       setCurrentView('workout');
     } catch (e: any) {
       console.error("Error generating workout plan:", e);
-      setError(e.message || UI_TEXT.errorOccurred);
+      setError(getFriendlyErrorMessage(e));
     } finally {
       setIsLoading(false);
     }
@@ -527,7 +577,7 @@ const App: React.FC = () => {
         setCurrentView('workout');
       } catch (e: any) {
         console.error("Error generating new workout plan:", e);
-        setError(e.message || UI_TEXT.errorOccurred);
+        setError(getFriendlyErrorMessage(e));
       } finally {
         setIsLoading(false);
       }
@@ -993,47 +1043,7 @@ const App: React.FC = () => {
     } catch (error: any) {
       console.error('❌ [APP] Error in handleWellnessCheckSubmit:', error);
 
-      // Handle different types of errors with specific messages
-      if (error.message) {
-        // Handle quota errors
-        if (error.message.includes('ліміт запитів') ||
-          error.message.includes('quota') ||
-          error.message.includes('429') ||
-          error.message.includes('rate limit')) {
-          setError('Перевищено ліміт AI запитів. Спробуйте ще раз через 1-2 хвилини.');
-        }
-        // Handle service unavailable errors
-        else if (error.message.includes('service unavailable') ||
-          error.message.includes('503') ||
-          error.message.includes('overloaded')) {
-          setError('Сервіс AI тимчасово недоступний. Спробуйте ще раз через кілька хвилин.');
-        }
-        // Handle API key errors
-        else if (error.message.includes('API_KEY') ||
-          error.message.includes('API key') ||
-          error.message.includes('authentication')) {
-          setError('Помилка API ключа. Перевірте налаштування API ключа.');
-        }
-        // Handle parsing errors
-        else if (error.message.includes('JSON') ||
-          error.message.includes('parse') ||
-          error.message.includes('розпізнати')) {
-          setError('Помилка обробки відповіді від AI. Спробуйте ще раз.');
-        }
-        // Handle general AI errors
-        else if (error.message.includes('AI') ||
-          error.message.includes('адаптація') ||
-          error.message.includes('адаптивний')) {
-          setError('Помилка AI адаптації: ' + error.message + '. Спробуйте ще раз через кілька секунд.');
-        }
-        // Handle all other errors
-        else {
-          setError('Помилка: ' + error.message + '. Спробуйте ще раз.');
-        }
-      } else {
-        // Усі інші помилки - лише AI адаптація дозволена
-        setError('Помилка AI адаптації: Невідома помилка. Повторіть через кілька секунд для отримання адаптивного плану.');
-      }
+      setError(getFriendlyErrorMessage(error));
 
       setPendingWorkoutDay(null);
     } finally {
@@ -1071,7 +1081,7 @@ const App: React.FC = () => {
       setPendingWorkoutDay(null);
     } catch (error: any) {
       console.error('Error starting workout without wellness check:', error);
-      setError('Помилка при запуску тренування: ' + error.message);
+      setError(getFriendlyErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
